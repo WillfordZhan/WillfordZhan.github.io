@@ -9,11 +9,11 @@
 >![Norman's Interaction Model](https://github.com/WillfordZhan/WillfordZhan.github.io/blob/Willford/images/BTH003_note_1/Norman's%20Interaction%20Model.PNG?raw=true "Norman's Interaction Model")
 ></br>
 > ###### Norman's Interaction Model
-> <br>
+> </br>
 >![Activity Theory Model](https://github.com/WillfordZhan/WillfordZhan.github.io/blob/Willford/images/BTH003_note_1/Activity%20Theory%20Model.PNG?raw=true "Activity Theory Model")
 ></br>
 > ###### Activity Theory Model
-> <br>
+> </br>
 >![An example](https://github.com/WillfordZhan/WillfordZhan.github.io/blob/Willford/images/BTH003_note_1/An%20example.PNG?raw=true )
 > ###### An example of Activity Theory Model
 
