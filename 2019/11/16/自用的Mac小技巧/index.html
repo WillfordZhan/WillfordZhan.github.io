@@ -15,8 +15,10 @@
 <meta property="og:site_name" content="味儿福德詹的小站">
 <meta property="og:description" content="使用键盘快捷键来快速给文件添加 &#x2F;删除 标签： 添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。 移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。  设置在命令行中启动各种 app 的命令以 Typora 为例：  通过添加别名ty来快速启动 Typora。在 ~&#x2F;.bash_profile (这个文件好像要自己建">
 <meta property="og:locale" content="en">
-<meta property="og:updated_time" content="2019-11-16T23:01:27.067Z">
+<meta property="og:image" content="https:&#x2F;&#x2F;tva1.sinaimg.cn&#x2F;large&#x2F;006y8mN6gy1g917abws8fj30zk02h762.jpg">
+<meta property="og:updated_time" content="2019-11-17T10:26:23.723Z">
 <meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;tva1.sinaimg.cn&#x2F;large&#x2F;006y8mN6gy1g917abws8fj30zk02h762.jpg">
   
     <link rel="alternative" href="/atom.xml" title="味儿福德詹的小站" type="application/atom+xml">
   
@@ -182,6 +184,10 @@
 <li>添加完成后，执行<code>source ~/.bash_profile</code>(source [executable_file] = ./executable_file ), 就可以在命令行中用 <code>ty [filepath/filename]</code> 以快速用 Typora 打开并编辑文件</li>
 </ol>
 <h3 id="在编辑器中多行左移"><a href="#在编辑器中多行左移" class="headerlink" title="在编辑器中多行左移"></a>在编辑器中多行左移</h3><p>选中按TAB右移，按SHIFT+TAB左移</p>
+<h3 id="解决网络端口占用"><a href="#解决网络端口占用" class="headerlink" title="解决网络端口占用"></a>解决网络端口占用</h3><p>1.查看是占用所需端口的进程：终端输入<code>lsof -i tcp:[port]</code> 将port换成被占用的端口(如：4000)，将会出现占用端口的进程信息。</p>
+<img src="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg" alt="查看占用端口的进程"  />
+
+<p>2.Kill 进程：找到进程的PID,使用kill命令：<code>kill [PID]</code>（进程的PID，如71881），杀死对应的进程，这样所占端口就被释放啦</p>
 
       
 

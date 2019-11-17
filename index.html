@@ -181,6 +181,10 @@
 <li>添加完成后，执行<code>source ~/.bash_profile</code>(source [executable_file] = ./executable_file ), 就可以在命令行中用 <code>ty [filepath/filename]</code> 以快速用 Typora 打开并编辑文件</li>
 </ol>
 <h3 id="在编辑器中多行左移"><a href="#在编辑器中多行左移" class="headerlink" title="在编辑器中多行左移"></a>在编辑器中多行左移</h3><p>选中按TAB右移，按SHIFT+TAB左移</p>
+<h3 id="解决网络端口占用"><a href="#解决网络端口占用" class="headerlink" title="解决网络端口占用"></a>解决网络端口占用</h3><p>1.查看是占用所需端口的进程：终端输入<code>lsof -i tcp:[port]</code> 将port换成被占用的端口(如：4000)，将会出现占用端口的进程信息。</p>
+<img src="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg" alt="查看占用端口的进程"  />
+
+<p>2.Kill 进程：找到进程的PID,使用kill命令：<code>kill [PID]</code>（进程的PID，如71881），杀死对应的进程，这样所占端口就被释放啦</p>
 
       
 
