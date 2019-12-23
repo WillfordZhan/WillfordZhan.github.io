@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<search>
+  
+  
+  
+  <entry>
+    <title>关于 scikit-posthocs.posthoc_nemenyi_friedman()函数的一点思考</title>
+    <link href="undefined2019/12/23/Nemenyi/"/>
+    <url>2019/12/23/Nemenyi/</url>
+    
+    <content type="html"><![CDATA[<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。</p><p>最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 <code>posthoc_nemenyi_friedman()</code> 函数。但在使用过程中我发现这个函数的返回值和我预想中的不一样，它返回了一个所谓的 P-values 矩阵，这个矩阵长这样：</p><img src="/Users/zhanwenjie/Library/Application Support/typora-user-images/image-20191223143243404.png" srcset="/img/loading.gif" alt="image-20191223143243404" style="zoom: 50%;" /><p>盲猜矩阵的每个 P-value 是用来和 𝛼 做比较的，但是比较的原则是怎样的呢？这个比较的结果和 Nemenyi 测试结果是怎样关联的呢？</p><p>于是查看了一下这个函数的<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>，然而文档只说明了函数用法，并没有详细说明函数内部操作的具体流程，无法解除我的疑惑。好在这个库是开源的，于是博主研究了一下这个函数的<a href="https://github.com/maximtrp/scikit-posthocs/blob/master/scikit_posthocs/_posthocs.py" target="_blank" rel="noopener">源码</a>.</p><p>经过博主的一系列研究，最终发现</p><p><strong>这个矩阵中的 P-value 由算法两两比较而产生，用来与 α 做比较，如果 P-value &gt; α，则被比较的两个算法没有明显差异，如果 P-value &lt; α，则被比较的两个算法有明显差异 (Reject H0).</strong></p><p>下面是研究过程：</p><h2 id="Nemenyi-测试"><a href="#Nemenyi-测试" class="headerlink" title="Nemenyi 测试"></a>Nemenyi 测试</h2><p>在解释这个函数的流程之前，我们必须先熟稔 Nemenyi 测试的流程</p><p>根据西瓜书上的说明，Friedman 测试结果如果表明 “算法性能显著不同”，则需进行 Nemenyi 后续测试。书上所描述的 Nemenyi 测试流程是这样的:</p><ol><li><p>根据公式计算 <strong>Critical Difference (CD)</strong>，<em>q⍺</em> 可查表获得</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga77qogt8oj30cs042t8t.jpg" srcset="/img/loading.gif" alt="image-20191223192242846" style="zoom: 50%;" /></li><li><p>将两个算法的平均序值的差 <strong>(Average Rank Difference, ARD)</strong>  和 CD 进行比较，如果 ARD &gt; CD，则两个算法的性能有明显差异。</p></li></ol><h2 id="函数源码解释"><a href="#函数源码解释" class="headerlink" title="函数源码解释"></a>函数源码解释</h2><p>由上述 Nemenyi 测试的解释可得，在西瓜书中， Nemenyi 测试的核心在于计算 CD, 并将其与 ARD 进行比较。然而研究源码之后，博主发现<code>posthoc_nemenyi_friedman()</code>的思路和上述流程迥然不同，十分清奇，值得一看。下面是该函数作者的思路：</p><ol><li><p>在 CD 公式中，由于 <em>k</em> 和 <em>N</em> 是恒定的，因此可知 <em>q⍺</em> 的值决定了 CD 的值，CD 与 <em>q⍺</em> 存在函数映射</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7ao5d5qsj30mk0323yn.jpg" srcset="/img/loading.gif" alt="image-20191223210403181" style="zoom: 67%;" /></li><li><p>由于 ARD 和 CD 是可比较的，意味着 ARD 可化成与 CD 相同的形式。</p></li></ol>   <img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7ap9uxk9j30n202g0sw.jpg" srcset="/img/loading.gif" alt="image-20191223210508251" style="zoom:67%;" /><ol start="3"><li><p>对等式做变换得</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7b0ruy3uj30d203oaa1.jpg" srcset="/img/loading.gif" alt="image-20191223211611760" style="zoom:67%;" /></li><li><p>等式的左边可通过计算得出，将算出的 qβ 值代入<code>自由度 = infinity，样本数 = k的学生化极差分布(Studentized Range)</code>,即可得到 β，β 即为函数返回的 P-value，用于和 α 进行比较</p></li></ol><blockquote><p>西瓜书中解释道 “<em>q⍺</em> 是 Tukey 分布的临界值，在 R 语言中可通过<code>qtukey(1-𝛼, k, Inf) / sqrt(2)</code>计算”。其实就是在自由度 = infinity，样本数 = k ，的学生化极差分布 (Studentized Range) 中取 (1-⍺) 分位数的值，这个在源码中也有所体现。</p></blockquote><h2 id="函数源码"><a href="#函数源码" class="headerlink" title="函数源码"></a>函数源码</h2><p>添加了博主注释的函数源码如下：</p><pre><code class="python">        def posthoc_nemenyi_friedman(a, y_col=None, block_col=None, group_col=None, melted=False, sort=False):       # 计算 q-value 可理解为 qβ，和公式中的 q⍺ 对应            def compare_stats(i, j):         dif = np.abs(R[groups[i]] - R[groups[j]])         # qβ = ARD / 公式中带根号的部分         qval = dif / np.sqrt(k * (k + 1.) / (6. * n))         return qval                # 将输入的矩阵转换为该库中定义的 block 格式     x, _y_col, _group_col, _block_col = __convert_to_block_df(a, y_col, group_col, block_col, melted)     x.sort_values(by=[_group_col, _block_col], ascending=True, inplace=True)     x.dropna(inplace=True)     groups = x[_group_col].unique()     k = groups.size     n = x[_block_col].unique().size     x[&#39;mat&#39;] = x.groupby(_block_col)[_y_col].rank()     R = x.groupby(_group_col)[&#39;mat&#39;].mean()     vs = np.zeros((k, k))     # 原矩阵的列数（用于比较的算法个数）为 k     # 生成 k * k 的比较矩阵 M，并将其初始化为零矩阵     combs = it.combinations(range(k), 2)     tri_upper = np.triu_indices(vs.shape[0], 1)     tri_lower = np.tril_indices(vs.shape[0], -1)     vs[:,:] = 0     # 计算 M 中两两比较的 q-value     for i, j in combs:         vs[i, j] = compare_stats(i, j)     vs *= np.sqrt(2.)     # 把 qβ 代入到自由度 = infinity，样本数 = k 的 Studentized 分布中，得到 β     # 由此可以得出 P-value 结果矩阵实际上是算法两两比较，根据公式算出 qβ 里其中的 β 值     vs[tri_upper] = psturng(vs[tri_upper], k, np.inf)     vs[tri_lower] = vs.T[tri_lower]     np.fill_diagonal(vs, -1)     return DataFrame(vs, index=groups, columns=groups)</code></pre><h2 id="函数用法"><a href="#函数用法" class="headerlink" title="函数用法"></a>函数用法</h2><h4 id="输入参数"><a href="#输入参数" class="headerlink" title="输入参数"></a>输入参数</h4><p><strong>描述：</strong>多个算法在不同数据集上的测试结果 (精度，F1值 …) 所构成的矩阵，例：</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga5wpvzuxoj30xw0jawij.jpg" srcset="/img/loading.gif" alt="image-20191222161536827" style="zoom: 33%;" /><p><strong>格式：</strong>一个  <code>Array_like</code> 的数组 (Numpy 数组和二维列表都可以)，或者是 <code>DataFrame</code> 对象，（如果是 <code>DataFrame</code> ，则有更多的相关参数需要输入，详见<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>）</p><h4 id="返回值"><a href="#返回值" class="headerlink" title="返回值"></a>返回值</h4><p><strong>描述</strong>：由算法两两对比产生的 P-value <code>DataFrame</code>矩阵，用于与 alpha 进行比较。例：</p><img src="/Users/zhanwenjie/Library/Application Support/typora-user-images/image-20191223143243404.png" srcset="/img/loading.gif" alt="image-20191223143243404" style="zoom: 50%;" /><h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>上述推导均为博主根据函数写法所得，如有谬误欢迎指证，感激不尽！</p>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>知识沉淀</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>自用的Mac小技巧</title>
+    <link href="undefined2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/"/>
+    <url>2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/</url>
+    
+    <content type="html"><![CDATA[<h3 id=""><a href="#" class="headerlink" title=""></a></h3><h4 id="使用键盘快捷键来快速给文件添加-删除-标签："><a href="#使用键盘快捷键来快速给文件添加-删除-标签：" class="headerlink" title="使用键盘快捷键来快速给文件添加 /删除 标签："></a>使用键盘快捷键来快速给文件添加 /删除 标签：</h4><ul><li>添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。</li><li>移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。</li></ul><h4 id="设置在终端中启动各种-app-的命令"><a href="#设置在终端中启动各种-app-的命令" class="headerlink" title="设置在终端中启动各种 app 的命令"></a>设置在终端中启动各种 app 的命令</h4><p>以 Typora 为例：</p><ol><li><p>通过添加别名<code>ty</code>来快速启动 Typora。在 <code>~/.bash_profile</code> (这个文件好像要自己建) 中添加 <code>alias ty=&quot;open -a typora&quot;</code></p></li><li><p>添加完成后，执行<code>source ~/.bash_profile</code>(source [executable_file] = ./executable_file ), 就可以在命令行中用 <code>ty [filepath/filename]</code> 以快速用 Typora 打开并编辑文件</p></li></ol><h4 id="文本编辑类"><a href="#文本编辑类" class="headerlink" title="文本编辑类"></a>文本编辑类</h4><ol><li><p><strong>文字退格</strong>： TAB 右移，按 SHIFT+TAB 左移</p></li><li><p><strong>输入 ⍺，β，𝞬 等特殊字符</strong>：用（⌘⌃-Space）呼出 Mac emoji 输入框，搜索 alpha, beta 等想要的字符即可</p></li><li><p><strong>在 word 中输入数学公式</strong>：(‘’⌃’’ + ‘’=’’) 即可呼出word 公式编辑框，输入 LaTeX 公式即可</p></li></ol><h4 id="解决网络端口占用"><a href="#解决网络端口占用" class="headerlink" title="解决网络端口占用"></a>解决网络端口占用</h4><ol><li>查看是占用所需端口的进程：终端输入<code>lsof -i tcp:[port]</code> 将port换成被占用的端口(如：4000)，将会出现占用端口的进程信息。</li></ol><img src="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg" alt="查看占用端口的进程"  /><ol start="2"><li>Kill 进程：找到进程的PID,使用kill命令：<code>kill [PID]</code>（进程的PID，如71881），杀死对应的进程，这样所占端口就被释放啦</li></ol>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>工具技巧</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>Hello World</title>
+    <link href="undefined2019/11/15/hello-world/"/>
+    <url>2019/11/15/hello-world/</url>
+    
+    <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">"My New Post"</span></span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure><p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>]]></content>
+    
+    
+    
+  </entry>
+  
+  
+  
+  
+</search>
