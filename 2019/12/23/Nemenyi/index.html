@@ -163,7 +163,7 @@
           <div class="markdown-body">
             <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。</p>
 <p>最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 <code>posthoc_nemenyi_friedman()</code> 函数。但在使用过程中我发现这个函数的返回值和我预想中的不一样，它返回了一个所谓的 P-values 矩阵，这个矩阵长这样：</p>
-<img src="/Users/zhanwenjie/Library/Application Support/typora-user-images/image-20191223143243404.png" srcset="/img/loading.gif" alt="image-20191223143243404" style="zoom: 50%;" />
+<img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" />
 
 <p>盲猜矩阵的每个 P-value 是用来和 𝛼 做比较的，但是比较的原则是怎样的呢？这个比较的结果和 Nemenyi 测试结果是怎样关联的呢？</p>
 <p>于是查看了一下这个函数的<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>，然而文档只说明了函数用法，并没有详细说明函数内部操作的具体流程，无法解除我的疑惑。好在这个库是开源的，于是博主研究了一下这个函数的<a href="https://github.com/maximtrp/scikit-posthocs/blob/master/scikit_posthocs/_posthocs.py" target="_blank" rel="noopener">源码</a>.</p>
