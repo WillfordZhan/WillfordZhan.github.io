@@ -1,0 +1,27 @@
+{
+  "name": "willfordzhan-blog-hexo",
+  "private": true,
+  "scripts": {
+    "postinstall": "node scripts/sync-fluid-theme.js",
+    "clean": "node node_modules/hexo-cli/bin/hexo clean",
+    "build": "npm run clean && node node_modules/hexo-cli/bin/hexo generate",
+    "server": "node node_modules/hexo-cli/bin/hexo server"
+  },
+  "dependencies": {
+    "hexo": "^7.3.0",
+    "hexo-cli": "^4.3.2",
+    "hexo-generator-archive": "^2.0.0",
+    "hexo-generator-category": "^2.0.0",
+    "hexo-generator-index": "^3.0.0",
+    "hexo-generator-search": "^2.4.3",
+    "hexo-generator-tag": "^2.0.0",
+    "hexo-renderer-ejs": "^2.0.0",
+    "hexo-renderer-marked": "^6.3.0",
+    "hexo-renderer-stylus": "^3.0.0",
+    "hexo-server": "^3.0.0",
+    "hexo-theme-fluid": "^1.9.8"
+  },
+  "hexo": {
+    "version": "7.3.0"
+  }
+}

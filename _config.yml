@@ -1,0 +1,33 @@
+# Hexo main config
+
+title: 味儿福德詹的小站
+subtitle: ''
+description: ''
+author: 詹文杰
+language: zh-CN
+timezone: Asia/Shanghai
+
+url: https://willfordzhan.github.io
+root: /
+permalink: :year/:month/:day/:title/
+permalink_defaults: {}
+
+# Directory
+source_dir: source
+public_dir: public
+
+# Writing
+new_post_name: :title.md
+post_asset_folder: false
+highlight:
+  enable: true
+
+# Theme
+theme: fluid
+
+# Local search (used by Fluid)
+search:
+  path: local-search.xml
+  field: post
+  content: true
+  format: html

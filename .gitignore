@@ -1,0 +1,10 @@
+.DS_Store
+node_modules/
+public/
+db.json
+.deploy_git/
+.deploy*/
+*.log
+
+# Theme is synced from node_modules via postinstall
+themes/fluid/

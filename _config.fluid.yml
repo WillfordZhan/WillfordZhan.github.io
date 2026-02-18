@@ -1,0 +1,17 @@
+# Minimal Fluid theme config overrides
+# https://github.com/fluid-dev/hexo-theme-fluid
+
+navbar:
+  blog_title: 味儿福德詹的小站
+
+index:
+  slogan:
+    enable: false
+
+post:
+  meta:
+    date_format: "YYYY-MM-DD"
+
+search:
+  enable: true
+  path: /local-search.xml
