@@ -4,9 +4,30 @@
   
   
   <entry>
+    <title>用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）</title>
+    <link href="/guides/termius-tailscale-tmux/"/>
+    <url>/guides/termius-tailscale-tmux/</url>
+    
+    <content type="html"><![CDATA[<h2 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h2><p>用 iPhone 的 Termius 远程连接 Mac，借助 Tailscale 组网，实现随时随地安全 SSH；用 tmux 保持会话不断线（适合常驻跑 Codex）。</p><h2 id="组件"><a href="#组件" class="headerlink" title="组件"></a>组件</h2><ul><li>Termius：iOS SSH 客户端</li><li>Tailscale：内网组网（避免端口映射）</li><li>tmux：会话常驻</li></ul><h2 id="Mac：开启-SSH"><a href="#Mac：开启-SSH" class="headerlink" title="Mac：开启 SSH"></a>Mac：开启 SSH</h2><p>系统设置 → 通用 → 共享 → 远程登录（Remote Login）打开。</p><h2 id="Termius：生成-SSH-Key-并配置"><a href="#Termius：生成-SSH-Key-并配置" class="headerlink" title="Termius：生成 SSH Key 并配置"></a>Termius：生成 SSH Key 并配置</h2><ol><li>Termius → Keychain → + → Generate Key → Ed25519</li><li>复制 Public Key（ssh-ed25519 …）</li><li>Mac 追加到 <code>~/.ssh/authorized_keys</code>：</li></ol><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">nano ~/.ssh/authorized_keys<br><span class="hljs-built_in">chmod</span> 700 ~/.ssh<br><span class="hljs-built_in">chmod</span> 600 ~/.ssh/authorized_keys<br></code></pre></td></tr></table></figure><h2 id="Tailscale：同账号组网"><a href="#Tailscale：同账号组网" class="headerlink" title="Tailscale：同账号组网"></a>Tailscale：同账号组网</h2><ul><li>Mac 安装并登录官方 Tailscale.app</li><li>iPhone 安装并登录 Tailscale，开启 VPN</li><li>记下 Mac 的 Tailscale IP（100.x.y.z）或 MagicDNS</li></ul><h2 id="Termius：添加-Host"><a href="#Termius：添加-Host" class="headerlink" title="Termius：添加 Host"></a>Termius：添加 Host</h2><ul><li>Host：Mac 的 100.x 或 MagicDNS</li><li>Port：22</li><li>Username：你的 macOS 用户名</li><li>Auth：选择 Key</li></ul><h2 id="tmux：保持会话"><a href="#tmux：保持会话" class="headerlink" title="tmux：保持会话"></a>tmux：保持会话</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">brew install tmux<br>tmux new -As codex<br></code></pre></td></tr></table></figure><p>常用：<code>Ctrl-b</code> 后按 <code>d</code> 断开但保留会话。</p><h2 id="macOS-权限坑（Desktop：Operation-not-permitted）"><a href="#macOS-权限坑（Desktop：Operation-not-permitted）" class="headerlink" title="macOS 权限坑（Desktop：Operation not permitted）"></a>macOS 权限坑（Desktop：Operation not permitted）</h2><p>如果 SSH 会话访问 <code>~/Desktop</code> 报 <code>Operation not permitted</code>，这是 macOS 隐私保护。</p><ul><li>方案 1（推荐）：把工作目录放到 <code>~/Work</code> 而不是 Desktop</li><li>方案 2：系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 添加 <code>/usr/sbin/sshd</code>，然后重新连接</li></ul>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>工具技巧</tag>
+      
+      <tag>远程办公</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>关于 posthoc_nemenyi_friedman() 函数的一点思考</title>
-    <link href="undefined2019/12/23/Nemenyi/"/>
-    <url>2019/12/23/Nemenyi/</url>
+    <link href="/2019/12/23/Nemenyi/"/>
+    <url>/2019/12/23/Nemenyi/</url>
     
     <content type="html"><![CDATA[<h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。</p><p>最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 <code>posthoc_nemenyi_friedman()</code> 函数。但在使用过程中我发现这个函数的返回值和我预想中的不一样，它返回了一个所谓的 P-values 矩阵，这个矩阵长这样：</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" /><p>盲猜矩阵的每个 P-value 是用来和 𝛼 做比较的，但是比较的原则是怎样的呢？这个比较的结果和 Nemenyi 测试结果是怎样关联的呢？</p><p>于是查看了一下这个函数的<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>，然而文档只说明了函数用法，并没有详细说明函数内部操作的具体流程，无法解除我的疑惑。好在这个库是开源的，于是博主研究了一下这个函数的<a href="https://github.com/maximtrp/scikit-posthocs/blob/master/scikit_posthocs/_posthocs.py" target="_blank" rel="noopener">源码</a>.</p><p>经过博主的一系列研究，最终发现</p><p><strong>这个矩阵中的 P-value 由算法两两比较而产生，用来与 α 做比较，如果 P-value &gt; α，则被比较的两个算法没有明显差异，如果 P-value &lt; α，则被比较的两个算法有明显差异 (Reject H0).</strong></p><p>下面是研究过程：</p><h2 id="Nemenyi-测试"><a href="#Nemenyi-测试" class="headerlink" title="Nemenyi 测试"></a>Nemenyi 测试</h2><p>在解释这个函数的流程之前，我们必须先熟稔 Nemenyi 测试的流程</p><p>根据西瓜书上的说明，Friedman 测试结果如果表明 “算法性能显著不同”，则需进行 Nemenyi 后续测试。书上所描述的 Nemenyi 测试流程是这样的:</p><ol><li><p>根据公式计算 <strong>Critical Difference (CD)</strong>，<em>q⍺</em> 可查表获得</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga77qogt8oj30cs042t8t.jpg" srcset="/img/loading.gif" alt="image-20191223192242846" style="zoom: 50%;" /></li><li><p>将两个算法的平均序值的差 <strong>(Average Rank Difference, ARD)</strong>  和 CD 进行比较，如果 ARD &gt; CD，则两个算法的性能有明显差异。</p></li></ol><h2 id="函数源码解释"><a href="#函数源码解释" class="headerlink" title="函数源码解释"></a>函数源码解释</h2><p>由上述 Nemenyi 测试的解释可得，在西瓜书中， Nemenyi 测试的核心在于计算 CD, 并将其与 ARD 进行比较。然而研究源码之后，博主发现<code>posthoc_nemenyi_friedman()</code>的思路和上述流程迥然不同，十分清奇，值得一看。下面是该函数作者的思路：</p><ol><li><p>在 CD 公式中，由于 <em>k</em> 和 <em>N</em> 是恒定的，因此可知 <em>q⍺</em> 的值决定了 CD 的值，CD 与 <em>q⍺</em> 存在函数映射</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7ao5d5qsj30mk0323yn.jpg" srcset="/img/loading.gif" alt="image-20191223210403181" style="zoom: 67%;" /></li><li><p>由于 ARD 和 CD 是可比较的，意味着 ARD 可化成与 CD 相同的形式。</p></li></ol>   <img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7ap9uxk9j30n202g0sw.jpg" srcset="/img/loading.gif" alt="image-20191223210508251" style="zoom:67%;" /><ol start="3"><li><p>对等式做变换得</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7b0ruy3uj30d203oaa1.jpg" srcset="/img/loading.gif" alt="image-20191223211611760" style="zoom:67%;" /></li><li><p>等式的左边可通过计算得出，将算出的 qβ 值代入<code>自由度 = infinity，样本数 = k的学生化极差分布(Studentized Range)</code>,即可得到 β，β 即为函数返回的 P-value，用于和 α 进行比较</p></li></ol><blockquote><p>西瓜书中解释道 “<em>q⍺</em> 是 Tukey 分布的临界值，在 R 语言中可通过<code>qtukey(1-𝛼, k, Inf) / sqrt(2)</code>计算”。其实就是在自由度 = infinity，样本数 = k ，的学生化极差分布 (Studentized Range) 中取 (1-⍺) 分位数的值，这个在源码中也有所体现。</p></blockquote><h2 id="函数源码"><a href="#函数源码" class="headerlink" title="函数源码"></a>函数源码</h2><p>添加了博主注释的函数源码如下：</p><pre><code class="python">        def posthoc_nemenyi_friedman(a, y_col=None, block_col=None, group_col=None, melted=False, sort=False):       # 计算 q-value 可理解为 qβ，和公式中的 q⍺ 对应            def compare_stats(i, j):         dif = np.abs(R[groups[i]] - R[groups[j]])         # qβ = ARD / 公式中带根号的部分         qval = dif / np.sqrt(k * (k + 1.) / (6. * n))         return qval                # 将输入的矩阵转换为该库中定义的 block 格式     x, _y_col, _group_col, _block_col = __convert_to_block_df(a, y_col, group_col, block_col, melted)     x.sort_values(by=[_group_col, _block_col], ascending=True, inplace=True)     x.dropna(inplace=True)     groups = x[_group_col].unique()     k = groups.size     n = x[_block_col].unique().size     x[&#39;mat&#39;] = x.groupby(_block_col)[_y_col].rank()     R = x.groupby(_group_col)[&#39;mat&#39;].mean()     vs = np.zeros((k, k))     # 原矩阵的列数（用于比较的算法个数）为 k     # 生成 k * k 的比较矩阵 M，并将其初始化为零矩阵     combs = it.combinations(range(k), 2)     tri_upper = np.triu_indices(vs.shape[0], 1)     tri_lower = np.tril_indices(vs.shape[0], -1)     vs[:,:] = 0     # 计算 M 中两两比较的 q-value     for i, j in combs:         vs[i, j] = compare_stats(i, j)     vs *= np.sqrt(2.)     # 把 qβ 代入到自由度 = infinity，样本数 = k 的 Studentized 分布中，得到 β     # 由此可以得出 P-value 结果矩阵实际上是算法两两比较，根据公式算出 qβ 里其中的 β 值     vs[tri_upper] = psturng(vs[tri_upper], k, np.inf)     vs[tri_lower] = vs.T[tri_lower]     np.fill_diagonal(vs, -1)     return DataFrame(vs, index=groups, columns=groups)</code></pre><h2 id="函数用法"><a href="#函数用法" class="headerlink" title="函数用法"></a>函数用法</h2><h4 id="输入参数"><a href="#输入参数" class="headerlink" title="输入参数"></a>输入参数</h4><p><strong>描述：</strong>多个算法在不同数据集上的测试结果 (精度，F1值 …) 所构成的矩阵，例：</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga5wpvzuxoj30xw0jawij.jpg" srcset="/img/loading.gif" alt="image-20191222161536827" style="zoom: 33%;" /><p><strong>格式：</strong>一个  <code>Array_like</code> 的数组 (Numpy 数组和二维列表都可以)，或者是 <code>DataFrame</code> 对象，（如果是 <code>DataFrame</code> ，则有更多的相关参数需要输入，详见<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>）</p><h4 id="返回值"><a href="#返回值" class="headerlink" title="返回值"></a>返回值</h4><p><strong>描述</strong>：由算法两两对比产生的 P-value <code>DataFrame</code>矩阵，用于与 alpha 进行比较。例：</p><img src="https://tva1.sinaimg.cn/large/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" /><h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>上述推导均为博主根据函数写法所得，如有谬误欢迎指证，感激不尽！</p>]]></content>
     
@@ -24,8 +45,8 @@
   
   <entry>
     <title>自用的Mac小技巧</title>
-    <link href="undefined2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/"/>
-    <url>2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/</url>
+    <link href="/2019/11/16/%25E8%2587%25AA%25E7%2594%25A8%25E7%259A%2584Mac%25E5%25B0%258F%25E6%258A%2580%25E5%25B7%25A7/"/>
+    <url>/2019/11/16/%25E8%2587%25AA%25E7%2594%25A8%25E7%259A%2584Mac%25E5%25B0%258F%25E6%258A%2580%25E5%25B7%25A7/</url>
     
     <content type="html"><![CDATA[<h3 id=""><a href="#" class="headerlink" title=""></a></h3><h4 id="使用键盘快捷键来快速给文件添加-删除-标签："><a href="#使用键盘快捷键来快速给文件添加-删除-标签：" class="headerlink" title="使用键盘快捷键来快速给文件添加 /删除 标签："></a>使用键盘快捷键来快速给文件添加 /删除 标签：</h4><ul><li>添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。</li><li>移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。</li></ul><h4 id="设置在终端中启动各种-app-的命令"><a href="#设置在终端中启动各种-app-的命令" class="headerlink" title="设置在终端中启动各种 app 的命令"></a>设置在终端中启动各种 app 的命令</h4><p>以 Typora 为例：</p><ol><li><p>通过添加别名<code>ty</code>来快速启动 Typora。在 <code>~/.bash_profile</code> (这个文件好像要自己建) 中添加 <code>alias ty=&quot;open -a typora&quot;</code></p></li><li><p>添加完成后，执行<code>source ~/.bash_profile</code>(source [executable_file] = ./executable_file ), 就可以在命令行中用 <code>ty [filepath/filename]</code> 以快速用 Typora 打开并编辑文件</p></li></ol><h4 id="文本编辑类"><a href="#文本编辑类" class="headerlink" title="文本编辑类"></a>文本编辑类</h4><ol><li><p><strong>文字退格</strong>： TAB 右移，按 SHIFT+TAB 左移</p></li><li><p><strong>输入 ⍺，β，𝞬 等特殊字符</strong>：用（⌘⌃-Space）呼出 Mac emoji 输入框，搜索 alpha, beta 等想要的字符即可</p></li><li><p><strong>在 word 中输入数学公式</strong>：(‘’⌃’’ + ‘’=’’) 即可呼出word 公式编辑框，输入 LaTeX 公式即可</p></li></ol><h4 id="解决网络端口占用"><a href="#解决网络端口占用" class="headerlink" title="解决网络端口占用"></a>解决网络端口占用</h4><ol><li>查看是占用所需端口的进程：终端输入<code>lsof -i tcp:[port]</code> 将port换成被占用的端口(如：4000)，将会出现占用端口的进程信息。</li></ol><img src="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg" srcset="/img/loading.gif" alt="查看占用端口的进程"  /><ol start="2"><li>Kill 进程：找到进程的PID,使用kill命令：<code>kill [PID]</code>（进程的PID，如71881），杀死对应的进程，这样所占端口就被释放啦</li></ol>]]></content>
     
@@ -43,8 +64,8 @@
   
   <entry>
     <title>Hello World</title>
-    <link href="undefined2019/11/15/hello-world/"/>
-    <url>2019/11/15/hello-world/</url>
+    <link href="/2019/11/15/hello-world/"/>
+    <url>/2019/11/15/hello-world/</url>
     
     <content type="html"><![CDATA[<p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><pre><code class="bash">$ hexo new &quot;My New Post&quot;</code></pre><p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><pre><code class="bash">$ hexo server</code></pre><p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><pre><code class="bash">$ hexo generate</code></pre><p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><pre><code class="bash">$ hexo deploy</code></pre><p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>]]></content>
     
@@ -55,88 +76,4 @@
   
   
   
-
-  <entry>
-    <title>用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）</title>
-    <link href="undefinedguides/termius-tailscale-tmux/"/>
-    <url>guides/termius-tailscale-tmux/</url>
-    <content type="html"><![CDATA[<h1 id="termius-tailscale-tmux"><a href="#termius-tailscale-tmux" class="headerlink" title="Termius + Tailscale + tmux"></a>Termius + Tailscale + tmux</h1>
-<p>目标：用 iPhone 上的 <strong>Termius</strong> 随时随地连回 Mac，通过 <strong>Tailscale</strong> 组网保证安全稳定，用 <strong>tmux</strong> 保持会话不断线（包含常驻运行 Codex）。</p>
-
-<h2 id="why"><a href="#why" class="headerlink" title="为什么要这样搭"></a>为什么要这样搭</h2>
-<ul>
-  <li><strong>Termius</strong>：手机端 SSH 客户端，操作方便。</li>
-  <li><strong>Tailscale</strong>：不用端口映射，不怕公网 IP 变化；同一个 Tailnet 里设备互通。</li>
-  <li><strong>tmux</strong>：SSH 断线/切后台也不影响任务继续跑，随时重新接回。</li>
-</ul>
-
-<h2 id="mac-ssh"><a href="#mac-ssh" class="headerlink" title="Mac 端：开启 SSH"></a>Mac 端：开启 SSH</h2>
-<ol>
-  <li>系统设置 → 通用 → 共享 → <strong>远程登录(Remote Login)</strong> → 打开。</li>
-  <li>确认你用的是自己的账号登录（例如 <code>willfordzhan</code>）。</li>
-</ol>
-
-<h2 id="termius-key"><a href="#termius-key" class="headerlink" title="iPhone（Termius）：生成 SSH Key 并授权"></a>iPhone（Termius）：生成 SSH Key 并授权</h2>
-<ol>
-  <li>Termius → <strong>Keychain</strong> → <strong>+</strong> → <strong>Generate Key</strong> → Type 选 <code>Ed25519</code>。</li>
-  <li>进入该 Key，复制 <strong>Public Key</strong>（形如 <code>ssh-ed25519 AAAA...</code>）。</li>
-  <li>在 Mac 上把公钥追加到：<code>~/.ssh/authorized_keys</code>（一行一个 key）。</li>
-</ol>
-<pre><code class="bash">nano ~/.ssh/authorized_keys
-chmod 700 ~/.ssh
-chmod 600 ~/.ssh/authorized_keys</code></pre>
-
-<h2 id="tailscale"><a href="#tailscale" class="headerlink" title="Tailscale：同一账号组网"></a>Tailscale：同一账号组网</h2>
-<ol>
-  <li>Mac 安装并登录 Tailscale（建议用官方 <strong>Tailscale.app</strong>）。</li>
-  <li>iPhone 安装并登录 Tailscale，开启 VPN，确保手机也显示在线。</li>
-  <li>在 Tailnet 里找到 Mac 的 <strong>Tailscale IP</strong>（通常是 <code>100.x.y.z</code>）或 <strong>MagicDNS</strong> 名称。</li>
-</ol>
-
-<h2 id="termius-host"><a href="#termius-host" class="headerlink" title="Termius：添加 SSH Host"></a>Termius：添加 SSH Host</h2>
-<ul>
-  <li><strong>Host</strong>：填 Mac 的 <code>100.x.y.z</code> 或 MagicDNS。</li>
-  <li><strong>Port</strong>：<code>22</code></li>
-  <li><strong>Username</strong>：你的 macOS 用户名（例如 <code>willfordzhan</code>）</li>
-  <li><strong>Authentication</strong>：选择刚才生成的 Key</li>
-</ul>
-
-<h2 id="tmux"><a href="#tmux" class="headerlink" title="tmux：保持会话不掉线"></a>tmux：保持会话不掉线</h2>
-<pre><code class="bash">brew install tmux
-
-# 新建或接入名为 codex 的会话
-# （已在本机准备了 codex-mobile 脚本时，直接运行 codex-mobile 即可）
-tmux new -As codex</code></pre>
-<p>常用快捷键：</p>
-<ul>
-  <li>断开但保留会话：<code>Ctrl-b</code> 然后按 <code>d</code></li>
-  <li>列出会话：<code>tmux ls</code></li>
-  <li>重新接入：<code>tmux attach -t codex</code></li>
-</ul>
-
-<h2 id="codex"><a href="#codex" class="headerlink" title="在 tmux 里跑 Codex"></a>在 tmux 里跑 Codex</h2>
-<p>建议始终在 tmux 会话里启动 Codex，这样手机切后台/断网也不会中断。</p>
-<pre><code class="bash">codex</code></pre>
-
-<h2 id="desktop-tcc"><a href="#desktop-tcc" class="headerlink" title="常见坑：SSH 访问 Desktop 报 Operation not permitted"></a>常见坑：SSH 访问 Desktop 报 <code>Operation not permitted</code></h2>
-<p>这是 macOS 的隐私保护（TCC）。如果你希望 SSH 会话也能读写 <code>~/Desktop</code>：</p>
-<ol>
-  <li>系统设置 → 隐私与安全性 → <strong>完全磁盘访问权限(Full Disk Access)</strong></li>
-  <li>添加：<code>/usr/sbin/sshd</code></li>
-  <li>断开 Termius 连接，重新 SSH 登录后再试。</li>
-</ol>
-<p>更稳的替代方案：把工作目录放到 <code>~/Work</code>（不放 Desktop）避免触发权限限制。</p>
-
-<h2 id="security"><a href="#security" class="headerlink" title="安全建议"></a>安全建议</h2>
-<ul>
-  <li>只用 <strong>SSH Key</strong> 登录，尽量关闭密码登录。</li>
-  <li>尽量只在 <strong>Tailscale</strong> 内网 IP 上使用 SSH，不要对公网暴露 22 端口。</li>
-  <li>丢手机时，第一时间在 GitHub/Termius/Tailscale 撤销 Key/设备。</li>
-</ul>]]></content>
-    <tags>
-      <tag>工具技巧</tag>
-      <tag>远程办公</tag>
-    </tags>
-  </entry>
-
 </search>
