@@ -1,0 +1,849 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="本文围绕现有 Java MCP 工具执行层与 Python 控制平面之间的联动，先梳理当前实现快照，再提出一套以 Plan-and-Solve、ReAct 与 Reflection 为基础的动态范式编排优化方案，最终形成可复盘的执行路线、灰度策略与风险表。 当前实现快照Java MCP 工具链路Java 侧已经打通了内部 MCP 入口：AiMcpEntryService（atsi-iot&#x2F;atsi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/dynamic-paradigm-orchestrator-optimization/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="本文围绕现有 Java MCP 工具执行层与 Python 控制平面之间的联动，先梳理当前实现快照，再提出一套以 Plan-and-Solve、ReAct 与 Reflection 为基础的动态范式编排优化方案，最终形成可复盘的执行路线、灰度策略与风险表。 当前实现快照Java MCP 工具链路Java 侧已经打通了内部 MCP 入口：AiMcpEntryService（atsi-iot&#x2F;atsi">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-02-20T08:30:00.000Z">
+<meta property="article:modified_time" content="2026-02-20T15:56:49.561Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工程">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="Orchestrator">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="Plan-and-Solve">
+<meta property="article:tag" content="Reflection">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="架构分析">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-02-20 16:30" pubdate>
+          2026年2月20日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.4k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>本文围绕现有 Java MCP 工具执行层与 Python 控制平面之间的联动，先梳理当前实现快照，再提出一套以 Plan-and-Solve、ReAct 与 Reflection 为基础的动态范式编排优化方案，最终形成可复盘的执行路线、灰度策略与风险表。</p>
+<h2 id="当前实现快照"><a href="#当前实现快照" class="headerlink" title="当前实现快照"></a>当前实现快照</h2><h3 id="Java-MCP-工具链路"><a href="#Java-MCP-工具链路" class="headerlink" title="Java MCP 工具链路"></a>Java MCP 工具链路</h3><p>Java 侧已经打通了内部 MCP 入口：<code>AiMcpEntryService</code>（<code>atsi-iot/atsi-iot-business/.../AiMcpEntryService.java</code>）负责内部 Token 校验 + authz-lite + 分发；后续交给 <code>AiMcpToolDispatcher</code>（<code>.../dispatcher/AiMcpToolDispatcher.java</code>）生成 <code>ToolCall</code>、记录 <code>runId</code>&#x2F;<code>toolCallId</code>、捕获异常并接入 <code>AiMcpToolInvokeLogger</code> 审计。在 <code>AiMcpToolDispatcher</code> 调用的 <code>ToolExecutor</code>（<code>.../tools/ToolExecutor.java</code>）里继续做白名单查找、参数校验、<code>AiToolRuntimeContext</code> 透传，最终调用各类业务工具（<code>ai/tools/impl</code>），保证工具执行在执行平面可以围绕 <code>runId</code> 做统一治理。</p>
+<h3 id="Python-控制平面与编排"><a href="#Python-控制平面与编排" class="headerlink" title="Python 控制平面与编排"></a>Python 控制平面与编排</h3><p><code>app/api.py</code> 负责 <code>POST /ai/runs</code>、<code>/ai/runs/&#123;runId&#125;/events</code> 与 <code>/input</code> 等对外接口，借助 <code>HeaderAuthMiddleware</code> 绑定租户与用户信息并传给 <code>RunStore</code>。<code>Orchestrator</code>（<code>app/orchestrator.py</code>）通过 <code>enqueue</code> 接住用户 query，里面的 <code>_try_parse_tool_call</code> 尝试解析 <code>tool:name &#123;args&#125;</code>，若成功依赖 <code>MCPClient</code>（<code>app/mcp_client.py</code>）先 call <code>/tools/list</code> 再 <code>/tools/call</code>，把事件写入 <code>RunStore</code>，并触发 <code>tool_call/tool_result/final</code> 事件。这个控制平面已经支持异步运行、重复调度、工具能力可扩展，并且保留了继续插入 Planner&#x2F;Reflection 的出口。</p>
+<h3 id="SSE-会话持久化"><a href="#SSE-会话持久化" class="headerlink" title="SSE &#x2F; 会话持久化"></a>SSE &#x2F; 会话持久化</h3><p><code>RunStore</code>（<code>app/store.py</code>）在内存与 SQLite 两种实现间可切换，<code>create_run</code> 保留幂等索引，<code>append_event</code> 按 <code>event_id</code> 递增写入 <code>events</code> 列表或 <code>run_events</code> 表。<code>SQLiteRunStore</code> 利用 WAL、索引保证顺序，将每次 <code>tool_call/tool_result</code> 的 <code>data</code> JSON 结构化存储。<code>/ai/runs/&#123;runId&#125;/events</code> 用 <code>StreamingResponse</code> + 队列（<code>SubscriberQueue</code>）发送历史事件并 tail，队列满时会发送 <code>SubscriberOverflow</code> 并清理；<code>Last-Event-ID</code> 支持断点续传，核心代码在 <code>app/api.py</code> 的 <code>event_generator</code>。这种设计为未来的 trace、Replay 与可观测性打下基础。</p>
+<h3 id="Debug-入口"><a href="#Debug-入口" class="headerlink" title="Debug 入口"></a>Debug 入口</h3><p>控制平面自带的 <code>app/static/ai-chat</code> 页面（<code>app.js</code> + <code>index.html</code>）提供完整的调试面板，允许设定租户&#x2F;用户 ID、Idempotency Key、<code>/ai/runs</code> 请求、SSE 链接、<code>/input</code> 补发，并实时打印 native SSE 事件，便于调试流控与 overflow 行为。同时，Java 侧 <code>ruoyi-admin/src/main/resources/static/ai-chat</code> 也提供相似的前端，便于在 <code>ruoyi-admin</code> 部署环境中复盘 Java 与 Python 之间的 handoff。</p>
+<h2 id="动态范式编排优化方案"><a href="#动态范式编排优化方案" class="headerlink" title="动态范式编排优化方案"></a>动态范式编排优化方案</h2><h3 id="方案概览：Intent-Router-Policy-Engine-Strategy-Executors-Runtime-Guard-Eval-闭环"><a href="#方案概览：Intent-Router-Policy-Engine-Strategy-Executors-Runtime-Guard-Eval-闭环" class="headerlink" title="方案概览：Intent Router + Policy Engine + Strategy Executors + Runtime Guard + Eval 闭环"></a>方案概览：Intent Router + Policy Engine + Strategy Executors + Runtime Guard + Eval 闭环</h3><p>当前控制平面已经具备基础事件存储与 MCP 通道，下一步就是将 Plan-and-Solve、ReAct 与 Reflection 映射到清晰的控制结构：</p>
+<ul>
+<li><strong>Intent Router</strong> 解析用户 query 的意图（直接对话、工具调用、打断等），并决定从哪条策略链（Plan&#x2F;Solve&#x2F;Reflect）进入。</li>
+<li><strong>Policy Engine</strong> 在执行前判断租户&#x2F;工具&#x2F;安全策略（基于 <code>authz-lite</code>、<code>ai.tool.invoke</code> 日志等），在必要时拒绝、降级或走审计路径。</li>
+<li><strong>Strategy Executors</strong> 包括 Plan（生成步骤）、Solve（调用 MCP）、Reflect（回顾证据与偏离），每个阶段都可携带上下文与前一次 evidence。</li>
+<li><strong>Runtime Guard</strong> 引入预算、时延、失败率、证据冲突阈值，遇到越界则触发加固步骤（如降级到简单回答、请求人工介入或透传错误）。</li>
+<li><strong>Eval 闭环</strong> 把 <code>step_trace/tool_trace/eval_metrics</code> 回写到 Policy Engine，进而驱动下一个 intent 的 routing。</li>
+</ul>
+<pre><code class=" mermaid">graph LR
+  Client[客户端 / 系统自动化]
+  API[Python 控制平面 API]
+  IntentRouter[Intent Router]
+  PolicyEngine[Policy Engine]
+  StrategyExec[Strategy Executors&lt;br/&gt;(Plan / Solve / Reflect)]
+  RuntimeGuard[Runtime Guard&lt;br/&gt;(预算/时延/失败率/证据冲突)]
+  EvalLoop[Eval 闭环&lt;br/&gt;Metrics + Feedback]
+  MCPClient[MCP Client]
+  JavaMCP[Java MCP 工具执行]
+  ToolAdaptors[Tool Adaptors + Registry]
+  Store[Run Store / Trace]
+
+  Client --&gt; API
+  API --&gt; IntentRouter
+  IntentRouter --&gt; PolicyEngine
+  PolicyEngine --&gt; StrategyExec
+  StrategyExec --&gt; RuntimeGuard
+  RuntimeGuard --&gt; EvalLoop
+  EvalLoop --&gt; PolicyEngine
+  StrategyExec --&gt; Store
+  StrategyExec --&gt; MCPClient
+  MCPClient --&gt; JavaMCP
+  JavaMCP --&gt; ToolAdaptors
+  Store --&gt; EvalLoop
+</code></pre>
+
+<p>这个架构用图示明确分层：控制平面的 Intent Router 与 Policy Engine 共同决定是否进入 ReAct 或 Reflection，在 Strategy Executors 内形成 Plan-and-Solve 的闭环，Runtime Guard 保证 budget&#x2F;time&#x2F;failure&#x2F;证据冲突的安全开关，Eval Loop 负责收集数据并反馈给 Policy Engine 为下一步决策提供证据。</p>
+<h3 id="状态机与切换条件"><a href="#状态机与切换条件" class="headerlink" title="状态机与切换条件"></a>状态机与切换条件</h3><p>为了让 Plan-and-Solve + ReAct + Reflection 的执行更加稳定，Run 需要一个状态机来驱动：</p>
+<pre><code class=" mermaid">stateDiagram-v2
+    [*] --&gt; Idle
+    Idle --&gt; Planning : query / input 到达
+    Planning --&gt; Executing : policy_pass &amp;&amp; budget_ok
+    Executing --&gt; Monitoring : tool_call 或模型响应返回
+    Monitoring --&gt; Reflection : evidence_conflict / tool_failure_rate↑ / timeout
+    Monitoring --&gt; Completed : final_answer
+    Monitoring --&gt; Failed : repeated_errors / runtime_guard_abort
+    Reflection --&gt; Planning : reflection_success
+    Reflection --&gt; Escalation : manual_intervention_needed
+    Escalation --&gt; Idle : post-escalation
+</code></pre>
+
+<ul>
+<li><strong>预算</strong>：每个 run&#x2F;tenant 定义 <code>plan_budget</code>、<code>tool_budget</code>；超过预算表示手动复核。</li>
+<li><strong>时延</strong>：<code>Runtime Guard</code> 监控 <code>tool_result</code> 的 P95 latency 与 SSE <code>final</code> 时间，若超过阈值则自动降级到 summary 模式。</li>
+<li><strong>失败率</strong>：连续 <code>tool_result.ok=false</code> 超过配置次数会切到 <code>Reflection</code>，并在 <code>Eval</code> 中记录 error_code。</li>
+<li><strong>证据冲突</strong>：当 Reflection 判断新 evidence 与既有 plan 冲突（比如 sensor 报告 vs 预测），即可重新进入 Planning，并触发安全提示或人工 review。</li>
+</ul>
+<h3 id="Plan-and-Solve-ReAct-Reflection-时序"><a href="#Plan-and-Solve-ReAct-Reflection-时序" class="headerlink" title="Plan-and-Solve &#x2F; ReAct &#x2F; Reflection 时序"></a>Plan-and-Solve &#x2F; ReAct &#x2F; Reflection 时序</h3><p>以下时序强调：用户 query -&gt; Planner -&gt; MCP 工具 -&gt; run trace -&gt; reflection -&gt; SSE 事件的闭环：</p>
+<pre><code class=" mermaid">sequenceDiagram
+    participant User
+    participant API
+    participant Store
+    participant Orchestrator
+    participant Strategy
+    participant MCPClient
+    participant JavaMCP
+    participant Eval
+
+    User-&gt;&gt;API: POST /ai/runs (query)
+    API-&gt;&gt;Store: create_run + run_started
+    API-&gt;&gt;Orchestrator: enqueue
+    Orchestrator-&gt;&gt;Store: append user_message
+    Orchestrator-&gt;&gt;Strategy: plan_next_step (Plan)
+    Strategy--&gt;&gt;Eval: emit step_trace
+    Strategy-&gt;&gt;MCPClient: call_tool
+    MCPClient-&gt;&gt;JavaMCP: /tools/call
+    JavaMCP-&gt;&gt;Tool: execute
+    JavaMCP--&gt;&gt;MCPClient: tool_result
+    MCPClient-&gt;&gt;Strategy: return result
+    Strategy-&gt;&gt;Store: append tool_call/tool_result
+    Strategy-&gt;&gt;Eval: emit tool_trace + eval_metrics
+    Strategy-&gt;&gt;Orchestrator: decide next intent (Solve or Reflect)
+    Orchestrator-&gt;&gt;Store: final / run_failed
+    Store-&gt;&gt;API: SSE history + tail
+    Eval-&gt;&gt;Policy: update routing
+</code></pre>
+
+<p>这个链路在 SSE 事件中已经可见（<code>user_message/tool_call/tool_result/final/run_failed</code>），但真正价值在于让 Strategy 在 Tool 结果后主动决定是否继续 <code>Solve</code>、退回 <code>Reflect</code>、或者终止 run。</p>
+<h3 id="Eval-闭环与策略反馈"><a href="#Eval-闭环与策略反馈" class="headerlink" title="Eval 闭环与策略反馈"></a>Eval 闭环与策略反馈</h3><p>在 <code>Eval</code> 层，我们要记录如下指标，并将其反馈给 <code>Policy Engine</code> 与 <code>Runtime Guard</code>：</p>
+<ul>
+<li><strong>Run Trace</strong>（<code>run_events</code> 表，字段：<code>run_id/event_id/event_type/event_data/created_at</code>），支撑 SSE 重放与 audit。</li>
+<li><strong>Step Trace</strong>（Strategy 输出的 <code>plan_id</code>, <code>intent</code>, <code>budget_used</code>, <code>score</code>），用于统计 ReAct vs Reflection 的占比。</li>
+<li><strong>Tool Trace</strong>（每次 <code>tool_call</code> 的 tool name、args digest、latency、ok、preview），方便计算 <code>failure_rate</code> 与 <code>latency SLO</code>。</li>
+<li><strong>Eval Metrics</strong>（如 <code>clarity_score</code>, <code>confidence</code>, <code>evidence_delta</code>, <code>cost_estimate</code>）供 Policy Engine 计算 routing 权重。</li>
+</ul>
+<pre><code class=" mermaid">graph TD
+    StrategyExec[Strategy Executors]
+    ToolTrace[Tool Trace]
+    EvalMetrics[Eval Metrics]
+    PolicyEngine[Policy Engine]
+    RuntimeGuard[Runtime Guard]
+    Store[Run Store]
+
+    StrategyExec --&gt; ToolTrace
+    ToolTrace --&gt; EvalMetrics
+    EvalMetrics --&gt; PolicyEngine
+    EvalMetrics --&gt; RuntimeGuard
+    PolicyEngine --&gt; StrategyExec
+    Store --&gt; EvalMetrics
+</code></pre>
+
+<p>Eval Loop 实现后，Policy Engine 不再是静态规则，而是以证据为输入的自适应策略，能在不同策略链之间动态切换。</p>
+<h3 id="数据与观测设计"><a href="#数据与观测设计" class="headerlink" title="数据与观测设计"></a>数据与观测设计</h3><ol>
+<li><strong>Run Trace</strong>：<code>run_id</code> + <code>event_type</code> + <code>data</code> + <code>created_at</code>（<code>app/store.py</code> 中 <code>SQLiteRunStore.run_events</code>），用来驱动 SSE、run replay、审核与同步 <code>ai.tool.invoke</code> 日志。</li>
+<li><strong>Step Trace</strong>：每个计划&#x2F;反思步骤写入 <code>RunStore</code> 的扩展字段（例如 <code>plan_id</code>, <code>type</code>, <code>budget_used</code>, <code>parent_intent</code>），方便事后分析 <code>Plan</code> vs <code>Reflect</code> 占比。</li>
+<li><strong>Tool Trace</strong>：<code>tool_call/tool_result</code> 的 <code>data</code> 就是工具 trace，包含 <code>toolCallId</code>, <code>args</code>, <code>result</code>, <code>ok</code>, <code>preview</code>、<code>latencyMs</code>。结合 <code>ToolExecutor</code> 的 <code>invokeLogger</code>，可以拼接出跨语言的调用 timeline。</li>
+<li><strong>Eval Metrics</strong>：收集 <code>clarity_score</code>（语言理解置信度）、<code>evidence_delta</code>（新数据与 plan 冲突程度）、<code>budget_left</code> 等指标，写入 <code>RunStore</code> 并通过 <code>EvalLoop</code> 反馈给 <code>Policy Engine</code>。</li>
+</ol>
+<p>所有这些数据都长期写在 <code>SQLiteRunStore</code>，未来可以用细粒度查询（<code>run_events</code> + <code>event_data</code>）构建 trace view，与 <code>ruoyi-admin</code> 的 <code>ai-chat</code> UI 结合，形成 debug+复盘平台。</p>
+<h3 id="生产级灰度与回滚方案"><a href="#生产级灰度与回滚方案" class="headerlink" title="生产级灰度与回滚方案"></a>生产级灰度与回滚方案</h3><ol>
+<li><strong>灰度方式</strong>：通过配置文件（如 <code>RUN_STORE_PROVIDER</code>、<code>MCP_BASE_URL</code>）在特定租户&#x2F;工厂上启用新版 <code>Intent Router + Policy</code> 组合；初期 1-2 个测试 tenant，收敛后逐步放大。</li>
+<li><strong>观测指标</strong>：每次灰度都会同步观察 SSE event 异常率、<code>tool_result.ok=false</code> 比例、<code>Runtime Guard</code> 触发频次、<code>eval_metrics.conflict_score</code>，若任一指标在 5 分钟内超 1%，立即降级到 fallback 逻辑（如简单 echo 或 <code>final</code> 直接返回工具解释）。</li>
+<li><strong>回滚方案</strong>：a) 在控制平面设置 <code>feature_flag</code> 使租户走旧逻辑；b) Java MCP 继续保留简单 poll-able <code>tool_call</code> 接口，确保新&#x2F;旧链路共存；c) 所有 run&#x2F;event 数据都在 <code>SQLiteRunStore</code>，即便回滚也可 replay 事件并复盘。</li>
+<li><strong>演练机制</strong>：在灰度前后自动触发 <code>run</code> 补偿测试（POST <code>/ai/runs</code> + SSE + <code>/input</code>），记录 <code>run_id</code> 供后序复盘，确保 rollback 不会导致丢失工具状态。</li>
+</ol>
+<h3 id="面试亮点（STAR-叙事）"><a href="#面试亮点（STAR-叙事）" class="headerlink" title="面试亮点（STAR 叙事）"></a>面试亮点（STAR 叙事）</h3><ul>
+<li><strong>Situation</strong>：纯 Java MCP 侧尝试做 Prompt+Tool 的同步流程，导致 run 实例不可追踪、工具超时难以隔离。</li>
+<li><strong>Task</strong>：要在不破坏已有工具执行稳定性的前提下，交付一个可扩展、可观测、可灰度的控制平面。</li>
+<li><strong>Action</strong>：我梳理出 Java entry + Python orchestrator 的边界，引入 <code>Intent Router -&gt; Policy Engine -&gt; Strategy Executors -&gt; Runtime Guard -&gt; Eval Loop</code> 结构，打通 Plan-and-Solve、ReAct、Reflection，并在 <code>app/store.py</code> 加入 run&#x2F;event 的可持久化队列与 SSE overflow 机制。</li>
+<li><strong>Result</strong>：新的架构让 run 的生命周期具备状态机、事件 replay、工具调用追踪，灰度入口可以基于租户&#x2F;指标迅速启停，面试中强调的“动态范式驱动的可控性”获得面试官认可。</li>
+</ul>
+<h2 id="路线图与里程碑"><a href="#路线图与里程碑" class="headerlink" title="路线图与里程碑"></a>路线图与里程碑</h2><ul>
+<li><strong>Milestone 0：观测与 trace 对齐</strong><ul>
+<li>验收标准：<code>SQLiteRunStore</code> 已存储 <code>run_events</code>；<code>/ai/runs/&#123;runId&#125;/events</code> 支持 replay + overflow 通知；<code>ai-chat</code> UI 可复用事件。</li>
+</ul>
+</li>
+<li><strong>Milestone 1：Intent Router + Policy Engine 就绪</strong><ul>
+<li>验收标准：<code>Intent Router</code> 能识别 <code>tool:*</code> vs 普通 query，<code>Policy Engine</code> 在前置拒绝与降级策略上录了 <code>ai.tool.invoke</code> 日志，<code>Store</code> 写入 <code>step_trace</code>。</li>
+</ul>
+</li>
+<li><strong>Milestone 2：Strategy Executors + Runtime Guard</strong><ul>
+<li>验收标准：<code>Strategy Executors</code> 区分 Plan&#x2F;Solve&#x2F;Reflect，<code>Runtime Guard</code> 监控预算&#x2F;延迟&#x2F;失败，满足 <code>state machine</code> 中的 Monitoring 与 Reflection 触发条件。</li>
+</ul>
+</li>
+<li><strong>Milestone 3：Eval 闭环与数据反馈</strong><ul>
+<li>验收标准：工具 trace + eval metrics 写入 <code>RunStore</code>，Policy 能根据 <code>clarity_score</code>&#x2F;<code>evidence_delta</code> 调整 routing 策略，<code>Eval Loop</code> 触发 runtime guard。</li>
+</ul>
+</li>
+<li><strong>Milestone 4：灰度 + 回滚 + 面试亮点复盘</strong><ul>
+<li>验收标准：按租户灰度新功能、指标失效能自动降级、回滚演练记录在案，能够用 STAR 方式说清楚改进点。</li>
+</ul>
+</li>
+</ul>
+<h2 id="风险清单"><a href="#风险清单" class="headerlink" title="风险清单"></a>风险清单</h2><ul>
+<li>协议漂移：Python 控制平面 <code>MCPClient</code> 如果缓存了旧的 <code>tools/list</code> schema，会导致 Java MCP <code>authz-lite</code> 拒绝。</li>
+<li>Trace 膨胀：<code>run_events</code> 里写入冗余 <code>data</code> 可能让 SQLite file 迅速增长，需要定期归档。</li>
+<li>Truth 残缺：Reflection 依赖 <code>evidence_delta</code>，如果数据进入延迟 &gt; 5s，反而导致过度回退。</li>
+<li>黑天鹅：工具调用遇到 Kafka&#x2F;设备 API 降级，Runtime Guard 必须能快速截断而非无限重试。</li>
+</ul>
+<h2 id="反模式清单"><a href="#反模式清单" class="headerlink" title="反模式清单"></a>反模式清单</h2><ul>
+<li>用 Java 直接硬编码策略开关，导致 Python 无法快速试验；</li>
+<li>把 <code>Policy Engine</code> 写死在 <code>AiMcpToolDispatcher</code>，失去跨租户&#x2F;跨工具的自适应能力；</li>
+<li>SSE&#x2F;Run Store 事件只保留内存，遇并发订阅泄漏 <code>SubscriberOverflow</code> 后找不到 trace；</li>
+<li>把所有异常抛回 <code>final</code>，而不在 <code>Eval</code> 中打点、归类、提供证据冲突的上下文。</li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/Orchestrator/" class="print-no-link">#Orchestrator</a>
+      
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+      
+        <a href="/tags/Plan-and-Solve/" class="print-no-link">#Plan-and-Solve</a>
+      
+        <a href="/tags/Reflection/" class="print-no-link">#Reflection</a>
+      
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/" class="print-no-link">#架构分析</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化</div>
+      <div>https://willfordzhan.github.io/2026/02/20/dynamic-paradigm-orchestrator-optimization/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年2月20日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/2026/02/20/java-ai-mcp-cleanup-milestone/" title="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/02/20/java-ai-vs-java-mcp-python-control-plane/" title="纯 Java AI vs Java MCP + Python Control Plane：重构方案与落地模块解析">
+                        <span class="hidden-mobile">纯 Java AI vs Java MCP + Python Control Plane：重构方案与落地模块解析</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
