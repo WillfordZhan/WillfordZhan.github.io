@@ -19,21 +19,27 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, you can find the answer in troubleshooting or you can ask me on GitHub.Quick">
+    <meta name="description" content="背景这轮讨论的目标非常明确：在已经完成一轮 Python AI 控制面重构的基础上，快速集成铸造行业知识库能力，兼顾两件事：  先做出可上线、可用的生产能力。 方案本身要有工程亮点，能成为 AI 工程师岗位面试中的核心项目叙事。  场景约束也很典型：数据来源复杂（公众号、书籍、工艺参数文档、行业文档），知识密度高、噪声高，且业务同时涉及 MES 实时数据与行业知识问答。 先给结论这类场景不建议纯二">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Hello World">
-<meta property="og:url" content="https://willfordzhan.github.io/2019/11/15/hello-world/index.html">
+<meta property="og:title" content="Dify 还是自研 RAG：铸造 MES&#x2F;ERP 场景的架构共创与落地计划">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/dify-rag-mes-erp/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="Welcome to Hexo! This is your very first post. Check documentation for more info. If you get any problems when using Hexo, you can find the answer in troubleshooting or you can ask me on GitHub.Quick">
+<meta property="og:description" content="背景这轮讨论的目标非常明确：在已经完成一轮 Python AI 控制面重构的基础上，快速集成铸造行业知识库能力，兼顾两件事：  先做出可上线、可用的生产能力。 方案本身要有工程亮点，能成为 AI 工程师岗位面试中的核心项目叙事。  场景约束也很典型：数据来源复杂（公众号、书籍、工艺参数文档、行业文档），知识密度高、噪声高，且业务同时涉及 MES 实时数据与行业知识问答。 先给结论这类场景不建议纯二">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2019-11-15T12:39:23.000Z">
+<meta property="article:published_time" content="2026-02-20T15:34:33.000Z">
 <meta property="article:modified_time" content="2026-02-20T15:36:03.795Z">
 <meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工程">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="Dify">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="架构设计">
+<meta property="article:tag" content="知识库">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>Hello World - 味儿福德詹的小站</title>
+  <title>Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -199,7 +205,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="Hello World"></span>
+            <span id="subtitle" data-typed-text="Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划"></span>
           
         </div>
 
@@ -210,8 +216,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2019-11-15 20:39" pubdate>
-          2019年11月15日 晚上
+        <time datetime="2026-02-20 23:34" pubdate>
+          2026年2月20日 晚上
         </time>
       </span>
     
@@ -222,7 +228,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          18 字
+          1.3k 字
         
       </span>
     
@@ -233,7 +239,7 @@
         
         
         
-          1 分钟
+          12 分钟
         
       </span>
     
@@ -270,12 +276,79 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">Hello World</h1>
+            <h1 id="seo-header">Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</h1>
             
             
               <div class="markdown-body">
                 
-                <p>Welcome to <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a>! This is your very first post. Check <a href="https://hexo.io/docs/" target="_blank" rel="noopener">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a href="https://hexo.io/docs/troubleshooting.html" target="_blank" rel="noopener">troubleshooting</a> or you can ask me on <a href="https://github.com/hexojs/hexo/issues" target="_blank" rel="noopener">GitHub</a>.</p><h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><pre><code class="bash">$ hexo new &quot;My New Post&quot;</code></pre><p>More info: <a href="https://hexo.io/docs/writing.html" target="_blank" rel="noopener">Writing</a></p><h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><pre><code class="bash">$ hexo server</code></pre><p>More info: <a href="https://hexo.io/docs/server.html" target="_blank" rel="noopener">Server</a></p><h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><pre><code class="bash">$ hexo generate</code></pre><p>More info: <a href="https://hexo.io/docs/generating.html" target="_blank" rel="noopener">Generating</a></p><h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><pre><code class="bash">$ hexo deploy</code></pre><p>More info: <a href="https://hexo.io/docs/one-command-deployment.html" target="_blank" rel="noopener">Deployment</a></p>
+                <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>这轮讨论的目标非常明确：在已经完成一轮 Python AI 控制面重构的基础上，快速集成铸造行业知识库能力，兼顾两件事：</p>
+<ol>
+<li>先做出可上线、可用的生产能力。</li>
+<li>方案本身要有工程亮点，能成为 AI 工程师岗位面试中的核心项目叙事。</li>
+</ol>
+<p>场景约束也很典型：数据来源复杂（公众号、书籍、工艺参数文档、行业文档），知识密度高、噪声高，且业务同时涉及 MES 实时数据与行业知识问答。</p>
+<h2 id="先给结论"><a href="#先给结论" class="headerlink" title="先给结论"></a>先给结论</h2><p>这类场景不建议纯二选一（只用 Dify 内置 KB，或一上来全自研）。</p>
+<p>推荐路线是：</p>
+<ol>
+<li><strong>双线并行</strong>：Dify 与自研检索服务同时接入。</li>
+<li><strong>能力分层</strong>：<ul>
+<li>Dify 负责快速编排和业务流程试错。</li>
+<li>自研 RAG 检索服务负责数据清洗、切分、召回、重排、评测等“效果上限”能力。</li>
+</ul>
+</li>
+<li><strong>Agent 策略收敛</strong>：<ul>
+<li>在线默认 <code>ReAct + 工具调用 + RAG</code>。</li>
+<li><code>Plan-and-solve</code> 仅在复杂任务触发。</li>
+<li><code>Reflection</code> 只在低置信度&#x2F;高风险场景触发，不全量开启。</li>
+</ul>
+</li>
+</ol>
+<p>一句话总结：<strong>用 Dify 赢速度，用自研检索赢上限。</strong></p>
+<h2 id="为什么不是纯-Dify-或纯自研"><a href="#为什么不是纯-Dify-或纯自研" class="headerlink" title="为什么不是纯 Dify 或纯自研"></a>为什么不是纯 Dify 或纯自研</h2><h3 id="纯-Dify-内置知识库"><a href="#纯-Dify-内置知识库" class="headerlink" title="纯 Dify 内置知识库"></a>纯 Dify 内置知识库</h3><p>优点：上线最快。<br>短板：在高噪声行业语料中，后期检索质量和可控性容易触顶。</p>
+<h3 id="纯自研全栈-RAG"><a href="#纯自研全栈-RAG" class="headerlink" title="纯自研全栈 RAG"></a>纯自研全栈 RAG</h3><p>优点：长期上限高，可控性强。<br>短板：首期周期长，工程和运维复杂度高，不符合“快出效果”目标。</p>
+<h3 id="混合方案（推荐）"><a href="#混合方案（推荐）" class="headerlink" title="混合方案（推荐）"></a>混合方案（推荐）</h3><p>优点：首期快，长期可控，风险最低。<br>短板：需要做好契约治理和双链路观测，但这是可工程化解决的问题。</p>
+<h2 id="我们讨论沉淀的-10-条-Q-A（决策版）"><a href="#我们讨论沉淀的-10-条-Q-A（决策版）" class="headerlink" title="我们讨论沉淀的 10 条 Q&amp;A（决策版）"></a>我们讨论沉淀的 10 条 Q&amp;A（决策版）</h2><h3 id="Q1：数据合规先不管，能不能先做？"><a href="#Q1：数据合规先不管，能不能先做？" class="headerlink" title="Q1：数据合规先不管，能不能先做？"></a>Q1：数据合规先不管，能不能先做？</h3><p>可以先做验证版，但建议保留文档来源和版本元数据，后续补治理时不会返工。</p>
+<h3 id="Q2：如果增强效果需要上新基础设施，可以加吗？"><a href="#Q2：如果增强效果需要上新基础设施，可以加吗？" class="headerlink" title="Q2：如果增强效果需要上新基础设施，可以加吗？"></a>Q2：如果增强效果需要上新基础设施，可以加吗？</h3><p>可以。建议优先上支持混合检索的引擎（如 OpenSearch）。</p>
+<h3 id="Q3：数据量"><a href="#Q3：数据量" class="headerlink" title="Q3：数据量 &lt;&#x3D; 20G，QPS 50~500，怎么设计？"></a>Q3：数据量 &lt;&#x3D; 20G，QPS 50~500，怎么设计？</h3><p>这个规模下，核心不在“能不能跑”，而在“高峰稳定和检索质量可回归”。需要缓存、分级策略和压测门禁。</p>
+<h3 id="Q4：先用-Qwen-最强模型验证效果，后续再谈成本，是否可行？"><a href="#Q4：先用-Qwen-最强模型验证效果，后续再谈成本，是否可行？" class="headerlink" title="Q4：先用 Qwen 最强模型验证效果，后续再谈成本，是否可行？"></a>Q4：先用 Qwen 最强模型验证效果，后续再谈成本，是否可行？</h3><p>可行，且是正确顺序。先做质量上限验证，再做成本优化和模型分层。</p>
+<h3 id="Q5：Reranker-私有部署和公有部署区别？"><a href="#Q5：Reranker-私有部署和公有部署区别？" class="headerlink" title="Q5：Reranker 私有部署和公有部署区别？"></a>Q5：Reranker 私有部署和公有部署区别？</h3><p>公有部署：上线快、质量通常更好、免运维，但有调用成本和外部延迟。<br>私有部署：数据与服务更可控，但你当前 <code>4核8G + 无GPU</code> 条件下吞吐会受限。<br>建议：<strong>先公有验证，后私有评估</strong>。</p>
+<h3 id="Q6：ACL-是什么？"><a href="#Q6：ACL-是什么？" class="headerlink" title="Q6：ACL 是什么？"></a>Q6：ACL 是什么？</h3><p>ACL（Access Control List）是访问控制列表。<br>在 RAG 里就是“谁能检索到哪些文档&#x2F;片段”的硬约束，必须在召回阶段就生效。</p>
+<h3 id="Q7：数据更新要分钟级，能支持吗？"><a href="#Q7：数据更新要分钟级，能支持吗？" class="headerlink" title="Q7：数据更新要分钟级，能支持吗？"></a>Q7：数据更新要分钟级，能支持吗？</h3><p>能。需要增量 ingest + upsert 索引 + 任务队列，避免全量重建。</p>
+<h3 id="Q8：Dify-和自研双接入是否推荐？"><a href="#Q8：Dify-和自研双接入是否推荐？" class="headerlink" title="Q8：Dify 和自研双接入是否推荐？"></a>Q8：Dify 和自研双接入是否推荐？</h3><p>推荐。这正是当前阶段“快 + 稳 + 可扩展”的最优策略。</p>
+<h3 id="Q9：什么是金标问答？为什么必须做？"><a href="#Q9：什么是金标问答？为什么必须做？" class="headerlink" title="Q9：什么是金标问答？为什么必须做？"></a>Q9：什么是金标问答？为什么必须做？</h3><p>金标问答不是 few-shot，它是评测基准集。<br>作用是客观评估“改了检索策略后是否真的变好”，避免调参靠感觉。</p>
+<p>示例（非行业）：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;qa_001&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;锅炉水质硬度超标会导致什么问题？&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;answerable&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;expected_doc_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;doc_chem_12&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;doc_ops_03&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;must_include_points&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;结垢风险&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;换热效率下降&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;能耗上升&quot;</span><span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="Q10：低置信时策略怎么定？"><a href="#Q10：低置信时策略怎么定？" class="headerlink" title="Q10：低置信时策略怎么定？"></a>Q10：低置信时策略怎么定？</h3><p>采用“<strong>追问 + 带风险提示回答</strong>”。这是兼顾可用性与安全性的合理策略。</p>
+<h2 id="生产落地建议（阶段化）"><a href="#生产落地建议（阶段化）" class="headerlink" title="生产落地建议（阶段化）"></a>生产落地建议（阶段化）</h2><h3 id="Phase-1：2-3-周，先跑通效果"><a href="#Phase-1：2-3-周，先跑通效果" class="headerlink" title="Phase 1：2~3 周，先跑通效果"></a>Phase 1：2~3 周，先跑通效果</h3><ol>
+<li>建立最小 ingest pipeline（解析&#x2F;清洗&#x2F;切分&#x2F;元数据）。</li>
+<li>上线 <code>Hybrid Retrieval</code>（关键词 + 向量）与基础过滤。</li>
+<li>输出可引用证据（chunk&#x2F;doc 引用 ID）。</li>
+</ol>
+<h3 id="Phase-2：3-5-周，提升稳定性"><a href="#Phase-2：3-5-周，提升稳定性" class="headerlink" title="Phase 2：3~5 周，提升稳定性"></a>Phase 2：3~5 周，提升稳定性</h3><ol>
+<li>加 reranker（按复杂度和置信度触发）。</li>
+<li>建立分钟级增量更新链路。</li>
+<li>建立缓存与限流，控制峰值时延。</li>
+</ol>
+<h3 id="Phase-3：5-8-周，工程化闭环"><a href="#Phase-3：5-8-周，工程化闭环" class="headerlink" title="Phase 3：5~8 周，工程化闭环"></a>Phase 3：5~8 周，工程化闭环</h3><ol>
+<li>建立金标问答集和离线评测流水线。</li>
+<li>对接 Dify External Knowledge API 与 Python Agent 双入口。</li>
+<li>做回归门禁（Recall@K、citation 覆盖率、低置信策略命中率、P95 时延）。</li>
+</ol>
+<h2 id="面试亮点怎么讲"><a href="#面试亮点怎么讲" class="headerlink" title="面试亮点怎么讲"></a>面试亮点怎么讲</h2><p>这套项目建议按下面这条主线讲：</p>
+<ol>
+<li>我没有做“玩具 Agent”，而是做了“可运营 RAG 平台化能力”。</li>
+<li>架构上用双通道解耦了“业务实时数据工具调用”和“行业知识检索问答”。</li>
+<li>通过金标评测和回归门禁，把模型调优从“经验主义”变成“工程可验证”。</li>
+<li>在资源受限（无 GPU）条件下，通过分级策略、缓存和路由，实现了效果与成本平衡。</li>
+</ol>
+<h2 id="最后一句"><a href="#最后一句" class="headerlink" title="最后一句"></a>最后一句</h2><p>在铸造 MES&#x2F;ERP 场景，真正决定成败的不是“Agent 名字有多花”，而是：</p>
+<ol>
+<li>数据管道质量。</li>
+<li>检索与过滤设计。</li>
+<li>评测和回归体系。</li>
+</ol>
+<p>先把这三件事做好，RAG 才会从 Demo 变成生产能力。</p>
 
                 
               </div>
@@ -284,6 +357,44 @@
             <div>
               <div class="post-metas my-3">
   
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
+      
+        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
+      
+        <a href="/tags/Dify/" class="print-no-link">#Dify</a>
+      
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" class="print-no-link">#架构设计</a>
+      
+        <a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/" class="print-no-link">#知识库</a>
+      
+    </div>
   
 </div>
 
@@ -293,8 +404,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>Hello World</div>
-      <div>https://willfordzhan.github.io/2019/11/15/hello-world/</div>
+      <div>Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</div>
+      <div>https://willfordzhan.github.io/2026/02/20/dify-rag-mes-erp/</div>
     </div>
     <div class="license-meta">
       
@@ -306,7 +417,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2019年11月15日</div>
+          <div>2026年2月20日</div>
         </div>
       
       
@@ -338,15 +449,15 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/" title="自用的Mac小技巧">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">自用的Mac小技巧</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
+                    
+                      <a href="/2026/02/20/java-ai-mcp-cleanup-milestone/" title="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）">
+                        <span class="hidden-mobile">里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
                     
                   </article>
                 </div>
