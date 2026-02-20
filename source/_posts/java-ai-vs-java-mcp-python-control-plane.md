@@ -1,7 +1,10 @@
 ---
 title: "纯 Java AI vs Java MCP + Python Control Plane：重构方案与落地模块解析"
 date: 2026-02-20 15:36:27
+categories:
+  - "AI"
 tags:
+  - "AI工作日志"
   - "架构设计"
   - "AI工程"
   - "MCP"

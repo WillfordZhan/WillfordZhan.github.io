@@ -4,6 +4,7 @@ date: 2026-02-20 23:34:33
 categories:
   - "AI"
 tags:
+  - "AI工作日志"
   - "AI工程"
   - "RAG"
   - "Dify"

@@ -25,6 +25,12 @@ def parse_tags(tags: str | None) -> list[str]:
     return [p for p in (x.strip() for x in parts) if p]
 
 
+def append_unique(items: list[str], value: str) -> list[str]:
+    if value not in items:
+        items.append(value)
+    return items
+
+
 def yaml_quote(s: str) -> str:
     return '"' + s.replace('\\', '\\\\').replace('"', '\\"') + '"'
 
@@ -33,6 +39,7 @@ def yaml_quote(s: str) -> str:
 class Post:
     title: str
     date: str
+    categories: list[str]
     tags: list[str]
     permalink: str | None
 
@@ -41,7 +48,9 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Create a Hexo post under source/_posts")
     ap.add_argument("--repo", default=os.path.expanduser("~/Desktop/Project/blog"))
     ap.add_argument("--title", required=True)
+    ap.add_argument("--categories", default="")
     ap.add_argument("--tags", default="")
+    ap.add_argument("--ai-log", action="store_true", help="Auto classify post into AI tab")
     ap.add_argument("--permalink", default="")
     ap.add_argument("--filename", default="")
     args = ap.parse_args()
@@ -51,10 +60,17 @@ def main() -> int:
     posts_dir.mkdir(parents=True, exist_ok=True)
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    categories = parse_tags(args.categories)
+    tags = parse_tags(args.tags)
+    if args.ai_log:
+        append_unique(categories, "AI")
+        append_unique(tags, "AI工作日志")
+
     post = Post(
         title=args.title.strip(),
         date=now,
-        tags=parse_tags(args.tags),
+        categories=categories,
+        tags=tags,
         permalink=(args.permalink.strip() or None),
     )
 
@@ -73,6 +89,10 @@ def main() -> int:
     ]
     if post.permalink:
         fm.append(f"permalink: {post.permalink}")
+    if post.categories:
+        fm.append("categories:")
+        for c in post.categories:
+            fm.append(f"  - {yaml_quote(c)}")
     if post.tags:
         fm.append("tags:")
         for t in post.tags:
