@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</title>
+    <link href="/2026/02/20/java-ai-mcp-cleanup-milestone/"/>
+    <url>/2026/02/20/java-ai-mcp-cleanup-milestone/</url>
+    
+    <content type="html"><![CDATA[<h2 id="里程碑范围"><a href="#里程碑范围" class="headerlink" title="里程碑范围"></a>里程碑范围</h2><p>本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。</p><h2 id="配置清理结果（YAML）"><a href="#配置清理结果（YAML）" class="headerlink" title="配置清理结果（YAML）"></a>配置清理结果（YAML）</h2><p>在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：</p><ol><li>删除历史遗留且已废弃的配置段：<code>ai.model</code>、<code>ai.store</code>、<code>ai.prompt</code>、<code>ai.archive</code>。</li><li>保留当前仍在使用的配置段：<code>ai.mcp</code>、<code>ai.dify</code>。</li><li>结果：配置语义与当前架构一致，避免“看得见但不会生效”的伪配置继续干扰排查。</li></ol><h2 id="依赖清理结果（POM）"><a href="#依赖清理结果（POM）" class="headerlink" title="依赖清理结果（POM）"></a>依赖清理结果（POM）</h2><p>在 <code>pom</code> 依赖中，已完成未使用 legacy AI 依赖剔除：</p><ol><li>移除：<code>langchain4j-dashscope</code>、<code>langchain4j-open-ai</code>。</li><li>保留：<code>langchain4j</code> 核心能力（按当前实现需要）与 <code>dashscope-sdk-java</code>（在需要的位置继续使用）。</li><li>结果：依赖树更干净，后续升级与漏洞治理成本下降。</li></ol><h2 id="验证结论"><a href="#验证结论" class="headerlink" title="验证结论"></a>验证结论</h2><p>已执行编译验证命令并通过：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">mvn -pl ruoyi-admin -am -DskipTests compile<br></code></pre></td></tr></table></figure><p>这说明本次“配置 + 依赖”清理在当前里程碑范围内未引入编译级回归。</p><h2 id="当前验收状态"><a href="#当前验收状态" class="headerlink" title="当前验收状态"></a>当前验收状态</h2><p>当前里程碑验收状态：<strong>已通过（范围内通过）</strong>。</p><p>说明：</p><ol><li>MCP 方向相关配置与依赖清理目标已达成。</li><li>编译链路已验证可通过。</li><li>全量测试基线仍存在历史遗留的无关失败项，本次不作为阻塞项。</li></ol><h2 id="下一步计划"><a href="#下一步计划" class="headerlink" title="下一步计划"></a>下一步计划</h2><ol><li>建立并收敛一版“可重复”的全量测试基线，先对历史失败做归因分层（本次改动相关 &#x2F; 无关）。</li><li>在 CI 中补充针对 AI 模块的最小回归检查（至少覆盖配置加载、关键 Bean 初始化、核心调用链烟测）。</li><li>持续推进 legacy 残留项扫描，避免后续分支再次引入已移除依赖或配置段。</li></ol>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工程</tag>
+      
+      <tag>Java</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>里程碑</tag>
+      
+      <tag>依赖治理</tag>
+      
+      <tag>配置清理</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>纯 Java AI vs Java MCP + Python Control Plane：重构方案与落地模块解析</title>
     <link href="/2026/02/20/java-ai-vs-java-mcp-python-control-plane/"/>
     <url>/2026/02/20/java-ai-vs-java-mcp-python-control-plane/</url>
@@ -14,13 +49,13 @@
     
     <tags>
       
-      <tag>架构设计</tag>
-      
       <tag>AI工程</tag>
+      
+      <tag>Java</tag>
       
       <tag>MCP</tag>
       
-      <tag>Java</tag>
+      <tag>架构设计</tag>
       
       <tag>Python</tag>
       
