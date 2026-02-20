@@ -53,6 +53,72 @@ d. 没有 **Gold Set（金标问答）+ 回归门禁**，系统很容易“看�
 9. 什么是金标问答？为什么必须做？
 10. 低置信时策略怎么定？
 
+
+### KEY CONTENTS
+你的这 10 条反馈非常关键，基于它我给出一个更落地的结论：
+
+    1. 路线定型
+
+    - 采用“双线并行”：自研 RAG Retrieval API + Dify External Knowledge API 同时接入。
+    - 在线主链路：Python Agent 调你自研检索服务；Dify 作为并行入口与备份编排入口。
+    - 这条路兼顾“快出效果”和“长期可控”。
+
+    2. 尖锐提醒（必须直说）
+
+    - 4核8G + 无GPU 想稳定跑高质量本地 reranker + 50~500 QPS，现实上很吃力。
+    - 你可以先用 Qwen 最强模型做效果验证，但生产一定要做“分级策略+缓存+降级”，否则成本和时延会失控。
+    - 真正决定效果的，不是 Agent 名字，而是数据清洗、chunk、过滤和评测集。
+
+    3. 你问的关键点回答
+
+    - ACL 是什么：Access Control List，访问控制列表。
+      在你场景里就是“谁能检索到哪些文档/片段”。最小粒度建议到 chunk，至少带 tenant_dept_id、visibility_level、
+      role_scope。
+    - 私有 vs 公有 reranker：
+      公有API优点是快上线、质量通常更高、无算力压力；缺点是网络时延、调用成本、限流。
+      私有部署优点是可控和数据不出域；缺点是你当前机器配置下吞吐偏低，维护成本更高。
+      你的现状建议：先公有API reranker验证效果 -> 后续再评估私有化。
+    - 金标问答是啥，为什么能提升效果：
+      金标问答不是 few-shot。
+      它是“评测基准集”，用于客观判断你每次改动到底变好还是变坏。
+      没有金标集，RAG 调优基本是拍脑袋。
+
+    4. 金标问答样例（非本行业示例）
+
+    {
+      "id": "qa_001",
+      "question": "锅炉水质硬度超标会导致什么问题？",
+      "answerable": true,
+      "expected_doc_ids": ["doc_chem_12", "doc_ops_03"],
+      "must_include_points": [
+        "结垢风险",
+        "换热效率下降",
+        "能耗上升"
+      ],
+      "must_not_include_points": [
+        "与硬度无关的结论"
+      ]
+    }
+
+    {
+      "id": "qa_002",
+      "question": "2030版某标准中新增了哪些条款？",
+      "answerable": false,
+      "expected_doc_ids": [],
+      "must_include_points": [
+        "当前知识库证据不足"
+      ]
+    }
+
+    5. 按你约束后的推荐技术方案
+
+    - 检索引擎：OpenSearch（支持 BM25 + 向量 + 过滤）。
+    - 检索策略：Hybrid Recall（BM25 + Dense）+ RRF 融合。
+    - Rerank策略：只对复杂/低置信问题启用。
+    - 更新策略：分钟级增量（队列化 ingest + upsert index）。
+    - 回答策略：你已定的“追问 + 风险提示回答”，非常正确。
+    - Agent策略：默认 ReAct；复杂任务再开 Plan-and-Solve；Reflection 只在低置信触发。
+
 ### 关键决策结论（按讨论时间固化）
 
 | 日期 | 决策项 | 结论 |
