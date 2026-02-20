@@ -19,15 +19,15 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="背景这轮讨论的目标非常明确：在已经完成一轮 Python AI 控制面重构的基础上，快速集成铸造行业知识库能力，兼顾两件事：  先做出可上线、可用的生产能力。 方案本身要有工程亮点，能成为 AI 工程师岗位面试中的核心项目叙事。  场景约束也很典型：数据来源复杂（公众号、书籍、工艺参数文档、行业文档），知识密度高、噪声高，且业务同时涉及 MES 实时数据与行业知识问答。 先给结论这类场景不建议纯二">
+    <meta name="description" content="背景与目标本篇用于把一次“Dify vs 自研 RAG”的架构讨论整理成可复盘记录，避免后续只记结论、不记前提。 讨论前提：  已完成一轮 Python AI 控制面重构。 需要快速接入铸造行业知识库能力。 同时满足“生产可用”和“可作为面试项目叙事”两类目标。 数据来源复杂（公众号、书籍、工艺参数文档、行业文档），噪声高、知识密度高。 业务并行存在 MES 实时数据工具调用 + 行业知识问答两类">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Dify 还是自研 RAG：铸造 MES&#x2F;ERP 场景的架构共创与落地计划">
 <meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/dify-rag-mes-erp/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="背景这轮讨论的目标非常明确：在已经完成一轮 Python AI 控制面重构的基础上，快速集成铸造行业知识库能力，兼顾两件事：  先做出可上线、可用的生产能力。 方案本身要有工程亮点，能成为 AI 工程师岗位面试中的核心项目叙事。  场景约束也很典型：数据来源复杂（公众号、书籍、工艺参数文档、行业文档），知识密度高、噪声高，且业务同时涉及 MES 实时数据与行业知识问答。 先给结论这类场景不建议纯二">
+<meta property="og:description" content="背景与目标本篇用于把一次“Dify vs 自研 RAG”的架构讨论整理成可复盘记录，避免后续只记结论、不记前提。 讨论前提：  已完成一轮 Python AI 控制面重构。 需要快速接入铸造行业知识库能力。 同时满足“生产可用”和“可作为面试项目叙事”两类目标。 数据来源复杂（公众号、书籍、工艺参数文档、行业文档），噪声高、知识密度高。 业务并行存在 MES 实时数据工具调用 + 行业知识问答两类">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-02-20T15:34:33.000Z">
-<meta property="article:modified_time" content="2026-02-20T15:42:20.619Z">
+<meta property="article:modified_time" content="2026-02-20T15:54:47.885Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="AI工程">
@@ -241,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.3k 字
+          2.5k 字
         
       </span>
     
@@ -252,7 +252,7 @@
         
         
         
-          12 分钟
+          21 分钟
         
       </span>
     
@@ -294,74 +294,162 @@
             
               <div class="markdown-body">
                 
-                <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>这轮讨论的目标非常明确：在已经完成一轮 Python AI 控制面重构的基础上，快速集成铸造行业知识库能力，兼顾两件事：</p>
+                <h2 id="背景与目标"><a href="#背景与目标" class="headerlink" title="背景与目标"></a>背景与目标</h2><p>本篇用于把一次“Dify vs 自研 RAG”的架构讨论整理成可复盘记录，避免后续只记结论、不记前提。</p>
+<p>讨论前提：</p>
 <ol>
-<li>先做出可上线、可用的生产能力。</li>
-<li>方案本身要有工程亮点，能成为 AI 工程师岗位面试中的核心项目叙事。</li>
+<li>已完成一轮 Python AI 控制面重构。</li>
+<li>需要快速接入铸造行业知识库能力。</li>
+<li>同时满足“生产可用”和“可作为面试项目叙事”两类目标。</li>
+<li>数据来源复杂（公众号、书籍、工艺参数文档、行业文档），噪声高、知识密度高。</li>
+<li>业务并行存在 MES 实时数据工具调用 + 行业知识问答两类请求。</li>
 </ol>
-<p>场景约束也很典型：数据来源复杂（公众号、书籍、工艺参数文档、行业文档），知识密度高、噪声高，且业务同时涉及 MES 实时数据与行业知识问答。</p>
-<h2 id="先给结论"><a href="#先给结论" class="headerlink" title="先给结论"></a>先给结论</h2><p>这类场景不建议纯二选一（只用 Dify 内置 KB，或一上来全自研）。</p>
-<p>推荐路线是：</p>
+<p>本轮目标：</p>
 <ol>
-<li><strong>双线并行</strong>：Dify 与自研检索服务同时接入。</li>
-<li><strong>能力分层</strong>：<ul>
-<li>Dify 负责快速编排和业务流程试错。</li>
-<li>自研 RAG 检索服务负责数据清洗、切分、召回、重排、评测等“效果上限”能力。</li>
-</ul>
-</li>
-<li><strong>Agent 策略收敛</strong>：<ul>
-<li>在线默认 <code>ReAct + 工具调用 + RAG</code>。</li>
-<li><code>Plan-and-solve</code> 仅在复杂任务触发。</li>
-<li><code>Reflection</code> 只在低置信度&#x2F;高风险场景触发，不全量开启。</li>
-</ul>
-</li>
+<li>明确路线：Dify、纯自研、混合三种方案中怎么选。</li>
+<li>明确策略：Agent 策略如何收敛，避免“策略堆叠”。</li>
+<li>明确工程门禁：如何防止“看起来能答、上线后不稳定”。</li>
 </ol>
-<p>一句话总结：<strong>用 Dify 赢速度，用自研检索赢上限。</strong></p>
-<h2 id="为什么不是纯-Dify-或纯自研"><a href="#为什么不是纯-Dify-或纯自研" class="headerlink" title="为什么不是纯 Dify 或纯自研"></a>为什么不是纯 Dify 或纯自研</h2><h3 id="纯-Dify-内置知识库"><a href="#纯-Dify-内置知识库" class="headerlink" title="纯 Dify 内置知识库"></a>纯 Dify 内置知识库</h3><p>优点：上线最快。<br>短板：在高噪声行业语料中，后期检索质量和可控性容易触顶。</p>
-<h3 id="纯自研全栈-RAG"><a href="#纯自研全栈-RAG" class="headerlink" title="纯自研全栈 RAG"></a>纯自研全栈 RAG</h3><p>优点：长期上限高，可控性强。<br>短板：首期周期长，工程和运维复杂度高，不符合“快出效果”目标。</p>
-<h3 id="混合方案（推荐）"><a href="#混合方案（推荐）" class="headerlink" title="混合方案（推荐）"></a>混合方案（推荐）</h3><p>优点：首期快，长期可控，风险最低。<br>短板：需要做好契约治理和双链路观测，但这是可工程化解决的问题。</p>
-<h2 id="我们讨论沉淀的-10-条-Q-A（决策版）"><a href="#我们讨论沉淀的-10-条-Q-A（决策版）" class="headerlink" title="我们讨论沉淀的 10 条 Q&amp;A（决策版）"></a>我们讨论沉淀的 10 条 Q&amp;A（决策版）</h2><h3 id="Q1：数据合规先不管，能不能先做？"><a href="#Q1：数据合规先不管，能不能先做？" class="headerlink" title="Q1：数据合规先不管，能不能先做？"></a>Q1：数据合规先不管，能不能先做？</h3><p>可以先做验证版，但建议保留文档来源和版本元数据，后续补治理时不会返工。</p>
-<h3 id="Q2：如果增强效果需要上新基础设施，可以加吗？"><a href="#Q2：如果增强效果需要上新基础设施，可以加吗？" class="headerlink" title="Q2：如果增强效果需要上新基础设施，可以加吗？"></a>Q2：如果增强效果需要上新基础设施，可以加吗？</h3><p>可以。建议优先上支持混合检索的引擎（如 OpenSearch）。</p>
-<h3 id="Q3：数据量"><a href="#Q3：数据量" class="headerlink" title="Q3：数据量 &lt;&#x3D; 20G，QPS 50~500，怎么设计？"></a>Q3：数据量 &lt;&#x3D; 20G，QPS 50~500，怎么设计？</h3><p>这个规模下，核心不在“能不能跑”，而在“高峰稳定和检索质量可回归”。需要缓存、分级策略和压测门禁。</p>
-<h3 id="Q4：先用-Qwen-最强模型验证效果，后续再谈成本，是否可行？"><a href="#Q4：先用-Qwen-最强模型验证效果，后续再谈成本，是否可行？" class="headerlink" title="Q4：先用 Qwen 最强模型验证效果，后续再谈成本，是否可行？"></a>Q4：先用 Qwen 最强模型验证效果，后续再谈成本，是否可行？</h3><p>可行，且是正确顺序。先做质量上限验证，再做成本优化和模型分层。</p>
-<h3 id="Q5：Reranker-私有部署和公有部署区别？"><a href="#Q5：Reranker-私有部署和公有部署区别？" class="headerlink" title="Q5：Reranker 私有部署和公有部署区别？"></a>Q5：Reranker 私有部署和公有部署区别？</h3><p>公有部署：上线快、质量通常更好、免运维，但有调用成本和外部延迟。<br>私有部署：数据与服务更可控，但你当前 <code>4核8G + 无GPU</code> 条件下吞吐会受限。<br>建议：<strong>先公有验证，后私有评估</strong>。</p>
-<h3 id="Q6：ACL-是什么？"><a href="#Q6：ACL-是什么？" class="headerlink" title="Q6：ACL 是什么？"></a>Q6：ACL 是什么？</h3><p>ACL（Access Control List）是访问控制列表。<br>在 RAG 里就是“谁能检索到哪些文档&#x2F;片段”的硬约束，必须在召回阶段就生效。</p>
-<h3 id="Q7：数据更新要分钟级，能支持吗？"><a href="#Q7：数据更新要分钟级，能支持吗？" class="headerlink" title="Q7：数据更新要分钟级，能支持吗？"></a>Q7：数据更新要分钟级，能支持吗？</h3><p>能。需要增量 ingest + upsert 索引 + 任务队列，避免全量重建。</p>
-<h3 id="Q8：Dify-和自研双接入是否推荐？"><a href="#Q8：Dify-和自研双接入是否推荐？" class="headerlink" title="Q8：Dify 和自研双接入是否推荐？"></a>Q8：Dify 和自研双接入是否推荐？</h3><p>推荐。这正是当前阶段“快 + 稳 + 可扩展”的最优策略。</p>
-<h3 id="Q9：什么是金标问答？为什么必须做？"><a href="#Q9：什么是金标问答？为什么必须做？" class="headerlink" title="Q9：什么是金标问答？为什么必须做？"></a>Q9：什么是金标问答？为什么必须做？</h3><p>金标问答不是 few-shot，它是评测基准集。<br>作用是客观评估“改了检索策略后是否真的变好”，避免调参靠感觉。</p>
-<p>示例（非行业）：</p>
+<h2 id="决策记录（Decision-Log）"><a href="#决策记录（Decision-Log）" class="headerlink" title="决策记录（Decision Log）"></a>决策记录（Decision Log）</h2><h3 id="尖锐结论（4-条）"><a href="#尖锐结论（4-条）" class="headerlink" title="尖锐结论（4 条）"></a>尖锐结论（4 条）</h3><p>a. 瓶颈在 <strong>数据清洗 + chunk 策略 + 检索过滤 + 评测集</strong>，不是 Agent 花样。<br>b. 最优路线是 <strong>“自研检索内核 + 现有 Python Control Plane + 可选 Dify External Knowledge API”</strong>。<br>c. Agent 策略收敛为：<strong>ReAct 默认；Plan-and-solve 仅复杂任务；Reflection 仅低置信&#x2F;高风险触发</strong>。<br>d. 没有 <strong>Gold Set（金标问答）+ 回归门禁</strong>，系统很容易“看起来能答但不稳定”。  </p>
+<h3 id="最该先拍板的-10-个问题（完整列出）"><a href="#最该先拍板的-10-个问题（完整列出）" class="headerlink" title="最该先拍板的 10 个问题（完整列出）"></a>最该先拍板的 10 个问题（完整列出）</h3><ol>
+<li>数据合规先不管，能不能先做？</li>
+<li>如果增强效果需要上新基础设施，可以加吗？</li>
+<li>数据量 <code>&lt;= 20G</code>、QPS <code>50~500</code>，整体怎么设计？</li>
+<li>先用 Qwen 最强模型验证效果，后续再谈成本，是否可行？</li>
+<li>Reranker 私有部署和公有部署的关键区别是什么？</li>
+<li>ACL 是什么？在 RAG 链路里放在哪一层？</li>
+<li>数据更新要分钟级，能支持吗？</li>
+<li>Dify 和自研双接入是否推荐？</li>
+<li>什么是金标问答？为什么必须做？</li>
+<li>低置信时策略怎么定？</li>
+</ol>
+<h3 id="关键决策结论（按讨论时间固化）"><a href="#关键决策结论（按讨论时间固化）" class="headerlink" title="关键决策结论（按讨论时间固化）"></a>关键决策结论（按讨论时间固化）</h3><table>
+<thead>
+<tr>
+<th>日期</th>
+<th>决策项</th>
+<th>结论</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2026-02-20</td>
+<td>路线选择</td>
+<td>采用混合路线，不做纯 Dify&#x2F;纯自研二选一。</td>
+</tr>
+<tr>
+<td>2026-02-20</td>
+<td>能力分层</td>
+<td>Dify 负责流程编排试错；检索上限由自研内核负责。</td>
+</tr>
+<tr>
+<td>2026-02-20</td>
+<td>Agent 策略</td>
+<td>ReAct 默认；Plan-and-solve 和 Reflection 改为按条件触发。</td>
+</tr>
+<tr>
+<td>2026-02-20</td>
+<td>质量门禁</td>
+<td>必须建设 Gold Set 与回归评测，禁止“凭感觉调参上线”。</td>
+</tr>
+</tbody></table>
+<h2 id="Q-A-纪要（含用户原始输入）"><a href="#Q-A-纪要（含用户原始输入）" class="headerlink" title="Q&amp;A 纪要（含用户原始输入）"></a>Q&amp;A 纪要（含用户原始输入）</h2><p>以下 10 条“用户原始输入 + 用户回答”按讨论记录完整保留，不做摘要改写。</p>
+<h3 id="Q1"><a href="#Q1" class="headerlink" title="Q1"></a>Q1</h3><p>用户原始输入：数据合规先不管，能不能先做？<br>用户回答（完整保留）：可以先做验证版，但建议保留文档来源和版本元数据，后续补治理时不会返工。</p>
+<h3 id="Q2"><a href="#Q2" class="headerlink" title="Q2"></a>Q2</h3><p>用户原始输入：如果增强效果需要上新基础设施，可以加吗？<br>用户回答（完整保留）：可以。建议优先上支持混合检索的引擎（如 OpenSearch）。</p>
+<h3 id="Q3"><a href="#Q3" class="headerlink" title="Q3"></a>Q3</h3><p>用户原始输入：数据量 <code>&lt;= 20G</code>，QPS <code>50~500</code>，怎么设计？<br>用户回答（完整保留）：这个规模下，核心不在“能不能跑”，而在“高峰稳定和检索质量可回归”。需要缓存、分级策略和压测门禁。</p>
+<h3 id="Q4"><a href="#Q4" class="headerlink" title="Q4"></a>Q4</h3><p>用户原始输入：先用 Qwen 最强模型验证效果，后续再谈成本，是否可行？<br>用户回答（完整保留）：可行，且是正确顺序。先做质量上限验证，再做成本优化和模型分层。</p>
+<h3 id="Q5"><a href="#Q5" class="headerlink" title="Q5"></a>Q5</h3><p>用户原始输入：Reranker 私有部署和公有部署区别？<br>用户回答（完整保留）：</p>
+<p>公有部署：上线快、质量通常更好、免运维，但有调用成本和外部延迟。<br>私有部署：数据与服务更可控，但你当前 <code>4核8G + 无GPU</code> 条件下吞吐会受限。<br>建议：<strong>先公有验证，后私有评估</strong>。</p>
+<h3 id="Q6"><a href="#Q6" class="headerlink" title="Q6"></a>Q6</h3><p>用户原始输入：ACL 是什么？<br>用户回答（完整保留）：ACL（Access Control List）是访问控制列表。在 RAG 里就是“谁能检索到哪些文档&#x2F;片段”的硬约束，必须在召回阶段就生效。</p>
+<h3 id="Q7"><a href="#Q7" class="headerlink" title="Q7"></a>Q7</h3><p>用户原始输入：数据更新要分钟级，能支持吗？<br>用户回答（完整保留）：能。需要增量 ingest + upsert 索引 + 任务队列，避免全量重建。</p>
+<h3 id="Q8"><a href="#Q8" class="headerlink" title="Q8"></a>Q8</h3><p>用户原始输入：Dify 和自研双接入是否推荐？<br>用户回答（完整保留）：推荐。这正是当前阶段“快 + 稳 + 可扩展”的最优策略。</p>
+<h3 id="Q9"><a href="#Q9" class="headerlink" title="Q9"></a>Q9</h3><p>用户原始输入：什么是金标问答？为什么必须做？<br>用户回答（完整保留）：金标问答不是 few-shot，它是评测基准集。作用是客观评估“改了检索策略后是否真的变好”，避免调参靠感觉。</p>
+<p>金标样例（非行业）：</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;qa_001&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;锅炉水质硬度超标会导致什么问题？&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;answerable&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;expected_doc_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;doc_chem_12&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;doc_ops_03&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;must_include_points&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;结垢风险&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;换热效率下降&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;能耗上升&quot;</span><span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
 
-<h3 id="Q10：低置信时策略怎么定？"><a href="#Q10：低置信时策略怎么定？" class="headerlink" title="Q10：低置信时策略怎么定？"></a>Q10：低置信时策略怎么定？</h3><p>采用“<strong>追问 + 带风险提示回答</strong>”。这是兼顾可用性与安全性的合理策略。</p>
-<h2 id="生产落地建议（阶段化）"><a href="#生产落地建议（阶段化）" class="headerlink" title="生产落地建议（阶段化）"></a>生产落地建议（阶段化）</h2><h3 id="Phase-1：2-3-周，先跑通效果"><a href="#Phase-1：2-3-周，先跑通效果" class="headerlink" title="Phase 1：2~3 周，先跑通效果"></a>Phase 1：2~3 周，先跑通效果</h3><ol>
-<li>建立最小 ingest pipeline（解析&#x2F;清洗&#x2F;切分&#x2F;元数据）。</li>
-<li>上线 <code>Hybrid Retrieval</code>（关键词 + 向量）与基础过滤。</li>
+<h3 id="Q10"><a href="#Q10" class="headerlink" title="Q10"></a>Q10</h3><p>用户原始输入：低置信时策略怎么定？<br>用户回答（完整保留）：采用“<strong>追问 + 带风险提示回答</strong>”。这是兼顾可用性与安全性的合理策略。</p>
+<h2 id="术语解释（4-个）"><a href="#术语解释（4-个）" class="headerlink" title="术语解释（4 个）"></a>术语解释（4 个）</h2><h3 id="Hybrid-Retrieval"><a href="#Hybrid-Retrieval" class="headerlink" title="Hybrid Retrieval"></a>Hybrid Retrieval</h3><p>同一查询同时做关键词召回（BM25 等）和向量召回，再做融合排序。目标是兼顾“术语精确命中”和“语义相近召回”。</p>
+<h3 id="Reranker"><a href="#Reranker" class="headerlink" title="Reranker"></a>Reranker</h3><p>对初步召回结果做二次排序的模型&#x2F;服务。它不负责“广撒网召回”，主要负责“把更相关结果排到前面”。</p>
+<h3 id="Reflection-Gating"><a href="#Reflection-Gating" class="headerlink" title="Reflection Gating"></a>Reflection Gating</h3><p>不是全量反思，而是“按门控触发反思”：仅在低置信度、高风险问题时触发，避免时延与成本失控。</p>
+<h3 id="Gold-Set"><a href="#Gold-Set" class="headerlink" title="Gold Set"></a>Gold Set</h3><p>用于评测的金标问答集，不是提示词样例。核心用途是做离线评测和回归门禁，验证系统改动是否真实提升。</p>
+<h2 id="基于-10-条回答的落地结论"><a href="#基于-10-条回答的落地结论" class="headerlink" title="基于 10 条回答的落地结论"></a>基于 10 条回答的落地结论</h2><h3 id="路线定型"><a href="#路线定型" class="headerlink" title="路线定型"></a>路线定型</h3><p>路线正式定为：<strong>自研检索内核 + 现有 Python Control Plane + 可选 Dify External Knowledge API</strong>。<br>这保证了短期上线速度与长期可控上限兼得。</p>
+<h3 id="尖锐提醒"><a href="#尖锐提醒" class="headerlink" title="尖锐提醒"></a>尖锐提醒</h3><p>如果先投入大量时间做 Agent 花样，而没有先稳定“清洗、切分、检索过滤、评测集”，上线后会出现“个别案例惊艳、整体稳定性不足”的典型反模式。</p>
+<h3 id="关键问答解释（影响实现优先级）"><a href="#关键问答解释（影响实现优先级）" class="headerlink" title="关键问答解释（影响实现优先级）"></a>关键问答解释（影响实现优先级）</h3><ol>
+<li>Q4 明确“先上限后成本”：先用强模型验证能力上限，再做分层降本。  </li>
+<li>Q5 明确“先公有后私有”：在 <code>4核8G + 无GPU</code> 资源约束下，先用公有 reranker 更稳妥。  </li>
+<li>Q7 明确“分钟级更新要靠增量链路”：必须做 ingest 增量化与 upsert，不能靠全量重建。  </li>
+<li>Q9&#x2F;Q10 明确“必须可评测 + 可兜底”：有金标、有门禁、有低置信策略，才是生产系统。</li>
+</ol>
+<h3 id="金标样例（用于回归评测）"><a href="#金标样例（用于回归评测）" class="headerlink" title="金标样例（用于回归评测）"></a>金标样例（用于回归评测）</h3><p>以下样例沿用 Q9 讨论，用于说明 Gold Set 的结构要求：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;qa_001&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;锅炉水质硬度超标会导致什么问题？&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;answerable&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;expected_doc_ids&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;doc_chem_12&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;doc_ops_03&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;must_include_points&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;结垢风险&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;换热效率下降&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;能耗上升&quot;</span><span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="推荐技术方案（由-Q-A-反推）"><a href="#推荐技术方案（由-Q-A-反推）" class="headerlink" title="推荐技术方案（由 Q&amp;A 反推）"></a>推荐技术方案（由 Q&amp;A 反推）</h3><ol>
+<li>检索：<code>Hybrid Retrieval + ACL 过滤 + 条件触发 reranker</code>。  </li>
+<li>编排：Python Control Plane 承担主链路编排与工具路由。  </li>
+<li>对接：保留 Dify External Knowledge API 作为可选知识入口。  </li>
+<li>评测：Gold Set + 回归门禁（Recall@K、citation 覆盖率、低置信策略命中率、P95 时延）。</li>
+</ol>
+<h2 id="架构方案与阶段计划"><a href="#架构方案与阶段计划" class="headerlink" title="架构方案与阶段计划"></a>架构方案与阶段计划</h2><h3 id="架构分层（生产口径）"><a href="#架构分层（生产口径）" class="headerlink" title="架构分层（生产口径）"></a>架构分层（生产口径）</h3><ol>
+<li>接入层：Dify 编排入口（快速试错）+ Python Agent 入口（主生产路径）。  </li>
+<li>检索层（自研内核）：解析&#x2F;清洗&#x2F;切分、混合召回、ACL 过滤、reranker、证据引用。  </li>
+<li>决策层：默认 ReAct；复杂任务才启用 Plan-and-solve；低置信&#x2F;高风险才启用 Reflection。  </li>
+<li>评测与观测层：Gold Set 回归评测、线上指标告警、链路可追踪。</li>
+</ol>
+<h3 id="阶段计划（沿用原讨论节奏）"><a href="#阶段计划（沿用原讨论节奏）" class="headerlink" title="阶段计划（沿用原讨论节奏）"></a>阶段计划（沿用原讨论节奏）</h3><h4 id="Phase-1（2-3-周）：先跑通效果"><a href="#Phase-1（2-3-周）：先跑通效果" class="headerlink" title="Phase 1（2~3 周）：先跑通效果"></a>Phase 1（2~3 周）：先跑通效果</h4><ol>
+<li>建立最小 ingest pipeline（解析&#x2F;清洗&#x2F;切分&#x2F;元数据）。  </li>
+<li>上线 <code>Hybrid Retrieval</code>（关键词 + 向量）与基础过滤。  </li>
 <li>输出可引用证据（chunk&#x2F;doc 引用 ID）。</li>
 </ol>
-<h3 id="Phase-2：3-5-周，提升稳定性"><a href="#Phase-2：3-5-周，提升稳定性" class="headerlink" title="Phase 2：3~5 周，提升稳定性"></a>Phase 2：3~5 周，提升稳定性</h3><ol>
-<li>加 reranker（按复杂度和置信度触发）。</li>
-<li>建立分钟级增量更新链路。</li>
+<h4 id="Phase-2（3-5-周）：提升稳定性"><a href="#Phase-2（3-5-周）：提升稳定性" class="headerlink" title="Phase 2（3~5 周）：提升稳定性"></a>Phase 2（3~5 周）：提升稳定性</h4><ol>
+<li>加 reranker（按复杂度和置信度触发）。  </li>
+<li>建立分钟级增量更新链路。  </li>
 <li>建立缓存与限流，控制峰值时延。</li>
 </ol>
-<h3 id="Phase-3：5-8-周，工程化闭环"><a href="#Phase-3：5-8-周，工程化闭环" class="headerlink" title="Phase 3：5~8 周，工程化闭环"></a>Phase 3：5~8 周，工程化闭环</h3><ol>
-<li>建立金标问答集和离线评测流水线。</li>
-<li>对接 Dify External Knowledge API 与 Python Agent 双入口。</li>
+<h4 id="Phase-3（5-8-周）：工程化闭环"><a href="#Phase-3（5-8-周）：工程化闭环" class="headerlink" title="Phase 3（5~8 周）：工程化闭环"></a>Phase 3（5~8 周）：工程化闭环</h4><ol>
+<li>建立金标问答集和离线评测流水线。  </li>
+<li>对接 Dify External Knowledge API 与 Python Agent 双入口。  </li>
 <li>做回归门禁（Recall@K、citation 覆盖率、低置信策略命中率、P95 时延）。</li>
 </ol>
-<h2 id="面试亮点怎么讲"><a href="#面试亮点怎么讲" class="headerlink" title="面试亮点怎么讲"></a>面试亮点怎么讲</h2><p>这套项目建议按下面这条主线讲：</p>
-<ol>
-<li>我没有做“玩具 Agent”，而是做了“可运营 RAG 平台化能力”。</li>
-<li>架构上用双通道解耦了“业务实时数据工具调用”和“行业知识检索问答”。</li>
-<li>通过金标评测和回归门禁，把模型调优从“经验主义”变成“工程可验证”。</li>
-<li>在资源受限（无 GPU）条件下，通过分级策略、缓存和路由，实现了效果与成本平衡。</li>
+<h2 id="风险与反模式"><a href="#风险与反模式" class="headerlink" title="风险与反模式"></a>风险与反模式</h2><ol>
+<li>反模式：过早追求 Agent 复杂策略，忽略数据清洗与 chunk 质量。<br>风险：线上结果波动大、复现困难。</li>
+<li>反模式：没有 Gold Set 和回归门禁就频繁改策略。<br>风险：每次优化都可能隐性退化。</li>
+<li>反模式：ACL 后置到生成阶段才做。<br>风险：召回阶段即发生越权风险。</li>
+<li>反模式：分钟级更新诉求仍走全量重建。<br>风险：索引延迟不可控，资源浪费。</li>
+<li>反模式：低置信场景不给追问&#x2F;风险提示。<br>风险：系统“答得很满但不可靠”。</li>
 </ol>
-<h2 id="最后一句"><a href="#最后一句" class="headerlink" title="最后一句"></a>最后一句</h2><p>在铸造 MES&#x2F;ERP 场景，真正决定成败的不是“Agent 名字有多花”，而是：</p>
-<ol>
-<li>数据管道质量。</li>
-<li>检索与过滤设计。</li>
-<li>评测和回归体系。</li>
-</ol>
-<p>先把这三件事做好，RAG 才会从 Demo 变成生产能力。</p>
+<h2 id="后续行动项（Owner-截止）"><a href="#后续行动项（Owner-截止）" class="headerlink" title="后续行动项（Owner&#x2F;截止）"></a>后续行动项（Owner&#x2F;截止）</h2><table>
+<thead>
+<tr>
+<th>行动项</th>
+<th>Owner</th>
+<th>截止</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>形成 <code>Gold Set v1</code>（至少覆盖上述 10 个高频问题）</td>
+<td>业务专家 + AI 平台（待指派）</td>
+<td>2026-02-27</td>
+</tr>
+<tr>
+<td>打通增量 ingest + upsert（分钟级更新）</td>
+<td>数据接入负责人（待指派）</td>
+<td>2026-03-06</td>
+</tr>
+<tr>
+<td>完成 Hybrid Retrieval + ACL 召回前置</td>
+<td>检索内核负责人（待指派）</td>
+<td>2026-03-13</td>
+</tr>
+<tr>
+<td>上线条件触发 reranker 与低置信兜底策略</td>
+<td>推理编排负责人（待指派）</td>
+<td>2026-03-20</td>
+</tr>
+<tr>
+<td>建立回归门禁（Recall@K &#x2F; citation &#x2F; P95）并接入发布流程</td>
+<td>评测与平台工程负责人（待指派）</td>
+<td>2026-03-27</td>
+</tr>
+</tbody></table>
+<h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>在铸造 MES&#x2F;ERP 场景，真正决定成败的不是 Agent 名字，而是数据管道质量、检索过滤设计、评测回归体系。<br>先把这三件事做扎实，RAG 才能从 Demo 变成稳定生产能力。</p>
 
                 
               </div>
