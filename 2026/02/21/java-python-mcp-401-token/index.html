@@ -19,28 +19,27 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+    <meta name="description" content="本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义">
 <meta property="og:type" content="article">
-<meta property="og:title" content="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/index.html">
+<meta property="og:title" content="Java&#x2F;Python MCP 401 排查里程碑：Token 对齐与方案简化">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/21/java-python-mcp-401-token/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+<meta property="og:description" content="本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-20T14:44:15.000Z">
+<meta property="article:published_time" content="2026-02-21T16:45:55.000Z">
 <meta property="article:modified_time" content="2026-02-21T16:48:08.608Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="AI工程">
 <meta property="article:tag" content="MCP">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="里程碑">
-<meta property="article:tag" content="依赖治理">
-<meta property="article:tag" content="配置清理">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="401排查">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>里程碑进展：Java AI 模块配置与依赖清理（MCP 版） - 味儿福德詹的小站</title>
+  <title>Java/Python MCP 401 排查里程碑：Token 对齐与方案简化 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +217,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）"></span>
+            <span id="subtitle" data-typed-text="Java/Python MCP 401 排查里程碑：Token 对齐与方案简化"></span>
           
         </div>
 
@@ -229,8 +228,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-20 22:44" pubdate>
-          2026年2月20日 晚上
+        <time datetime="2026-02-22 00:45" pubdate>
+          2026年2月22日 凌晨
         </time>
       </span>
     
@@ -241,7 +240,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          466 字
+          540 字
         
       </span>
     
@@ -252,7 +251,7 @@
         
         
         
-          4 分钟
+          5 分钟
         
       </span>
     
@@ -289,40 +288,70 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</h1>
+            <h1 id="seo-header">Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="里程碑范围"><a href="#里程碑范围" class="headerlink" title="里程碑范围"></a>里程碑范围</h2><p>本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。</p>
-<h2 id="配置清理结果（YAML）"><a href="#配置清理结果（YAML）" class="headerlink" title="配置清理结果（YAML）"></a>配置清理结果（YAML）</h2><p>在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：</p>
-<ol>
-<li>删除历史遗留且已废弃的配置段：<code>ai.model</code>、<code>ai.store</code>、<code>ai.prompt</code>、<code>ai.archive</code>。</li>
-<li>保留当前仍在使用的配置段：<code>ai.mcp</code>、<code>ai.dify</code>。</li>
-<li>结果：配置语义与当前架构一致，避免“看得见但不会生效”的伪配置继续干扰排查。</li>
-</ol>
-<h2 id="依赖清理结果（POM）"><a href="#依赖清理结果（POM）" class="headerlink" title="依赖清理结果（POM）"></a>依赖清理结果（POM）</h2><p>在 <code>pom</code> 依赖中，已完成未使用 legacy AI 依赖剔除：</p>
-<ol>
-<li>移除：<code>langchain4j-dashscope</code>、<code>langchain4j-open-ai</code>。</li>
-<li>保留：<code>langchain4j</code> 核心能力（按当前实现需要）与 <code>dashscope-sdk-java</code>（在需要的位置继续使用）。</li>
-<li>结果：依赖树更干净，后续升级与漏洞治理成本下降。</li>
-</ol>
-<h2 id="验证结论"><a href="#验证结论" class="headerlink" title="验证结论"></a>验证结论</h2><p>已执行编译验证命令并通过：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">mvn -pl ruoyi-admin -am -DskipTests compile<br></code></pre></td></tr></table></figure>
+                <p>本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。</p>
+<h2 id="里程碑结论"><a href="#里程碑结论" class="headerlink" title="里程碑结论"></a>里程碑结论</h2><ul>
+<li>401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 <code>X-AI-MCP-TOKEN</code> 校验失败。</li>
+<li>方案已简化：Python 侧仅保留一个配置入口 <code>MCP_API_TOKEN</code>，默认值固定为 <code>AAA</code>，移除复杂 fallback 链路，减少歧义与隐式行为。</li>
+</ul>
+<h2 id="方案变更说明（单一目的）"><a href="#方案变更说明（单一目的）" class="headerlink" title="方案变更说明（单一目的）"></a>方案变更说明（单一目的）</h2><p>本次变更目标只有一个：让 Python MCPClient 的 token 来源明确、默认行为稳定，避免再次出现“配置看似生效但实际不一致”的 401。</p>
+<ul>
+<li>配置入口：<code>MCP_API_TOKEN</code></li>
+<li>默认值：<code>AAA</code></li>
+<li>行为：若未显式设置环境变量，统一走默认 <code>AAA</code>；若设置了 <code>MCP_API_TOKEN</code>，严格使用该值。</li>
+</ul>
+<h2 id="验证证据"><a href="#验证证据" class="headerlink" title="验证证据"></a>验证证据</h2><h3 id="1-直连-probe（MCP-可达性-工具数量）"><a href="#1-直连-probe（MCP-可达性-工具数量）" class="headerlink" title="1) 直连 probe（MCP 可达性 + 工具数量）"></a>1) 直连 probe（MCP 可达性 + 工具数量）</h3><p>命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -sS -X POST <span class="hljs-string">&#x27;http://127.0.0.1:10001/ai/mcp/tools/list&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Content-Type: application/json&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;X-AI-MCP-TOKEN: AAA&#x27;</span> \<br>  -d <span class="hljs-string">&#x27;&#123;&#125;&#x27;</span><br><br>curl -sS <span class="hljs-string">&#x27;http://127.0.0.1:8000/system/mcp/status?refresh=true&#x27;</span><br></code></pre></td></tr></table></figure>
 
-<p>这说明本次“配置 + 依赖”清理在当前里程碑范围内未引入编译级回归。</p>
-<h2 id="当前验收状态"><a href="#当前验收状态" class="headerlink" title="当前验收状态"></a>当前验收状态</h2><p>当前里程碑验收状态：<strong>已通过（范围内通过）</strong>。</p>
-<p>说明：</p>
+<p>结果要点：</p>
+<ul>
+<li><code>tools/list</code> 返回 <code>code=200</code></li>
+<li><code>system/mcp/status</code> 返回：<ul>
+<li><code>connected=true</code></li>
+<li><code>tool_count=10</code></li>
+<li><code>detail=&quot;ok (tools=10)&quot;</code></li>
+</ul>
+</li>
+</ul>
+<h3 id="2-Python-单测"><a href="#2-Python-单测" class="headerlink" title="2) Python 单测"></a>2) Python 单测</h3><p>命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pytest tests/test_mcp_client.py<br></code></pre></td></tr></table></figure>
+
+<p>结果要点：</p>
+<ul>
+<li><code>collected 5 items</code></li>
+<li><code>5 passed</code></li>
+<li>核验覆盖了：<ul>
+<li>未设置 <code>MCP_API_TOKEN</code> 时默认 <code>AAA</code></li>
+<li>设置 <code>MCP_API_TOKEN</code> 时优先使用环境变量值</li>
+</ul>
+</li>
+</ul>
+<h2 id="回滚与风险说明（按-SPEC）"><a href="#回滚与风险说明（按-SPEC）" class="headerlink" title="回滚与风险说明（按 SPEC）"></a>回滚与风险说明（按 SPEC）</h2><h3 id="可追溯"><a href="#可追溯" class="headerlink" title="可追溯"></a>可追溯</h3><ul>
+<li>结论、命令、结果均已固化在本工作日志。</li>
+<li>验证入口固定：<code>/system/mcp/status?refresh=true</code> 与 <code>tests/test_mcp_client.py</code>。</li>
+</ul>
+<h3 id="可回退"><a href="#可回退" class="headerlink" title="可回退"></a>可回退</h3><p>若线上出现不兼容，可按最小改动回退：</p>
 <ol>
-<li>MCP 方向相关配置与依赖清理目标已达成。</li>
-<li>编译链路已验证可通过。</li>
-<li>全量测试基线仍存在历史遗留的无关失败项，本次不作为阻塞项。</li>
+<li>回退 Python 侧本次 token 简化提交（仅回退 token 配置相关变更）。</li>
+<li>恢复旧配置逻辑后，立即执行：<ul>
+<li><code>pytest tests/test_mcp_client.py</code></li>
+<li><code>curl .../system/mcp/status?refresh=true</code></li>
+</ul>
+</li>
+<li>以 <code>connected</code>、<code>tool_count</code>、401 告警是否消失作为回退验收。</li>
 </ol>
-<h2 id="下一步计划"><a href="#下一步计划" class="headerlink" title="下一步计划"></a>下一步计划</h2><ol>
-<li>建立并收敛一版“可重复”的全量测试基线，先对历史失败做归因分层（本次改动相关 &#x2F; 无关）。</li>
-<li>在 CI 中补充针对 AI 模块的最小回归检查（至少覆盖配置加载、关键 Bean 初始化、核心调用链烟测）。</li>
-<li>持续推进 legacy 残留项扫描，避免后续分支再次引入已移除依赖或配置段。</li>
-</ol>
+<h3 id="单一目的变更"><a href="#单一目的变更" class="headerlink" title="单一目的变更"></a>单一目的变更</h3><ul>
+<li>本次只处理 MCP token 对齐与默认值策略，不扩展到工具路由、SSE、RunStore 等其他模块。</li>
+<li>遵循最小变更面，降低联动回归风险。</li>
+</ul>
+<h2 id="后续观察项"><a href="#后续观察项" class="headerlink" title="后续观察项"></a>后续观察项</h2><ul>
+<li>统一各环境（dev&#x2F;test&#x2F;prod）<code>MCP_API_TOKEN</code> 注入方式，避免“本地默认可用、环境变量缺失”导致偏差。</li>
+<li>监控 Java MCP 401&#x2F;403 比例，作为 token 配置漂移的早期信号。</li>
+</ul>
 
                 
               </div>
@@ -358,17 +387,15 @@
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
-      
         <a href="/tags/MCP/" class="print-no-link">#MCP</a>
       
         <a href="/tags/Java/" class="print-no-link">#Java</a>
       
         <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
       
-        <a href="/tags/%E4%BE%9D%E8%B5%96%E6%B2%BB%E7%90%86/" class="print-no-link">#依赖治理</a>
+        <a href="/tags/Python/" class="print-no-link">#Python</a>
       
-        <a href="/tags/%E9%85%8D%E7%BD%AE%E6%B8%85%E7%90%86/" class="print-no-link">#配置清理</a>
+        <a href="/tags/401%E6%8E%92%E6%9F%A5/" class="print-no-link">#401排查</a>
       
     </div>
   
@@ -380,8 +407,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</div>
-      <div>https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/</div>
+      <div>Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</div>
+      <div>https://willfordzhan.github.io/2026/02/21/java-python-mcp-401-token/</div>
     </div>
     <div class="license-meta">
       
@@ -393,7 +420,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月20日</div>
+          <div>2026年2月22日</div>
         </div>
       
       
@@ -425,18 +452,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/20/dify-rag-mes-erp/" title="Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/20/dynamic-paradigm-orchestrator-optimization/" title="动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化">
-                        <span class="hidden-mobile">动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化</span>
+                      <a href="/2026/02/21/rag-opensearch-rrf-ingest/" title="RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest">
+                        <span class="hidden-mobile">RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
