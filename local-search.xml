@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>Customized Spec：我的 AI 开发流程规范（PO/架构师监管 + 多Agent并行）</title>
+    <link href="/2026/02/21/customized-spec-ai-po-agent/"/>
+    <url>/2026/02/21/customized-spec-ai-po-agent/</url>
+    
+    <content type="html"><![CDATA[<p>这不是“多加一层流程”，而是把已经在做的事情变成可复用、可审计、可并行扩展的工程规范。</p><h2 id="为什么要做这份-Spec"><a href="#为什么要做这份-Spec" class="headerlink" title="为什么要做这份 Spec"></a>为什么要做这份 Spec</h2><p>过去 AI 研发里最常见的问题不是“模型不够强”，而是：</p><ol><li>需求口径经常漂移，执行层只能边做边猜。</li><li>多个 Agent 并行时，边界不清，返工和冲突频繁。</li><li>结果难复盘，出了问题只能靠个人记忆追责。</li></ol><p>所以我把流程标准化为 <code>Customized Spec</code>：用 PO&#x2F;架构师做监管闭环，用多 Agent 做执行并行，把速度和质量同时拉起来。</p><h2 id="角色分工（监管者-vs-执行者）"><a href="#角色分工（监管者-vs-执行者）" class="headerlink" title="角色分工（监管者 vs 执行者）"></a>角色分工（监管者 vs 执行者）</h2><h3 id="监管者（PO-架构师）"><a href="#监管者（PO-架构师）" class="headerlink" title="监管者（PO&#x2F;架构师）"></a>监管者（PO&#x2F;架构师）</h3><ol><li>定义任务边界、验收标准和优先级。</li><li>拆解里程碑，控制节奏与风险。</li><li>审阅关键设计与关键提交，做 go&#x2F;no-go 决策。</li><li>维护规范资产：模板、检查清单、回滚策略。</li></ol><h3 id="执行者（多-Agent-人类开发者）"><a href="#执行者（多-Agent-人类开发者）" class="headerlink" title="执行者（多 Agent + 人类开发者）"></a>执行者（多 Agent + 人类开发者）</h3><ol><li>按分工并行实现，严格遵守输入输出契约。</li><li>在每个里程碑提交可验证产物（代码&#x2F;文档&#x2F;测试）。</li><li>主动暴露阻塞与风险，不隐性跳过规范步骤。</li><li>通过 PR&#x2F;日志沉淀可追踪证据链。</li></ol><p>核心原则：监管者负责“方向和质量门”，执行者负责“速度和产出密度”。</p><h2 id="端到端七阶段流程"><a href="#端到端七阶段流程" class="headerlink" title="端到端七阶段流程"></a>端到端七阶段流程</h2><ol><li><code>Stage 1 - 任务立项</code>：明确业务目标、范围、约束、验收指标。</li><li><code>Stage 2 - Spec 编制</code>：输出任务 spec，定义角色、接口、风险与回滚方案。</li><li><code>Stage 3 - 架构评审</code>：监管者确认方案可行性与并行切分策略。</li><li><code>Stage 4 - 多 Agent 执行</code>：按子任务并行推进，保持接口一致性。</li><li><code>Stage 5 - 集成验证</code>：合并产物，执行测试与数据回归校验。</li><li><code>Stage 6 - 里程碑发布</code>：按阶段打里程碑 commit，并同步里程碑 blog。</li><li><code>Stage 7 - 复盘沉淀</code>：记录偏差、复用资产、更新规范版本。</li></ol><h2 id="MUST-SHOULD-MUST-NOT-清单"><a href="#MUST-SHOULD-MUST-NOT-清单" class="headerlink" title="MUST &#x2F; SHOULD &#x2F; MUST NOT 清单"></a>MUST &#x2F; SHOULD &#x2F; MUST NOT 清单</h2><h3 id="MUST"><a href="#MUST" class="headerlink" title="MUST"></a>MUST</h3><ol><li>必须先有 spec，再进入编码阶段。</li><li>必须定义监管者与执行者责任边界。</li><li>必须按里程碑提交，且每个里程碑可独立验证。</li><li>必须保留证据链（commit、PR、日志、测试结果）。</li></ol><h3 id="SHOULD"><a href="#SHOULD" class="headerlink" title="SHOULD"></a>SHOULD</h3><ol><li>应优先做高风险项前置验证（PoC&#x2F;烟囱测试）。</li><li>应使用统一模板减少沟通成本。</li><li>应在每日&#x2F;每阶段结束时同步状态快照。</li><li>应在复盘中输出可复用“反模式清单”。</li></ol><h3 id="MUST-NOT"><a href="#MUST-NOT" class="headerlink" title="MUST NOT"></a>MUST NOT</h3><ol><li>禁止无 spec 直接大规模编码。</li><li>禁止跨角色越权决策（执行者直接改需求口径）。</li><li>禁止里程碑前一次性堆积提交。</li><li>禁止发布后不做复盘闭环。</li></ol><h2 id="YAML-模板片段"><a href="#YAML-模板片段" class="headerlink" title="YAML 模板片段"></a>YAML 模板片段</h2><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">customized_spec:</span><br>  <span class="hljs-attr">meta:</span><br>    <span class="hljs-attr">name:</span> <span class="hljs-string">&quot;任务名称&quot;</span><br>    <span class="hljs-attr">owner:</span> <span class="hljs-string">&quot;监管者(PO/架构师)&quot;</span><br>    <span class="hljs-attr">version:</span> <span class="hljs-string">&quot;v1.0&quot;</span><br>  <span class="hljs-attr">goal:</span><br>    <span class="hljs-attr">business_objective:</span> <span class="hljs-string">&quot;业务目标&quot;</span><br>    <span class="hljs-attr">acceptance_criteria:</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;验收条件1&quot;</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;验收条件2&quot;</span><br>  <span class="hljs-attr">roles:</span><br>    <span class="hljs-attr">supervisor:</span><br>      <span class="hljs-attr">responsibilities:</span><br>        <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;范围与优先级裁决&quot;</span><br>        <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;关键设计审批&quot;</span><br>    <span class="hljs-attr">executors:</span><br>      <span class="hljs-attr">responsibilities:</span><br>        <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;并行实现&quot;</span><br>        <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;测试与证据提交&quot;</span><br>  <span class="hljs-attr">milestones:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">id:</span> <span class="hljs-string">&quot;M1&quot;</span><br>      <span class="hljs-attr">output:</span> <span class="hljs-string">&quot;spec + 架构评审记录&quot;</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">id:</span> <span class="hljs-string">&quot;M2&quot;</span><br>      <span class="hljs-attr">output:</span> <span class="hljs-string">&quot;核心功能可运行&quot;</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">id:</span> <span class="hljs-string">&quot;M3&quot;</span><br>      <span class="hljs-attr">output:</span> <span class="hljs-string">&quot;集成验收 + 发布说明&quot;</span><br>  <span class="hljs-attr">guardrails:</span><br>    <span class="hljs-attr">must:</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;先spec后编码&quot;</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;里程碑可验证&quot;</span><br>    <span class="hljs-attr">must_not:</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;无审查直接发布&quot;</span><br></code></pre></td></tr></table></figure><h2 id="立即生效的执行约定（里程碑-Commit-里程碑-Blog）"><a href="#立即生效的执行约定（里程碑-Commit-里程碑-Blog）" class="headerlink" title="立即生效的执行约定（里程碑 Commit + 里程碑 Blog）"></a>立即生效的执行约定（里程碑 Commit + 里程碑 Blog）</h2><p>从今天开始，所有 AI 开发任务执行以下硬约定：</p><ol><li>每个里程碑至少一个可追踪 commit，commit message 统一包含里程碑编号（如 <code>M2:</code>）。</li><li>每完成一个关键里程碑，产出一篇里程碑 blog（记录目标、产出、风险、下一步）。</li><li>里程碑 blog 不是“总结文档”，而是监管与协同接口，必须具备可审计性。</li><li>未满足“里程碑 commit + 里程碑 blog”双条件，不视为阶段完成。</li></ol><p>这份 <code>Customized Spec</code> 不是一次性文档，而是持续演进的团队操作系统。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Spec</tag>
+      
+      <tag>PO</tag>
+      
+      <tag>架构</tag>
+      
+      <tag>Multi-Agent</tag>
+      
+      <tag>工程流程</tag>
+      
+      <tag>AI工作日志</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>里程碑进展：Orchestrator 动态范式编排（Plan-and-Solve / ReAct / Reflection）落地</title>
     <link href="/2026/02/20/orchestrator-plan-and-solve-react-reflection/"/>
     <url>/2026/02/20/orchestrator-plan-and-solve-react-reflection/</url>
