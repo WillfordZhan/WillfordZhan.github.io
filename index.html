@@ -239,6 +239,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/02/25/react-orchestrator-qa/" target="_self">
+          ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/25/react-orchestrator-qa/" target="_self">
+        <div>
+          这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：/ai/runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Policy 更像静态映射
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-02-25 18:42" pubdate>
+              2026-02-25
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E7%A8%8B/">#AI工程</a>
+            
+              <a href="/tags/Orchestrator/">#Orchestrator</a>
+            
+              <a href="/tags/ReAct/">#ReAct</a>
+            
+              <a href="/tags/%E6%84%8F%E5%9B%BE%E8%AF%86%E5%88%AB/">#意图识别</a>
+            
+              <a href="/tags/Tool-Calling/">#Tool Calling</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/02/21/java-python-mcp-401-token/" target="_self">
           Java/Python MCP 401 排查里程碑：Token 对齐与方案简化
         </a>
@@ -499,6 +570,8 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
+              <a href="/tags/MCP/">#MCP</a>
+            
               <a href="/tags/Orchestrator/">#Orchestrator</a>
             
               <a href="/tags/ReAct/">#ReAct</a>
@@ -506,8 +579,6 @@
               <a href="/tags/Plan-and-Solve/">#Plan-and-Solve</a>
             
               <a href="/tags/Reflection/">#Reflection</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/">#里程碑</a>
             
@@ -574,11 +645,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E7%A8%8B/">#AI工程</a>
             
-              <a href="/tags/MCP/">#MCP</a>
-            
               <a href="/tags/RAG/">#RAG</a>
             
               <a href="/tags/Dify/">#Dify</a>
+            
+              <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
@@ -718,6 +789,8 @@
             
               <a href="/tags/AI%E5%B7%A5%E7%A8%8B/">#AI工程</a>
             
+              <a href="/tags/MCP/">#MCP</a>
+            
               <a href="/tags/Agent/">#Agent</a>
             
               <a href="/tags/Orchestrator/">#Orchestrator</a>
@@ -727,8 +800,6 @@
               <a href="/tags/Plan-and-Solve/">#Plan-and-Solve</a>
             
               <a href="/tags/Reflection/">#Reflection</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E5%88%86%E6%9E%90/">#架构分析</a>
             
@@ -844,46 +915,6 @@
               <a href="/tags/%E5%B7%A5%E5%85%B7%E6%8A%80%E5%B7%A7/">#工具技巧</a>
             
               <a href="/tags/%E8%BF%9C%E7%A8%8B%E5%8A%9E%E5%85%AC/">#远程办公</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2019/12/23/Nemenyi/" target="_self">
-          关于 posthoc_nemenyi_friedman() 函数的一点思考
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2019/12/23/Nemenyi/" target="_self">
-        <div>
-          前言Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 postho
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2019-12-23 21:27" pubdate>
-              2019-12-23
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80/">#知识沉淀</a>
             
           </div>
         

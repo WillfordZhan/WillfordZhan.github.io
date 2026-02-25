@@ -19,28 +19,27 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+    <meta name="description" content="这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：&#x2F;ai&#x2F;runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Policy 更像静态映射">
 <meta property="og:type" content="article">
-<meta property="og:title" content="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/index.html">
+<meta property="og:title" content="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/25/react-orchestrator-qa/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+<meta property="og:description" content="这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：&#x2F;ai&#x2F;runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Policy 更像静态映射">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-20T14:44:15.000Z">
+<meta property="article:published_time" content="2026-02-25T10:42:15.000Z">
 <meta property="article:modified_time" content="2026-02-25T10:43:39.552Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="AI工程">
-<meta property="article:tag" content="MCP">
-<meta property="article:tag" content="Java">
-<meta property="article:tag" content="里程碑">
-<meta property="article:tag" content="依赖治理">
-<meta property="article:tag" content="配置清理">
+<meta property="article:tag" content="Orchestrator">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="意图识别">
+<meta property="article:tag" content="Tool Calling">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>里程碑进展：Java AI 模块配置与依赖清理（MCP 版） - 味儿福德詹的小站</title>
+  <title>ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +217,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）"></span>
+            <span id="subtitle" data-typed-text="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要"></span>
           
         </div>
 
@@ -229,8 +228,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-20 22:44" pubdate>
-          2026年2月20日 晚上
+        <time datetime="2026-02-25 18:42" pubdate>
+          2026年2月25日 晚上
         </time>
       </span>
     
@@ -241,7 +240,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          466 字
+          993 字
         
       </span>
     
@@ -252,7 +251,7 @@
         
         
         
-          4 分钟
+          9 分钟
         
       </span>
     
@@ -289,40 +288,90 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</h1>
+            <h1 id="seo-header">ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="里程碑范围"><a href="#里程碑范围" class="headerlink" title="里程碑范围"></a>里程碑范围</h2><p>本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。</p>
-<h2 id="配置清理结果（YAML）"><a href="#配置清理结果（YAML）" class="headerlink" title="配置清理结果（YAML）"></a>配置清理结果（YAML）</h2><p>在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：</p>
+                <p>这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。</p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>当前链路已经可用：<code>/ai/runs</code> + SSE + Tool Call。但意图层的主要问题是：</p>
 <ol>
-<li>删除历史遗留且已废弃的配置段：<code>ai.model</code>、<code>ai.store</code>、<code>ai.prompt</code>、<code>ai.archive</code>。</li>
-<li>保留当前仍在使用的配置段：<code>ai.mcp</code>、<code>ai.dify</code>。</li>
-<li>结果：配置语义与当前架构一致，避免“看得见但不会生效”的伪配置继续干扰排查。</li>
+<li>路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。</li>
+<li>Policy 更像静态映射，不是执行闸门。</li>
+<li>React 执行层仍可能从原始 query 反向 parse 工具调用。</li>
+<li>Tool 成功返回后，缺少统一 Verify 防线。</li>
 </ol>
-<h2 id="依赖清理结果（POM）"><a href="#依赖清理结果（POM）" class="headerlink" title="依赖清理结果（POM）"></a>依赖清理结果（POM）</h2><p>在 <code>pom</code> 依赖中，已完成未使用 legacy AI 依赖剔除：</p>
-<ol>
-<li>移除：<code>langchain4j-dashscope</code>、<code>langchain4j-open-ai</code>。</li>
-<li>保留：<code>langchain4j</code> 核心能力（按当前实现需要）与 <code>dashscope-sdk-java</code>（在需要的位置继续使用）。</li>
-<li>结果：依赖树更干净，后续升级与漏洞治理成本下降。</li>
+<h2 id="踩坑记录"><a href="#踩坑记录" class="headerlink" title="踩坑记录"></a>踩坑记录</h2><h3 id="坑1：把“路由命中”当成“意图识别完成”"><a href="#坑1：把“路由命中”当成“意图识别完成”" class="headerlink" title="坑1：把“路由命中”当成“意图识别完成”"></a>坑1：把“路由命中”当成“意图识别完成”</h3><p><code>tool:xxx &#123;json&#125;</code> 命中只能说明格式命中，不代表用户任务真正可执行。现实里经常出现：</p>
+<ul>
+<li>参数不全（缺设备、时间范围）</li>
+<li>参数不合法（schema 不匹配）</li>
+<li>意图冲突（用户其实想“分析原因”，不是“直接执行某工具”）</li>
+</ul>
+<p>结论：必须输出结构化理解对象，而不是只输出一个策略枚举。</p>
+<h3 id="坑2：把策略选择完全交给模型"><a href="#坑2：把策略选择完全交给模型" class="headerlink" title="坑2：把策略选择完全交给模型"></a>坑2：把策略选择完全交给模型</h3><p>如果没有代码层 Policy Gate，模型就既当“语义理解者”又当“执行裁判”。在工业场景这会带来权限、越权、误执行风险。</p>
+<p>结论：让模型决定“可能是什么”，让代码决定“能不能做”。</p>
+<h3 id="坑3：把-Observation-当-Verify"><a href="#坑3：把-Observation-当-Verify" class="headerlink" title="坑3：把 Observation 当 Verify"></a>坑3：把 Observation 当 Verify</h3><p>拿到工具返回（Observation）不等于结果可用。常见失败：</p>
+<ul>
+<li>返回缺关键字段</li>
+<li>结果与上下文不一致</li>
+<li>数据跨租户越权</li>
+</ul>
+<p>结论：Observation 是事实输入，Verify 是规则判定，必须分开。</p>
+<h3 id="坑4：盲目要求输出完整-CoT"><a href="#坑4：盲目要求输出完整-CoT" class="headerlink" title="坑4：盲目要求输出完整 CoT"></a>坑4：盲目要求输出完整 CoT</h3><p>我们讨论后明确：可让模型进行内部推理，但不建议把原始 CoT 作为产品输出，也不建议把长 CoT 作为编排决策主输入。</p>
+<p>结论：编排层只消费结构化字段 + 简短 rationale。</p>
+<h2 id="QA-讨论结论"><a href="#QA-讨论结论" class="headerlink" title="QA 讨论结论"></a>QA 讨论结论</h2><h3 id="Q1：Understand-和-Decide-能不能合并？"><a href="#Q1：Understand-和-Decide-能不能合并？" class="headerlink" title="Q1：Understand 和 Decide 能不能合并？"></a>Q1：Understand 和 Decide 能不能合并？</h3><p>可以在“一次 LLM 调用”中产出理解和候选动作，但架构职责不建议合并。</p>
+<ul>
+<li>Understand：语义解析与结构化产出（intent、slots、confidence）</li>
+<li>Decide：代码层 Policy 决策（execute&#x2F;clarify&#x2F;fallback&#x2F;deny）</li>
+</ul>
+<h3 id="Q2：Reasoning-输入输出到底是什么？"><a href="#Q2：Reasoning-输入输出到底是什么？" class="headerlink" title="Q2：Reasoning 输入输出到底是什么？"></a>Q2：Reasoning 输入输出到底是什么？</h3><p>推荐输入：</p>
+<ul>
+<li>用户 query</li>
+<li>历史上下文摘要</li>
+<li>工具描述+参数 schema</li>
+<li>当前运行状态（重试次数、预算、前序失败）</li>
+<li>策略约束（权限、风险规则）</li>
+</ul>
+<p>推荐输出（强结构化）：</p>
+<ul>
+<li><code>intent</code></li>
+<li><code>confidence</code></li>
+<li><code>candidates</code></li>
+<li><code>slots</code></li>
+<li><code>missing_slots</code></li>
+<li><code>next_action</code></li>
+<li><code>tool_plan</code></li>
+<li><code>clarification_question</code></li>
+<li><code>brief_rationale</code></li>
+</ul>
+<h3 id="Q3：Verify-是不是-Observation？"><a href="#Q3：Verify-是不是-Observation？" class="headerlink" title="Q3：Verify 是不是 Observation？"></a>Q3：Verify 是不是 Observation？</h3><p>不是。</p>
+<ul>
+<li>Observation：工具执行后的原始返回</li>
+<li>Verify：对返回做完整性&#x2F;一致性&#x2F;权限&#x2F;风险校验</li>
+</ul>
+<p>ReAct 推荐循环：<br><code>Reason -&gt; Act -&gt; Observe -&gt; Verify -&gt; (继续/结束)</code></p>
+<h3 id="Q4：槽位缺失怎么处理？"><a href="#Q4：槽位缺失怎么处理？" class="headerlink" title="Q4：槽位缺失怎么处理？"></a>Q4：槽位缺失怎么处理？</h3><p>缺关键槽位时不执行工具，进入澄清：</p>
+<ul>
+<li>触发 <code>clarification_needed</code></li>
+<li>一次只问 1-2 个关键问题</li>
+<li>用户补充后合并上下文再推理</li>
+<li>超过最大澄清轮次则 fallback 或人工接管</li>
+</ul>
+<h3 id="Q5：Qwen-是否建议输出-CoT？"><a href="#Q5：Qwen-是否建议输出-CoT？" class="headerlink" title="Q5：Qwen 是否建议输出 CoT？"></a>Q5：Qwen 是否建议输出 CoT？</h3><p>结论：可以启用 thinking 用于内部推理&#x2F;调试，但默认不把原始 CoT 回给用户。系统对外以结构化结果和简短解释为主。</p>
+<h2 id="最终落地优先级（先做这4项）"><a href="#最终落地优先级（先做这4项）" class="headerlink" title="最终落地优先级（先做这4项）"></a>最终落地优先级（先做这4项）</h2><ol>
+<li>ReactStrategy 不再从 query 二次 parse tool call，只接受结构化 <code>tool_call</code>。</li>
+<li>PolicyEngine 增加 <code>action</code>（<code>execute/clarify/fallback/deny</code>）与阈值配置。</li>
+<li>新增 <code>clarification_needed</code> 事件，承接缺槽位追问流程。</li>
+<li>增加 Verify 最小闭环（schema + 权限 + 空结果 三条硬规则）。</li>
 </ol>
-<h2 id="验证结论"><a href="#验证结论" class="headerlink" title="验证结论"></a>验证结论</h2><p>已执行编译验证命令并通过：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">mvn -pl ruoyi-admin -am -DskipTests compile<br></code></pre></td></tr></table></figure>
-
-<p>这说明本次“配置 + 依赖”清理在当前里程碑范围内未引入编译级回归。</p>
-<h2 id="当前验收状态"><a href="#当前验收状态" class="headerlink" title="当前验收状态"></a>当前验收状态</h2><p>当前里程碑验收状态：<strong>已通过（范围内通过）</strong>。</p>
-<p>说明：</p>
-<ol>
-<li>MCP 方向相关配置与依赖清理目标已达成。</li>
-<li>编译链路已验证可通过。</li>
-<li>全量测试基线仍存在历史遗留的无关失败项，本次不作为阻塞项。</li>
-</ol>
-<h2 id="下一步计划"><a href="#下一步计划" class="headerlink" title="下一步计划"></a>下一步计划</h2><ol>
-<li>建立并收敛一版“可重复”的全量测试基线，先对历史失败做归因分层（本次改动相关 &#x2F; 无关）。</li>
-<li>在 CI 中补充针对 AI 模块的最小回归检查（至少覆盖配置加载、关键 Bean 初始化、核心调用链烟测）。</li>
-<li>持续推进 legacy 残留项扫描，避免后续分支再次引入已移除依赖或配置段。</li>
-</ol>
+<h2 id="建议迭代顺序"><a href="#建议迭代顺序" class="headerlink" title="建议迭代顺序"></a>建议迭代顺序</h2><ul>
+<li>Iter A：先扩结构（不改行为）</li>
+<li>Iter B：Policy 阀门化 + 澄清</li>
+<li>Iter C：React 去 query 直通</li>
+<li>Iter D：Verify 校验器</li>
+</ul>
+<p>这样可以在不打断现有可用链路的前提下，逐步逼近“可解释、可治理、可回滚”的 ReAct 编排架构。</p>
+<h2 id="复盘一句话"><a href="#复盘一句话" class="headerlink" title="复盘一句话"></a>复盘一句话</h2><p>MVP 能跑是起点，生产级 ReAct 的关键不是“让模型多想”，而是把“理解、决策、执行、校验”边界拉直，并让代码掌握最终执行权。</p>
 
                 
               </div>
@@ -360,15 +409,13 @@
       
         <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
       
-        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+        <a href="/tags/Orchestrator/" class="print-no-link">#Orchestrator</a>
       
-        <a href="/tags/Java/" class="print-no-link">#Java</a>
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
       
-        <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
+        <a href="/tags/%E6%84%8F%E5%9B%BE%E8%AF%86%E5%88%AB/" class="print-no-link">#意图识别</a>
       
-        <a href="/tags/%E4%BE%9D%E8%B5%96%E6%B2%BB%E7%90%86/" class="print-no-link">#依赖治理</a>
-      
-        <a href="/tags/%E9%85%8D%E7%BD%AE%E6%B8%85%E7%90%86/" class="print-no-link">#配置清理</a>
+        <a href="/tags/Tool-Calling/" class="print-no-link">#Tool Calling</a>
       
     </div>
   
@@ -380,8 +427,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</div>
-      <div>https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/</div>
+      <div>ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</div>
+      <div>https://willfordzhan.github.io/2026/02/25/react-orchestrator-qa/</div>
     </div>
     <div class="license-meta">
       
@@ -393,7 +440,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月20日</div>
+          <div>2026年2月25日</div>
         </div>
       
       
@@ -425,18 +472,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/20/dify-rag-mes-erp/" title="Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/20/dynamic-paradigm-orchestrator-optimization/" title="动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化">
-                        <span class="hidden-mobile">动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化</span>
+                      <a href="/2026/02/21/java-python-mcp-401-token/" title="Java/Python MCP 401 排查里程碑：Token 对齐与方案简化">
+                        <span class="hidden-mobile">Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
