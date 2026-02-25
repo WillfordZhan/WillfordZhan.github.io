@@ -19,30 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="前言Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 postho">
+    <meta name="description" content="这次改造把 ats_iot_ai 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： Understa">
 <meta property="og:type" content="article">
-<meta property="og:title" content="关于 posthoc_nemenyi_friedman() 函数的一点思考">
-<meta property="og:url" content="https://willfordzhan.github.io/2019/12/23/Nemenyi/index.html">
+<meta property="og:title" content="AI控制面生产化改造：LLM意图路由与ReAct执行边界">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/25/ai-llm-react/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="前言Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 postho">
+<meta property="og:description" content="这次改造把 ats_iot_ai 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： Understa">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga77qogt8oj30cs042t8t.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7ao5d5qsj30mk0323yn.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7ap9uxk9j30n202g0sw.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7b0ruy3uj30d203oaa1.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga5wpvzuxoj30xw0jawij.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg">
-<meta property="article:published_time" content="2019-12-23T13:27:24.000Z">
+<meta property="article:published_time" content="2026-02-25T11:29:24.000Z">
 <meta property="article:modified_time" content="2026-02-25T11:30:34.573Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="知识沉淀">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="Orchestrator">
+<meta property="article:tag" content="IntentRouter">
+<meta property="article:tag" content="Qwen">
+<meta property="article:tag" content="PolicyEngine">
+<meta property="article:tag" content="Verify">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg">
   
   
   
-  <title>关于 posthoc_nemenyi_friedman() 函数的一点思考 - 味儿福德詹的小站</title>
+  <title>AI控制面生产化改造：LLM意图路由与ReAct执行边界 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -220,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="关于 posthoc_nemenyi_friedman() 函数的一点思考"></span>
+            <span id="subtitle" data-typed-text="AI控制面生产化改造：LLM意图路由与ReAct执行边界"></span>
           
         </div>
 
@@ -231,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2019-12-23 21:27" pubdate>
-          2019年12月23日 晚上
+        <time datetime="2026-02-25 19:29" pubdate>
+          2026年2月25日 晚上
         </time>
       </span>
     
@@ -243,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.2k 字
+          477 字
         
       </span>
     
@@ -254,7 +252,7 @@
         
         
         
-          11 分钟
+          4 分钟
         
       </span>
     
@@ -291,16 +289,82 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">关于 posthoc_nemenyi_friedman() 函数的一点思考</h1>
+            <h1 id="seo-header">AI控制面生产化改造：LLM意图路由与ReAct执行边界</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。</p><p>最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 <code>posthoc_nemenyi_friedman()</code> 函数。但在使用过程中我发现这个函数的返回值和我预想中的不一样，它返回了一个所谓的 P-values 矩阵，这个矩阵长这样：</p><img src="/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" /><p>盲猜矩阵的每个 P-value 是用来和 𝛼 做比较的，但是比较的原则是怎样的呢？这个比较的结果和 Nemenyi 测试结果是怎样关联的呢？</p><p>于是查看了一下这个函数的<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>，然而文档只说明了函数用法，并没有详细说明函数内部操作的具体流程，无法解除我的疑惑。好在这个库是开源的，于是博主研究了一下这个函数的<a href="https://github.com/maximtrp/scikit-posthocs/blob/master/scikit_posthocs/_posthocs.py" target="_blank" rel="noopener">源码</a>.</p><p>经过博主的一系列研究，最终发现</p><p><strong>这个矩阵中的 P-value 由算法两两比较而产生，用来与 α 做比较，如果 P-value &gt; α，则被比较的两个算法没有明显差异，如果 P-value &lt; α，则被比较的两个算法有明显差异 (Reject H0).</strong></p><p>下面是研究过程：</p><h2 id="Nemenyi-测试"><a href="#Nemenyi-测试" class="headerlink" title="Nemenyi 测试"></a>Nemenyi 测试</h2><p>在解释这个函数的流程之前，我们必须先熟稔 Nemenyi 测试的流程</p><p>根据西瓜书上的说明，Friedman 测试结果如果表明 “算法性能显著不同”，则需进行 Nemenyi 后续测试。书上所描述的 Nemenyi 测试流程是这样的:</p><ol><li><p>根据公式计算 <strong>Critical Difference (CD)</strong>，<em>q⍺</em> 可查表获得</p><img src="/img/nemenyi/006tNbRwgy1ga77qogt8oj30cs042t8t.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223192242846" style="zoom: 50%;" /></li><li><p>将两个算法的平均序值的差 <strong>(Average Rank Difference, ARD)</strong>  和 CD 进行比较，如果 ARD &gt; CD，则两个算法的性能有明显差异。</p></li></ol><h2 id="函数源码解释"><a href="#函数源码解释" class="headerlink" title="函数源码解释"></a>函数源码解释</h2><p>由上述 Nemenyi 测试的解释可得，在西瓜书中， Nemenyi 测试的核心在于计算 CD, 并将其与 ARD 进行比较。然而研究源码之后，博主发现<code>posthoc_nemenyi_friedman()</code>的思路和上述流程迥然不同，十分清奇，值得一看。下面是该函数作者的思路：</p><ol><li><p>在 CD 公式中，由于 <em>k</em> 和 <em>N</em> 是恒定的，因此可知 <em>q⍺</em> 的值决定了 CD 的值，CD 与 <em>q⍺</em> 存在函数映射</p><img src="/img/nemenyi/006tNbRwgy1ga7ao5d5qsj30mk0323yn.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223210403181" style="zoom: 67%;" /></li><li><p>由于 ARD 和 CD 是可比较的，意味着 ARD 可化成与 CD 相同的形式。</p></li></ol>   <img src="/img/nemenyi/006tNbRwgy1ga7ap9uxk9j30n202g0sw.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223210508251" style="zoom:67%;" /><ol start="3"><li><p>对等式做变换得</p><img src="/img/nemenyi/006tNbRwgy1ga7b0ruy3uj30d203oaa1.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223211611760" style="zoom:67%;" /></li><li><p>等式的左边可通过计算得出，将算出的 qβ 值代入<code>自由度 = infinity，样本数 = k的学生化极差分布(Studentized Range)</code>,即可得到 β，β 即为函数返回的 P-value，用于和 α 进行比较</p></li></ol><blockquote><p>西瓜书中解释道 “<em>q⍺</em> 是 Tukey 分布的临界值，在 R 语言中可通过<code>qtukey(1-𝛼, k, Inf) / sqrt(2)</code>计算”。其实就是在自由度 = infinity，样本数 = k ，的学生化极差分布 (Studentized Range) 中取 (1-⍺) 分位数的值，这个在源码中也有所体现。</p></blockquote><h2 id="函数源码"><a href="#函数源码" class="headerlink" title="函数源码"></a>函数源码</h2><p>添加了博主注释的函数源码如下：</p>
-
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">posthoc_nemenyi_friedman</span>(<span class="hljs-params">a, y_col=<span class="hljs-literal">None</span>, block_col=<span class="hljs-literal">None</span>, group_col=<span class="hljs-literal">None</span>, melted=<span class="hljs-literal">False</span>, sort=<span class="hljs-literal">False</span></span>):<br>    <span class="hljs-comment"># 计算 q-value 可理解为 qβ，和公式中的 q⍺ 对应</span><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">compare_stats</span>(<span class="hljs-params">i, j</span>):<br>        dif = np.<span class="hljs-built_in">abs</span>(R[groups[i]] - R[groups[j]])<br>        <span class="hljs-comment"># qβ = ARD / 公式中带根号的部分</span><br>        qval = dif / np.sqrt(k * (k + <span class="hljs-number">1.</span>) / (<span class="hljs-number">6.</span> * n))<br>        <span class="hljs-keyword">return</span> qval<br><br>    <span class="hljs-comment"># 将输入的矩阵转换为该库中定义的 block 格式</span><br>    x, _y_col, _group_col, _block_col = __convert_to_block_df(a, y_col, group_col, block_col, melted)<br>    x.sort_values(by=[_group_col, _block_col], ascending=<span class="hljs-literal">True</span>, inplace=<span class="hljs-literal">True</span>)<br>    x.dropna(inplace=<span class="hljs-literal">True</span>)<br><br>    groups = x[_group_col].unique()<br>    k = groups.size<br>    n = x[_block_col].unique().size<br><br>    x[<span class="hljs-string">&#x27;mat&#x27;</span>] = x.groupby(_block_col)[_y_col].rank()<br>    R = x.groupby(_group_col)[<span class="hljs-string">&#x27;mat&#x27;</span>].mean()<br><br>    vs = np.zeros((k, k))<br>    <span class="hljs-comment"># 原矩阵的列数（用于比较的算法个数）为 k</span><br>    <span class="hljs-comment"># 生成 k * k 的比较矩阵 M，并将其初始化为零矩阵</span><br>    combs = it.combinations(<span class="hljs-built_in">range</span>(k), <span class="hljs-number">2</span>)<br>    tri_upper = np.triu_indices(vs.shape[<span class="hljs-number">0</span>], <span class="hljs-number">1</span>)<br>    tri_lower = np.tril_indices(vs.shape[<span class="hljs-number">0</span>], -<span class="hljs-number">1</span>)<br><br>    vs[:, :] = <span class="hljs-number">0</span><br><br>    <span class="hljs-comment"># 计算 M 中两两比较的 q-value</span><br>    <span class="hljs-keyword">for</span> i, j <span class="hljs-keyword">in</span> combs:<br>        vs[i, j] = compare_stats(i, j)<br><br>    vs *= np.sqrt(<span class="hljs-number">2.</span>)<br><br>    <span class="hljs-comment"># 把 qβ 代入到自由度 = infinity，样本数 = k 的 Studentized 分布中，得到 β</span><br>    <span class="hljs-comment"># 由此可以得出 P-value 结果矩阵实际上是算法两两比较，根据公式算出 qβ 里其中的 β 值</span><br>    vs[tri_upper] = psturng(vs[tri_upper], k, np.inf)<br>    vs[tri_lower] = vs.T[tri_lower]<br>    np.fill_diagonal(vs, -<span class="hljs-number">1</span>)<br><br>    <span class="hljs-keyword">return</span> DataFrame(vs, index=groups, columns=groups)<br></code></pre></td></tr></table></figure>
-
-<h2 id="函数用法"><a href="#函数用法" class="headerlink" title="函数用法"></a>函数用法</h2><h4 id="输入参数"><a href="#输入参数" class="headerlink" title="输入参数"></a>输入参数</h4><p><strong>描述：</strong>多个算法在不同数据集上的测试结果 (精度，F1值 …) 所构成的矩阵，例：</p><img src="/img/nemenyi/006tNbRwgy1ga5wpvzuxoj30xw0jawij.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191222161536827" style="zoom: 33%;" /><p><strong>格式：</strong>一个  <code>Array_like</code> 的数组 (Numpy 数组和二维列表都可以)，或者是 <code>DataFrame</code> 对象，（如果是 <code>DataFrame</code> ，则有更多的相关参数需要输入，详见<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>）</p><h4 id="返回值"><a href="#返回值" class="headerlink" title="返回值"></a>返回值</h4><p><strong>描述</strong>：由算法两两对比产生的 P-value <code>DataFrame</code>矩阵，用于与 alpha 进行比较。例：</p><img src="/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" /><h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>上述推导均为博主根据函数写法所得，如有谬误欢迎指证，感激不尽！</p>
+                <p>这次改造把 <code>ats_iot_ai</code> 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。</p>
+<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>线上痛点很明确：<code>process_input</code> 里 <code>IntentRouter.route(query)</code> 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。</p>
+<p>目标是把链路拉直为：</p>
+<p><code>Understand -&gt; Decide -&gt; Act -&gt; Verify -&gt; Respond</code></p>
+<h2 id="本次核心变更"><a href="#本次核心变更" class="headerlink" title="本次核心变更"></a>本次核心变更</h2><ol>
+<li><code>IntentRouter</code> 升级为 <strong>LLM-based</strong> 主路径。</li>
+</ol>
+<ul>
+<li>保留 deterministic fast path：<code>tool:&lt;name&gt; &#123;json&#125;</code>。</li>
+<li>其他请求走 Qwen 结构化解析（intent&#x2F;confidence&#x2F;slots&#x2F;missing_slots&#x2F;tool_plan）。</li>
+</ul>
+<ol start="2">
+<li>新增 <code>QwenIntentParser</code>。</li>
+</ol>
+<ul>
+<li>强约束 JSON 输出。</li>
+<li>解析失败自动回退到安全 chat 路由，避免阻塞主流程。</li>
+</ul>
+<ol start="3">
+<li><code>PolicyEngine</code> 从静态 strategy map 升级为决策闸门。</li>
+</ol>
+<ul>
+<li>新增 action：<code>execute/clarify/fallback/deny</code>。</li>
+<li>引入 confidence 阈值与 missing_slots 规则。</li>
+</ul>
+<ol start="4">
+<li><code>ReactStrategy</code> 去掉 query 二次解析。</li>
+</ol>
+<ul>
+<li>仅消费结构化 <code>tool_call</code>，执行输入边界可控。</li>
+</ul>
+<ol start="5">
+<li>引入 <code>Verify</code> 最小硬规则。</li>
+</ol>
+<ul>
+<li>先落三条：schema、权限上下文、空结果。</li>
+<li>校验失败写出 <code>verification_failed</code> 事件并终止错误收敛。</li>
+</ul>
+<ol start="6">
+<li>SSE 事件链路增强。</li>
+</ol>
+<ul>
+<li><code>intent_determined</code> 增加 confidence&#x2F;candidates&#x2F;slots&#x2F;missingSlots&#x2F;toolPlan。</li>
+<li><code>policy_decision</code> 增加 action。</li>
+<li>新增 <code>clarification_needed</code>、<code>verification_failed</code>。</li>
+</ul>
+<h2 id="代码落点"><a href="#代码落点" class="headerlink" title="代码落点"></a>代码落点</h2><ul>
+<li><code>app/orchestration/intent_router.py</code></li>
+<li><code>app/orchestration/intent_llm_parser.py</code></li>
+<li><code>app/orchestration/policy_engine.py</code></li>
+<li><code>app/orchestration/strategies.py</code></li>
+<li><code>app/orchestration/verify.py</code></li>
+<li><code>app/orchestrator.py</code></li>
+<li><code>tests/orchestrator/*</code></li>
+</ul>
+<h2 id="文档同步"><a href="#文档同步" class="headerlink" title="文档同步"></a>文档同步</h2><ul>
+<li><code>README.md</code> 切到 Production Mode 描述。</li>
+<li><code>docs/REACT_ORCHESTRATOR_INTENT_UPGRADE_SPEC.md</code> 升级为生产基线（LLM 主路径、Policy 闸门、Verify 必经）。</li>
+<li>对应 skill 文档也从 MVP 调整为 production 导向。</li>
+</ul>
+<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><ul>
+<li>Orchestrator 核心回归通过。</li>
+<li>全量测试通过（本次改造后运行结果：<code>49 passed</code>）。</li>
+</ul>
+<h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>这次改造的关键不是“把 ReAct 做复杂”，而是先把生产边界做正确：</p>
+<ul>
+<li>语义理解交给 LLM（结构化输出）</li>
+<li>执行决策交给 Policy（代码闸门）</li>
+<li>执行结果交给 Verify（质量防线）</li>
+</ul>
+<p>下一步会继续做 LLM parser 的生产强化：schema 校验加强、重试与降级策略、prompt&#x2F;version 管理和可观测性细化。</p>
 
                 
               </div>
@@ -309,11 +373,44 @@
             <div>
               <div class="post-metas my-3">
   
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
   
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80/" class="print-no-link">#知识沉淀</a>
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+      
+        <a href="/tags/Orchestrator/" class="print-no-link">#Orchestrator</a>
+      
+        <a href="/tags/IntentRouter/" class="print-no-link">#IntentRouter</a>
+      
+        <a href="/tags/Qwen/" class="print-no-link">#Qwen</a>
+      
+        <a href="/tags/PolicyEngine/" class="print-no-link">#PolicyEngine</a>
+      
+        <a href="/tags/Verify/" class="print-no-link">#Verify</a>
       
     </div>
   
@@ -325,8 +422,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>关于 posthoc_nemenyi_friedman() 函数的一点思考</div>
-      <div>https://willfordzhan.github.io/2019/12/23/Nemenyi/</div>
+      <div>AI控制面生产化改造：LLM意图路由与ReAct执行边界</div>
+      <div>https://willfordzhan.github.io/2026/02/25/ai-llm-react/</div>
     </div>
     <div class="license-meta">
       
@@ -338,7 +435,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2019年12月23日</div>
+          <div>2026年2月25日</div>
         </div>
       
       
@@ -370,18 +467,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/guides/termius-tailscale-tmux/" title="用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/" title="自用的Mac小技巧">
-                        <span class="hidden-mobile">自用的Mac小技巧</span>
+                      <a href="/2026/02/25/react-orchestrator-qa/" title="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要">
+                        <span class="hidden-mobile">ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
