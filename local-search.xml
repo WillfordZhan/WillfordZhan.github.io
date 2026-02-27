@@ -4,6 +4,43 @@
   
   
   <entry>
+    <title>AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</title>
+    <link href="/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/"/>
+    <url>/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/</url>
+    
+    <content type="html"><![CDATA[<h2 id="目标与边界"><a href="#目标与边界" class="headerlink" title="目标与边界"></a>目标与边界</h2><p>本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：</p><ul><li>普通聊天误入 ReAct</li><li>MCP 工具失败导致 run 直接失败</li><li>Qwen 超时后返回 <code>echo</code></li><li>联调时 Python&#x2F;Java token 不一致导致 MCP 401</li></ul><p>边界上，Java 只保留 MCP + Tool 能力；会话编排、SSE、策略、前端调试全部归到 Python。</p><h2 id="最终架构"><a href="#最终架构" class="headerlink" title="最终架构"></a>最终架构</h2><pre><code class=" mermaid">flowchart LR  FE[AI Assistant / Debug UI] --&gt; PY[Python ai-gateway + orchestrator]  PY --&gt;|tools/list tools/call| JM[Java MCP Server]  JM --&gt; TOOLS[业务 Tool 实现]  PY --&gt; QWEN[Qwen API]  PY --&gt; STORE[RunStore + Events]</code></pre><h2 id="本次整体改动（按模块）"><a href="#本次整体改动（按模块）" class="headerlink" title="本次整体改动（按模块）"></a>本次整体改动（按模块）</h2><h3 id="1-Java-侧：AI-模块收口为-MCP-only"><a href="#1-Java-侧：AI-模块收口为-MCP-only" class="headerlink" title="1) Java 侧：AI 模块收口为 MCP-only"></a>1) Java 侧：AI 模块收口为 MCP-only</h3><ul><li>移除非 MCP 的旧 AI 运行链路、历史配置和无关依赖，降低维护面。</li><li>工具注册与元数据从 LangChain4j 解耦，保留必要实体与执行能力。</li><li>新增&#x2F;增强 MCP 入口能力：<code>tools/list</code>、<code>tools/call</code>、上下文解析与注入快照。</li><li>完成 MCP 端单测替换：从旧测试迁移到 MCP 端点覆盖。</li><li>增加本地&#x2F;开发调试必需能力（如 dev&#x2F;local 启动兼容、调试登录入口）。</li></ul><h3 id="2-Python-侧：编排能力生产化"><a href="#2-Python-侧：编排能力生产化" class="headerlink" title="2) Python 侧：编排能力生产化"></a>2) Python 侧：编排能力生产化</h3><ul><li>意图路由改为 LLM-first，统一 <code>IntentRouter -&gt; Policy -&gt; Strategy</code>。</li><li>策略明确化：<ul><li><code>CHAT -&gt; DIRECT</code></li><li><code>TOOL_CALL/ANALYZE/TRACE -&gt; REACT</code></li></ul></li><li>ReAct 失败时不再硬失败，触发 <code>tool_fallback</code> 后降级 DIRECT，保证会话可恢复。</li><li>运行时绑定与上下文快照注入，增强跨事件可追踪性。</li></ul><h3 id="3-MCP-联调治理"><a href="#3-MCP-联调治理" class="headerlink" title="3) MCP 联调治理"></a>3) MCP 联调治理</h3><ul><li>Python MCP token 来源简化为 <code>MCP_API_TOKEN</code>，本地默认 <code>AAA</code>。</li><li>与 Java MCP internal token 对齐，修复 401 鉴权不一致问题。</li><li>启动日志和调试页展示 Java MCP 连接状态，联调可视化更直接。</li></ul><h3 id="4-Qwen-稳定性治理"><a href="#4-Qwen-稳定性治理" class="headerlink" title="4) Qwen 稳定性治理"></a>4) Qwen 稳定性治理</h3><ul><li>去掉异常时 <code>echo: 用户问题</code> 的回退行为。</li><li>超时与重试参数化：<ul><li><code>QWEN_TIMEOUT_SECONDS=60</code></li><li><code>QWEN_MAX_RETRIES=2</code></li></ul></li><li>失败时统一用户可读文案：<code>当前模型服务暂不可用，请稍后重试。</code></li></ul><h3 id="5-前端与开发体验"><a href="#5-前端与开发体验" class="headerlink" title="5) 前端与开发体验"></a>5) 前端与开发体验</h3><ul><li>调试页升级为左右分栏：<ul><li>左侧紧凑时间轴卡片（摘要）</li><li>右侧原始 SSE 事件（明细）</li></ul></li><li>新增独立用户态页面 <code>assistant.html</code>，与开发调试页分离。</li><li>启动脚本简化并默认跟踪日志，减少“启动了但看不到日志”的调试成本。</li></ul><h2 id="关键问题与修复闭环"><a href="#关键问题与修复闭环" class="headerlink" title="关键问题与修复闭环"></a>关键问题与修复闭环</h2><ol><li><p><code>query=你是谁</code> 误走 ReAct并返回 echo<br>修复：LLM 意图统一路由 + DirectStrategy 取消 echo fallback。</p></li><li><p>MCP 401 (<code>mcp_unauthorized</code>)<br>修复：Python&#x2F;Java token 统一策略，默认 <code>AAA</code>，链路可观测。</p></li><li><p>模型超时导致体验不可控<br>修复：Qwen 超时提升到 60s + 重试 + 明确降级文案。</p></li></ol><h2 id="结果验收"><a href="#结果验收" class="headerlink" title="结果验收"></a>结果验收</h2><ul><li>Python 侧自动化测试通过（本轮关键节点执行过 <code>pytest -q</code>，通过）。</li><li>聊天与工具调用链路从“硬失败”转为“可恢复”。</li><li>Java 侧职责收敛，后续可以围绕 Tool 能力继续扩展，而不再背负编排复杂度。</li></ul><h2 id="仍待收尾"><a href="#仍待收尾" class="headerlink" title="仍待收尾"></a>仍待收尾</h2><ul><li>部分业务工具在特定上下文下仍可能返回 Java 500（例如个别炉次查询场景）。</li><li>下一步重点是工具级根因治理与端到端业务正确性校验（尤其 scope: tenant&#x2F;dept&#x2F;user 注入一致性）。</li></ul><h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>这次重构的核心价值不是“功能变多”，而是“系统边界清晰 + 失败可恢复 + 可观测可迭代”：</p><ul><li>Java 专注 MCP Tool 执行平面</li><li>Python 专注编排与交互控制平面</li><li>线上故障从“脆断”变成“降级可用”</li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>MCP</tag>
+      
+      <tag>Qwen</tag>
+      
+      <tag>FastAPI</tag>
+      
+      <tag>ReAct</tag>
+      
+      <tag>稳定性</tag>
+      
+      <tag>重构复盘</tag>
+      
+      <tag>AI工作日志</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>AI控制面生产化改造：LLM意图路由与ReAct执行边界</title>
     <link href="/2026/02/25/ai-llm-react/"/>
     <url>/2026/02/25/ai-llm-react/</url>
@@ -20,15 +57,15 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
+      <tag>Qwen</tag>
       
       <tag>ReAct</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Orchestrator</tag>
       
       <tag>IntentRouter</tag>
-      
-      <tag>Qwen</tag>
       
       <tag>PolicyEngine</tag>
       
@@ -57,9 +94,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>ReAct</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Orchestrator</tag>
       
@@ -92,15 +129,15 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Java</tag>
       
-      <tag>Python</tag>
-      
       <tag>里程碑</tag>
+      
+      <tag>Python</tag>
       
       <tag>401排查</tag>
       
@@ -160,6 +197,8 @@
     
     <tags>
       
+      <tag>AI工作日志</tag>
+      
       <tag>Spec</tag>
       
       <tag>PO</tag>
@@ -169,8 +208,6 @@
       <tag>Multi-Agent</tag>
       
       <tag>工程流程</tag>
-      
-      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -195,13 +232,13 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
+      <tag>MCP</tag>
       
       <tag>ReAct</tag>
       
-      <tag>Orchestrator</tag>
+      <tag>AI工作日志</tag>
       
-      <tag>MCP</tag>
+      <tag>Orchestrator</tag>
       
       <tag>Plan-and-Solve</tag>
       
@@ -232,6 +269,8 @@
     
     <tags>
       
+      <tag>MCP</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>AI工程</tag>
@@ -239,8 +278,6 @@
       <tag>RAG</tag>
       
       <tag>Dify</tag>
-      
-      <tag>MCP</tag>
       
       <tag>架构设计</tag>
       
@@ -269,11 +306,11 @@
     
     <tags>
       
+      <tag>MCP</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>AI工程</tag>
-      
-      <tag>MCP</tag>
       
       <tag>Java</tag>
       
@@ -306,13 +343,13 @@
     
     <tags>
       
+      <tag>MCP</tag>
+      
       <tag>ReAct</tag>
       
       <tag>Orchestrator</tag>
       
       <tag>AI工程</tag>
-      
-      <tag>MCP</tag>
       
       <tag>Agent</tag>
       
@@ -345,11 +382,11 @@
     
     <tags>
       
+      <tag>MCP</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>AI工程</tag>
-      
-      <tag>MCP</tag>
       
       <tag>架构设计</tag>
       

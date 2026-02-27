@@ -19,27 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义">
+    <meta name="description" content="目标与边界本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：  普通聊天误入 ReAct MCP 工具失败导致 run 直接失败 Qwen 超时后返回 echo 联调时 Python&#x2F;Java token 不一致导致 MCP 401  边界上，Java 只保留 MCP + Tool 能力；会话编">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Java&#x2F;Python MCP 401 排查里程碑：Token 对齐与方案简化">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/21/java-python-mcp-401-token/index.html">
+<meta property="og:title" content="AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义">
+<meta property="og:description" content="目标与边界本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：  普通聊天误入 ReAct MCP 工具失败导致 run 直接失败 Qwen 超时后返回 echo 联调时 Python&#x2F;Java token 不一致导致 MCP 401  边界上，Java 只保留 MCP + Tool 能力；会话编">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-21T16:45:55.000Z">
+<meta property="article:published_time" content="2026-02-27T07:01:48.000Z">
 <meta property="article:modified_time" content="2026-02-27T07:06:11.850Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="MCP">
+<meta property="article:tag" content="Qwen">
+<meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="稳定性">
+<meta property="article:tag" content="重构复盘">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="Java">
-<meta property="article:tag" content="里程碑">
-<meta property="article:tag" content="Python">
-<meta property="article:tag" content="401排查">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>Java/Python MCP 401 排查里程碑：Token 对齐与方案简化 - 味儿福德詹的小站</title>
+  <title>AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -217,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="Java/Python MCP 401 排查里程碑：Token 对齐与方案简化"></span>
+            <span id="subtitle" data-typed-text="AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理"></span>
           
         </div>
 
@@ -228,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-22 00:45" pubdate>
-          2026年2月22日 凌晨
+        <time datetime="2026-02-27 15:01" pubdate>
+          2026年2月27日 下午
         </time>
       </span>
     
@@ -240,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          540 字
+          841 字
         
       </span>
     
@@ -251,7 +252,7 @@
         
         
         
-          5 分钟
+          8 分钟
         
       </span>
     
@@ -288,69 +289,89 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</h1>
+            <h1 id="seo-header">AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</h1>
             
             
               <div class="markdown-body">
                 
-                <p>本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。</p>
-<h2 id="里程碑结论"><a href="#里程碑结论" class="headerlink" title="里程碑结论"></a>里程碑结论</h2><ul>
-<li>401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 <code>X-AI-MCP-TOKEN</code> 校验失败。</li>
-<li>方案已简化：Python 侧仅保留一个配置入口 <code>MCP_API_TOKEN</code>，默认值固定为 <code>AAA</code>，移除复杂 fallback 链路，减少歧义与隐式行为。</li>
-</ul>
-<h2 id="方案变更说明（单一目的）"><a href="#方案变更说明（单一目的）" class="headerlink" title="方案变更说明（单一目的）"></a>方案变更说明（单一目的）</h2><p>本次变更目标只有一个：让 Python MCPClient 的 token 来源明确、默认行为稳定，避免再次出现“配置看似生效但实际不一致”的 401。</p>
+                <h2 id="目标与边界"><a href="#目标与边界" class="headerlink" title="目标与边界"></a>目标与边界</h2><p>本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：</p>
 <ul>
-<li>配置入口：<code>MCP_API_TOKEN</code></li>
-<li>默认值：<code>AAA</code></li>
-<li>行为：若未显式设置环境变量，统一走默认 <code>AAA</code>；若设置了 <code>MCP_API_TOKEN</code>，严格使用该值。</li>
+<li>普通聊天误入 ReAct</li>
+<li>MCP 工具失败导致 run 直接失败</li>
+<li>Qwen 超时后返回 <code>echo</code></li>
+<li>联调时 Python&#x2F;Java token 不一致导致 MCP 401</li>
 </ul>
-<h2 id="验证证据"><a href="#验证证据" class="headerlink" title="验证证据"></a>验证证据</h2><h3 id="1-直连-probe（MCP-可达性-工具数量）"><a href="#1-直连-probe（MCP-可达性-工具数量）" class="headerlink" title="1) 直连 probe（MCP 可达性 + 工具数量）"></a>1) 直连 probe（MCP 可达性 + 工具数量）</h3><p>命令：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -sS -X POST <span class="hljs-string">&#x27;http://127.0.0.1:10001/ai/mcp/tools/list&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Content-Type: application/json&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;X-AI-MCP-TOKEN: AAA&#x27;</span> \<br>  -d <span class="hljs-string">&#x27;&#123;&#125;&#x27;</span><br><br>curl -sS <span class="hljs-string">&#x27;http://127.0.0.1:8000/system/mcp/status?refresh=true&#x27;</span><br></code></pre></td></tr></table></figure>
+<p>边界上，Java 只保留 MCP + Tool 能力；会话编排、SSE、策略、前端调试全部归到 Python。</p>
+<h2 id="最终架构"><a href="#最终架构" class="headerlink" title="最终架构"></a>最终架构</h2><pre><code class=" mermaid">flowchart LR
+  FE[AI Assistant / Debug UI] --&gt; PY[Python ai-gateway + orchestrator]
+  PY --&gt;|tools/list tools/call| JM[Java MCP Server]
+  JM --&gt; TOOLS[业务 Tool 实现]
+  PY --&gt; QWEN[Qwen API]
+  PY --&gt; STORE[RunStore + Events]
+</code></pre>
 
-<p>结果要点：</p>
-<ul>
-<li><code>tools/list</code> 返回 <code>code=200</code></li>
-<li><code>system/mcp/status</code> 返回：<ul>
-<li><code>connected=true</code></li>
-<li><code>tool_count=10</code></li>
-<li><code>detail=&quot;ok (tools=10)&quot;</code></li>
+<h2 id="本次整体改动（按模块）"><a href="#本次整体改动（按模块）" class="headerlink" title="本次整体改动（按模块）"></a>本次整体改动（按模块）</h2><h3 id="1-Java-侧：AI-模块收口为-MCP-only"><a href="#1-Java-侧：AI-模块收口为-MCP-only" class="headerlink" title="1) Java 侧：AI 模块收口为 MCP-only"></a>1) Java 侧：AI 模块收口为 MCP-only</h3><ul>
+<li>移除非 MCP 的旧 AI 运行链路、历史配置和无关依赖，降低维护面。</li>
+<li>工具注册与元数据从 LangChain4j 解耦，保留必要实体与执行能力。</li>
+<li>新增&#x2F;增强 MCP 入口能力：<code>tools/list</code>、<code>tools/call</code>、上下文解析与注入快照。</li>
+<li>完成 MCP 端单测替换：从旧测试迁移到 MCP 端点覆盖。</li>
+<li>增加本地&#x2F;开发调试必需能力（如 dev&#x2F;local 启动兼容、调试登录入口）。</li>
+</ul>
+<h3 id="2-Python-侧：编排能力生产化"><a href="#2-Python-侧：编排能力生产化" class="headerlink" title="2) Python 侧：编排能力生产化"></a>2) Python 侧：编排能力生产化</h3><ul>
+<li>意图路由改为 LLM-first，统一 <code>IntentRouter -&gt; Policy -&gt; Strategy</code>。</li>
+<li>策略明确化：<ul>
+<li><code>CHAT -&gt; DIRECT</code></li>
+<li><code>TOOL_CALL/ANALYZE/TRACE -&gt; REACT</code></li>
 </ul>
 </li>
+<li>ReAct 失败时不再硬失败，触发 <code>tool_fallback</code> 后降级 DIRECT，保证会话可恢复。</li>
+<li>运行时绑定与上下文快照注入，增强跨事件可追踪性。</li>
 </ul>
-<h3 id="2-Python-单测"><a href="#2-Python-单测" class="headerlink" title="2) Python 单测"></a>2) Python 单测</h3><p>命令：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pytest tests/test_mcp_client.py<br></code></pre></td></tr></table></figure>
-
-<p>结果要点：</p>
-<ul>
-<li><code>collected 5 items</code></li>
-<li><code>5 passed</code></li>
-<li>核验覆盖了：<ul>
-<li>未设置 <code>MCP_API_TOKEN</code> 时默认 <code>AAA</code></li>
-<li>设置 <code>MCP_API_TOKEN</code> 时优先使用环境变量值</li>
+<h3 id="3-MCP-联调治理"><a href="#3-MCP-联调治理" class="headerlink" title="3) MCP 联调治理"></a>3) MCP 联调治理</h3><ul>
+<li>Python MCP token 来源简化为 <code>MCP_API_TOKEN</code>，本地默认 <code>AAA</code>。</li>
+<li>与 Java MCP internal token 对齐，修复 401 鉴权不一致问题。</li>
+<li>启动日志和调试页展示 Java MCP 连接状态，联调可视化更直接。</li>
 </ul>
-</li>
-</ul>
-<h2 id="回滚与风险说明（按-SPEC）"><a href="#回滚与风险说明（按-SPEC）" class="headerlink" title="回滚与风险说明（按 SPEC）"></a>回滚与风险说明（按 SPEC）</h2><h3 id="可追溯"><a href="#可追溯" class="headerlink" title="可追溯"></a>可追溯</h3><ul>
-<li>结论、命令、结果均已固化在本工作日志。</li>
-<li>验证入口固定：<code>/system/mcp/status?refresh=true</code> 与 <code>tests/test_mcp_client.py</code>。</li>
-</ul>
-<h3 id="可回退"><a href="#可回退" class="headerlink" title="可回退"></a>可回退</h3><p>若线上出现不兼容，可按最小改动回退：</p>
-<ol>
-<li>回退 Python 侧本次 token 简化提交（仅回退 token 配置相关变更）。</li>
-<li>恢复旧配置逻辑后，立即执行：<ul>
-<li><code>pytest tests/test_mcp_client.py</code></li>
-<li><code>curl .../system/mcp/status?refresh=true</code></li>
+<h3 id="4-Qwen-稳定性治理"><a href="#4-Qwen-稳定性治理" class="headerlink" title="4) Qwen 稳定性治理"></a>4) Qwen 稳定性治理</h3><ul>
+<li>去掉异常时 <code>echo: 用户问题</code> 的回退行为。</li>
+<li>超时与重试参数化：<ul>
+<li><code>QWEN_TIMEOUT_SECONDS=60</code></li>
+<li><code>QWEN_MAX_RETRIES=2</code></li>
 </ul>
 </li>
-<li>以 <code>connected</code>、<code>tool_count</code>、401 告警是否消失作为回退验收。</li>
+<li>失败时统一用户可读文案：<code>当前模型服务暂不可用，请稍后重试。</code></li>
+</ul>
+<h3 id="5-前端与开发体验"><a href="#5-前端与开发体验" class="headerlink" title="5) 前端与开发体验"></a>5) 前端与开发体验</h3><ul>
+<li>调试页升级为左右分栏：<ul>
+<li>左侧紧凑时间轴卡片（摘要）</li>
+<li>右侧原始 SSE 事件（明细）</li>
+</ul>
+</li>
+<li>新增独立用户态页面 <code>assistant.html</code>，与开发调试页分离。</li>
+<li>启动脚本简化并默认跟踪日志，减少“启动了但看不到日志”的调试成本。</li>
+</ul>
+<h2 id="关键问题与修复闭环"><a href="#关键问题与修复闭环" class="headerlink" title="关键问题与修复闭环"></a>关键问题与修复闭环</h2><ol>
+<li><p><code>query=你是谁</code> 误走 ReAct并返回 echo<br>修复：LLM 意图统一路由 + DirectStrategy 取消 echo fallback。</p>
+</li>
+<li><p>MCP 401 (<code>mcp_unauthorized</code>)<br>修复：Python&#x2F;Java token 统一策略，默认 <code>AAA</code>，链路可观测。</p>
+</li>
+<li><p>模型超时导致体验不可控<br>修复：Qwen 超时提升到 60s + 重试 + 明确降级文案。</p>
+</li>
 </ol>
-<h3 id="单一目的变更"><a href="#单一目的变更" class="headerlink" title="单一目的变更"></a>单一目的变更</h3><ul>
-<li>本次只处理 MCP token 对齐与默认值策略，不扩展到工具路由、SSE、RunStore 等其他模块。</li>
-<li>遵循最小变更面，降低联动回归风险。</li>
+<h2 id="结果验收"><a href="#结果验收" class="headerlink" title="结果验收"></a>结果验收</h2><ul>
+<li>Python 侧自动化测试通过（本轮关键节点执行过 <code>pytest -q</code>，通过）。</li>
+<li>聊天与工具调用链路从“硬失败”转为“可恢复”。</li>
+<li>Java 侧职责收敛，后续可以围绕 Tool 能力继续扩展，而不再背负编排复杂度。</li>
 </ul>
-<h2 id="后续观察项"><a href="#后续观察项" class="headerlink" title="后续观察项"></a>后续观察项</h2><ul>
-<li>统一各环境（dev&#x2F;test&#x2F;prod）<code>MCP_API_TOKEN</code> 注入方式，避免“本地默认可用、环境变量缺失”导致偏差。</li>
-<li>监控 Java MCP 401&#x2F;403 比例，作为 token 配置漂移的早期信号。</li>
+<h2 id="仍待收尾"><a href="#仍待收尾" class="headerlink" title="仍待收尾"></a>仍待收尾</h2><ul>
+<li>部分业务工具在特定上下文下仍可能返回 Java 500（例如个别炉次查询场景）。</li>
+<li>下一步重点是工具级根因治理与端到端业务正确性校验（尤其 scope: tenant&#x2F;dept&#x2F;user 注入一致性）。</li>
+</ul>
+<h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>这次重构的核心价值不是“功能变多”，而是“系统边界清晰 + 失败可恢复 + 可观测可迭代”：</p>
+<ul>
+<li>Java 专注 MCP Tool 执行平面</li>
+<li>Python 专注编排与交互控制平面</li>
+<li>线上故障从“脆断”变成“降级可用”</li>
 </ul>
 
                 
@@ -387,15 +408,17 @@
       
         <a href="/tags/MCP/" class="print-no-link">#MCP</a>
       
+        <a href="/tags/Qwen/" class="print-no-link">#Qwen</a>
+      
+        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+      
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+      
+        <a href="/tags/%E7%A8%B3%E5%AE%9A%E6%80%A7/" class="print-no-link">#稳定性</a>
+      
+        <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/" class="print-no-link">#重构复盘</a>
+      
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
-      
-        <a href="/tags/Java/" class="print-no-link">#Java</a>
-      
-        <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
-      
-        <a href="/tags/Python/" class="print-no-link">#Python</a>
-      
-        <a href="/tags/401%E6%8E%92%E6%9F%A5/" class="print-no-link">#401排查</a>
       
     </div>
   
@@ -407,8 +430,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</div>
-      <div>https://willfordzhan.github.io/2026/02/21/java-python-mcp-401-token/</div>
+      <div>AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</div>
+      <div>https://willfordzhan.github.io/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/</div>
     </div>
     <div class="license-meta">
       
@@ -420,7 +443,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月22日</div>
+          <div>2026年2月27日</div>
         </div>
       
       
@@ -452,18 +475,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/25/react-orchestrator-qa/" title="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/21/rag-opensearch-rrf-ingest/" title="RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest">
-                        <span class="hidden-mobile">RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest</span>
+                      <a href="/2026/02/25/ai-llm-react/" title="AI控制面生产化改造：LLM意图路由与ReAct执行边界">
+                        <span class="hidden-mobile">AI控制面生产化改造：LLM意图路由与ReAct执行边界</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
