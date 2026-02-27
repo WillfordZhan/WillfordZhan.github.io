@@ -4,6 +4,33 @@
   
   
   <entry>
+    <title>PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查</title>
+    <link href="/2026/02/27/pycharm-uvicorn-fastapi/"/>
+    <url>/2026/02/27/pycharm-uvicorn-fastapi/</url>
+    
+    <content type="html"><![CDATA[<p>最近在调试一个 FastAPI + Uvicorn 的项目时，遇到两个高频问题：</p><ol><li>PyCharm 里到底怎么正确配 <code>uvicorn main:app</code>？</li><li>代码里明明写了 <code>LOGGER.info(...)</code>，控制台却看不到日志？</li></ol><p>这篇只讲可直接落地的做法。</p><h2 id="1-PyCharm-里如何用-Uvicorn-调试"><a href="#1-PyCharm-里如何用-Uvicorn-调试" class="headerlink" title="1) PyCharm 里如何用 Uvicorn 调试"></a>1) PyCharm 里如何用 Uvicorn 调试</h2><p>新增一个 <code>Python</code> 类型 Run Configuration：</p><ul><li><code>Run</code>: <code>Module name</code></li><li><code>Module name</code>: <code>uvicorn</code></li><li><code>Parameters</code>: <code>main:app --host 127.0.0.1 --port 8000</code></li><li><code>Working directory</code>: 项目根目录</li><li><code>Python interpreter</code>: 安装过依赖的虚拟环境</li></ul><p>建议调试时先不要加 <code>--reload</code>，热重载会拉起子进程，断点命中和日志输出都容易漂。</p><h2 id="2-为什么业务日志看不到"><a href="#2-为什么业务日志看不到" class="headerlink" title="2) 为什么业务日志看不到"></a>2) 为什么业务日志看不到</h2><p>典型现象：</p><ul><li>Uvicorn 启动日志有</li><li>业务代码里的 <code>LOGGER.info(...)</code> 没有</li><li><code>warning/error</code> 偶尔有</li></ul><p>根因通常是：Uvicorn 默认主要配置了 <code>uvicorn.*</code> logger，业务 logger（如 <code>app.*</code>）会冒泡到 root，而 root 默认阈值常是 <code>WARNING</code>，因此 <code>INFO</code> 被过滤。</p><h2 id="3-直接可用的修复方案"><a href="#3-直接可用的修复方案" class="headerlink" title="3) 直接可用的修复方案"></a>3) 直接可用的修复方案</h2><p>在启动入口（例如 <code>main.py</code>）里做一次应用日志初始化：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> logging<br><span class="hljs-keyword">import</span> os<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">configure_app_logging</span>() -&gt; <span class="hljs-literal">None</span>:<br>    log_level_name = os.getenv(<span class="hljs-string">&quot;APP_LOG_LEVEL&quot;</span>, <span class="hljs-string">&quot;INFO&quot;</span>).upper()<br>    log_level = <span class="hljs-built_in">getattr</span>(logging, log_level_name, logging.INFO)<br><br>    root_logger = logging.getLogger()<br>    root_logger.setLevel(log_level)<br><br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> root_logger.handlers:<br>        handler = logging.StreamHandler()<br>        handler.setFormatter(<br>            logging.Formatter(<span class="hljs-string">&quot;%(asctime)s %(levelname)s [%(name)s] %(message)s&quot;</span>)<br>        )<br>        root_logger.addHandler(handler)<br><br>    logging.getLogger(<span class="hljs-string">&quot;app&quot;</span>).setLevel(log_level)<br></code></pre></td></tr></table></figure><p>需要更详细日志时：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">APP_LOG_LEVEL=DEBUG<br></code></pre></td></tr></table></figure><h2 id="4-最小验证方法"><a href="#4-最小验证方法" class="headerlink" title="4) 最小验证方法"></a>4) 最小验证方法</h2><ol><li>启动后打一个断点。</li><li>在断点附近写：</li></ol><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">LOGGER.info(<span class="hljs-string">&quot;debug_probe run_id=%s&quot;</span>, run_id)<br></code></pre></td></tr></table></figure><ol start="3"><li>看 PyCharm Debug Console 是否出现：</li></ol><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">2026-xx-xx xx:xx:xx,xxx INFO [app.orchestrator] debug_probe run_id=...<br></code></pre></td></tr></table></figure><p>出现就说明链路打通了。</p><h2 id="5-三个容易踩坑的点"><a href="#5-三个容易踩坑的点" class="headerlink" title="5) 三个容易踩坑的点"></a>5) 三个容易踩坑的点</h2><ol><li>直接 Run <code>main.py</code> 期待服务自动启动（多数项目不会，除非你写了 <code>if __name__ == &quot;__main__&quot;</code> 启动逻辑）。</li><li>项目里有多个 venv，PyCharm 解释器选错。</li><li>调试期默认开 <code>--reload</code>，导致你以为“断点或日志失效”。</li></ol><p>如果你在做 FastAPI 的日常开发，这套配置建议固化成团队模板，能省掉不少无效排查时间。</p>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>FastAPI</tag>
+      
+      <tag>Python</tag>
+      
+      <tag>Uvicorn</tag>
+      
+      <tag>PyCharm</tag>
+      
+      <tag>调试</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</title>
     <link href="/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/"/>
     <url>/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/</url>

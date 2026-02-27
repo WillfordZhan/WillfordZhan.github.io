@@ -19,30 +19,26 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="前言Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 postho">
+    <meta name="description" content="最近在调试一个 FastAPI + Uvicorn 的项目时，遇到两个高频问题：  PyCharm 里到底怎么正确配 uvicorn main:app？ 代码里明明写了 LOGGER.info(...)，控制台却看不到日志？  这篇只讲可直接落地的做法。 1) PyCharm 里如何用 Uvicorn 调试新增一个 Python 类型 Run Configuration：  Run: Module">
 <meta property="og:type" content="article">
-<meta property="og:title" content="关于 posthoc_nemenyi_friedman() 函数的一点思考">
-<meta property="og:url" content="https://willfordzhan.github.io/2019/12/23/Nemenyi/index.html">
+<meta property="og:title" content="PyCharm 调试 Uvicorn&#x2F;FastAPI 与日志可见性排查">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/27/pycharm-uvicorn-fastapi/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="前言Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 postho">
+<meta property="og:description" content="最近在调试一个 FastAPI + Uvicorn 的项目时，遇到两个高频问题：  PyCharm 里到底怎么正确配 uvicorn main:app？ 代码里明明写了 LOGGER.info(...)，控制台却看不到日志？  这篇只讲可直接落地的做法。 1) PyCharm 里如何用 Uvicorn 调试新增一个 Python 类型 Run Configuration：  Run: Module">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga77qogt8oj30cs042t8t.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7ao5d5qsj30mk0323yn.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7ap9uxk9j30n202g0sw.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7b0ruy3uj30d203oaa1.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga5wpvzuxoj30xw0jawij.jpg">
-<meta property="og:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg">
-<meta property="article:published_time" content="2019-12-23T13:27:24.000Z">
+<meta property="article:published_time" content="2026-02-27T07:39:56.000Z">
 <meta property="article:modified_time" content="2026-02-27T07:41:17.907Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="知识沉淀">
+<meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Uvicorn">
+<meta property="article:tag" content="PyCharm">
+<meta property="article:tag" content="调试">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://willfordzhan.github.io/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg">
   
   
   
-  <title>关于 posthoc_nemenyi_friedman() 函数的一点思考 - 味儿福德詹的小站</title>
+  <title>PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -220,7 +216,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="关于 posthoc_nemenyi_friedman() 函数的一点思考"></span>
+            <span id="subtitle" data-typed-text="PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查"></span>
           
         </div>
 
@@ -231,8 +227,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2019-12-23 21:27" pubdate>
-          2019年12月23日 晚上
+        <time datetime="2026-02-27 15:39" pubdate>
+          2026年2月27日 下午
         </time>
       </span>
     
@@ -243,7 +239,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.2k 字
+          459 字
         
       </span>
     
@@ -254,7 +250,7 @@
         
         
         
-          11 分钟
+          4 分钟
         
       </span>
     
@@ -291,16 +287,57 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">关于 posthoc_nemenyi_friedman() 函数的一点思考</h1>
+            <h1 id="seo-header">PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Scikit-posthocs 这个库提供了许多 Post-hoc (后续检验) 的函数，Tukey Post-hoc, Nemenyi Post-hoc 等常见后续测试在这个库里都有相对应的实现，使用起来较为方便。</p><p>最近做的作业中要求使用 Friedman 测试和 Nemenyi 后续测试，来检验三个分类算法的精度是否有较大差异。于是博主使用了 Scikit-posthocs 的 <code>posthoc_nemenyi_friedman()</code> 函数。但在使用过程中我发现这个函数的返回值和我预想中的不一样，它返回了一个所谓的 P-values 矩阵，这个矩阵长这样：</p><img src="/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" /><p>盲猜矩阵的每个 P-value 是用来和 𝛼 做比较的，但是比较的原则是怎样的呢？这个比较的结果和 Nemenyi 测试结果是怎样关联的呢？</p><p>于是查看了一下这个函数的<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>，然而文档只说明了函数用法，并没有详细说明函数内部操作的具体流程，无法解除我的疑惑。好在这个库是开源的，于是博主研究了一下这个函数的<a href="https://github.com/maximtrp/scikit-posthocs/blob/master/scikit_posthocs/_posthocs.py" target="_blank" rel="noopener">源码</a>.</p><p>经过博主的一系列研究，最终发现</p><p><strong>这个矩阵中的 P-value 由算法两两比较而产生，用来与 α 做比较，如果 P-value &gt; α，则被比较的两个算法没有明显差异，如果 P-value &lt; α，则被比较的两个算法有明显差异 (Reject H0).</strong></p><p>下面是研究过程：</p><h2 id="Nemenyi-测试"><a href="#Nemenyi-测试" class="headerlink" title="Nemenyi 测试"></a>Nemenyi 测试</h2><p>在解释这个函数的流程之前，我们必须先熟稔 Nemenyi 测试的流程</p><p>根据西瓜书上的说明，Friedman 测试结果如果表明 “算法性能显著不同”，则需进行 Nemenyi 后续测试。书上所描述的 Nemenyi 测试流程是这样的:</p><ol><li><p>根据公式计算 <strong>Critical Difference (CD)</strong>，<em>q⍺</em> 可查表获得</p><img src="/img/nemenyi/006tNbRwgy1ga77qogt8oj30cs042t8t.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223192242846" style="zoom: 50%;" /></li><li><p>将两个算法的平均序值的差 <strong>(Average Rank Difference, ARD)</strong>  和 CD 进行比较，如果 ARD &gt; CD，则两个算法的性能有明显差异。</p></li></ol><h2 id="函数源码解释"><a href="#函数源码解释" class="headerlink" title="函数源码解释"></a>函数源码解释</h2><p>由上述 Nemenyi 测试的解释可得，在西瓜书中， Nemenyi 测试的核心在于计算 CD, 并将其与 ARD 进行比较。然而研究源码之后，博主发现<code>posthoc_nemenyi_friedman()</code>的思路和上述流程迥然不同，十分清奇，值得一看。下面是该函数作者的思路：</p><ol><li><p>在 CD 公式中，由于 <em>k</em> 和 <em>N</em> 是恒定的，因此可知 <em>q⍺</em> 的值决定了 CD 的值，CD 与 <em>q⍺</em> 存在函数映射</p><img src="/img/nemenyi/006tNbRwgy1ga7ao5d5qsj30mk0323yn.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223210403181" style="zoom: 67%;" /></li><li><p>由于 ARD 和 CD 是可比较的，意味着 ARD 可化成与 CD 相同的形式。</p></li></ol>   <img src="/img/nemenyi/006tNbRwgy1ga7ap9uxk9j30n202g0sw.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223210508251" style="zoom:67%;" /><ol start="3"><li><p>对等式做变换得</p><img src="/img/nemenyi/006tNbRwgy1ga7b0ruy3uj30d203oaa1.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223211611760" style="zoom:67%;" /></li><li><p>等式的左边可通过计算得出，将算出的 qβ 值代入<code>自由度 = infinity，样本数 = k的学生化极差分布(Studentized Range)</code>,即可得到 β，β 即为函数返回的 P-value，用于和 α 进行比较</p></li></ol><blockquote><p>西瓜书中解释道 “<em>q⍺</em> 是 Tukey 分布的临界值，在 R 语言中可通过<code>qtukey(1-𝛼, k, Inf) / sqrt(2)</code>计算”。其实就是在自由度 = infinity，样本数 = k ，的学生化极差分布 (Studentized Range) 中取 (1-⍺) 分位数的值，这个在源码中也有所体现。</p></blockquote><h2 id="函数源码"><a href="#函数源码" class="headerlink" title="函数源码"></a>函数源码</h2><p>添加了博主注释的函数源码如下：</p>
+                <p>最近在调试一个 FastAPI + Uvicorn 的项目时，遇到两个高频问题：</p>
+<ol>
+<li>PyCharm 里到底怎么正确配 <code>uvicorn main:app</code>？</li>
+<li>代码里明明写了 <code>LOGGER.info(...)</code>，控制台却看不到日志？</li>
+</ol>
+<p>这篇只讲可直接落地的做法。</p>
+<h2 id="1-PyCharm-里如何用-Uvicorn-调试"><a href="#1-PyCharm-里如何用-Uvicorn-调试" class="headerlink" title="1) PyCharm 里如何用 Uvicorn 调试"></a>1) PyCharm 里如何用 Uvicorn 调试</h2><p>新增一个 <code>Python</code> 类型 Run Configuration：</p>
+<ul>
+<li><code>Run</code>: <code>Module name</code></li>
+<li><code>Module name</code>: <code>uvicorn</code></li>
+<li><code>Parameters</code>: <code>main:app --host 127.0.0.1 --port 8000</code></li>
+<li><code>Working directory</code>: 项目根目录</li>
+<li><code>Python interpreter</code>: 安装过依赖的虚拟环境</li>
+</ul>
+<p>建议调试时先不要加 <code>--reload</code>，热重载会拉起子进程，断点命中和日志输出都容易漂。</p>
+<h2 id="2-为什么业务日志看不到"><a href="#2-为什么业务日志看不到" class="headerlink" title="2) 为什么业务日志看不到"></a>2) 为什么业务日志看不到</h2><p>典型现象：</p>
+<ul>
+<li>Uvicorn 启动日志有</li>
+<li>业务代码里的 <code>LOGGER.info(...)</code> 没有</li>
+<li><code>warning/error</code> 偶尔有</li>
+</ul>
+<p>根因通常是：Uvicorn 默认主要配置了 <code>uvicorn.*</code> logger，业务 logger（如 <code>app.*</code>）会冒泡到 root，而 root 默认阈值常是 <code>WARNING</code>，因此 <code>INFO</code> 被过滤。</p>
+<h2 id="3-直接可用的修复方案"><a href="#3-直接可用的修复方案" class="headerlink" title="3) 直接可用的修复方案"></a>3) 直接可用的修复方案</h2><p>在启动入口（例如 <code>main.py</code>）里做一次应用日志初始化：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">import</span> logging<br><span class="hljs-keyword">import</span> os<br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">configure_app_logging</span>() -&gt; <span class="hljs-literal">None</span>:<br>    log_level_name = os.getenv(<span class="hljs-string">&quot;APP_LOG_LEVEL&quot;</span>, <span class="hljs-string">&quot;INFO&quot;</span>).upper()<br>    log_level = <span class="hljs-built_in">getattr</span>(logging, log_level_name, logging.INFO)<br><br>    root_logger = logging.getLogger()<br>    root_logger.setLevel(log_level)<br><br>    <span class="hljs-keyword">if</span> <span class="hljs-keyword">not</span> root_logger.handlers:<br>        handler = logging.StreamHandler()<br>        handler.setFormatter(<br>            logging.Formatter(<span class="hljs-string">&quot;%(asctime)s %(levelname)s [%(name)s] %(message)s&quot;</span>)<br>        )<br>        root_logger.addHandler(handler)<br><br>    logging.getLogger(<span class="hljs-string">&quot;app&quot;</span>).setLevel(log_level)<br></code></pre></td></tr></table></figure>
 
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">def</span> <span class="hljs-title function_">posthoc_nemenyi_friedman</span>(<span class="hljs-params">a, y_col=<span class="hljs-literal">None</span>, block_col=<span class="hljs-literal">None</span>, group_col=<span class="hljs-literal">None</span>, melted=<span class="hljs-literal">False</span>, sort=<span class="hljs-literal">False</span></span>):<br>    <span class="hljs-comment"># 计算 q-value 可理解为 qβ，和公式中的 q⍺ 对应</span><br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">compare_stats</span>(<span class="hljs-params">i, j</span>):<br>        dif = np.<span class="hljs-built_in">abs</span>(R[groups[i]] - R[groups[j]])<br>        <span class="hljs-comment"># qβ = ARD / 公式中带根号的部分</span><br>        qval = dif / np.sqrt(k * (k + <span class="hljs-number">1.</span>) / (<span class="hljs-number">6.</span> * n))<br>        <span class="hljs-keyword">return</span> qval<br><br>    <span class="hljs-comment"># 将输入的矩阵转换为该库中定义的 block 格式</span><br>    x, _y_col, _group_col, _block_col = __convert_to_block_df(a, y_col, group_col, block_col, melted)<br>    x.sort_values(by=[_group_col, _block_col], ascending=<span class="hljs-literal">True</span>, inplace=<span class="hljs-literal">True</span>)<br>    x.dropna(inplace=<span class="hljs-literal">True</span>)<br><br>    groups = x[_group_col].unique()<br>    k = groups.size<br>    n = x[_block_col].unique().size<br><br>    x[<span class="hljs-string">&#x27;mat&#x27;</span>] = x.groupby(_block_col)[_y_col].rank()<br>    R = x.groupby(_group_col)[<span class="hljs-string">&#x27;mat&#x27;</span>].mean()<br><br>    vs = np.zeros((k, k))<br>    <span class="hljs-comment"># 原矩阵的列数（用于比较的算法个数）为 k</span><br>    <span class="hljs-comment"># 生成 k * k 的比较矩阵 M，并将其初始化为零矩阵</span><br>    combs = it.combinations(<span class="hljs-built_in">range</span>(k), <span class="hljs-number">2</span>)<br>    tri_upper = np.triu_indices(vs.shape[<span class="hljs-number">0</span>], <span class="hljs-number">1</span>)<br>    tri_lower = np.tril_indices(vs.shape[<span class="hljs-number">0</span>], -<span class="hljs-number">1</span>)<br><br>    vs[:, :] = <span class="hljs-number">0</span><br><br>    <span class="hljs-comment"># 计算 M 中两两比较的 q-value</span><br>    <span class="hljs-keyword">for</span> i, j <span class="hljs-keyword">in</span> combs:<br>        vs[i, j] = compare_stats(i, j)<br><br>    vs *= np.sqrt(<span class="hljs-number">2.</span>)<br><br>    <span class="hljs-comment"># 把 qβ 代入到自由度 = infinity，样本数 = k 的 Studentized 分布中，得到 β</span><br>    <span class="hljs-comment"># 由此可以得出 P-value 结果矩阵实际上是算法两两比较，根据公式算出 qβ 里其中的 β 值</span><br>    vs[tri_upper] = psturng(vs[tri_upper], k, np.inf)<br>    vs[tri_lower] = vs.T[tri_lower]<br>    np.fill_diagonal(vs, -<span class="hljs-number">1</span>)<br><br>    <span class="hljs-keyword">return</span> DataFrame(vs, index=groups, columns=groups)<br></code></pre></td></tr></table></figure>
+<p>需要更详细日志时：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">APP_LOG_LEVEL=DEBUG<br></code></pre></td></tr></table></figure>
 
-<h2 id="函数用法"><a href="#函数用法" class="headerlink" title="函数用法"></a>函数用法</h2><h4 id="输入参数"><a href="#输入参数" class="headerlink" title="输入参数"></a>输入参数</h4><p><strong>描述：</strong>多个算法在不同数据集上的测试结果 (精度，F1值 …) 所构成的矩阵，例：</p><img src="/img/nemenyi/006tNbRwgy1ga5wpvzuxoj30xw0jawij.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191222161536827" style="zoom: 33%;" /><p><strong>格式：</strong>一个  <code>Array_like</code> 的数组 (Numpy 数组和二维列表都可以)，或者是 <code>DataFrame</code> 对象，（如果是 <code>DataFrame</code> ，则有更多的相关参数需要输入，详见<a href="https://scikit-posthocs.readthedocs.io/en/latest/generated/scikit_posthocs.posthoc_nemenyi_friedman/" target="_blank" rel="noopener">官方文档</a>）</p><h4 id="返回值"><a href="#返回值" class="headerlink" title="返回值"></a>返回值</h4><p><strong>描述</strong>：由算法两两对比产生的 P-value <code>DataFrame</code>矩阵，用于与 alpha 进行比较。例：</p><img src="/img/nemenyi/006tNbRwgy1ga7dvvelsrj30n80agt9e.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="image-20191223225516040" style="zoom: 50%;" /><h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>上述推导均为博主根据函数写法所得，如有谬误欢迎指证，感激不尽！</p>
+<h2 id="4-最小验证方法"><a href="#4-最小验证方法" class="headerlink" title="4) 最小验证方法"></a>4) 最小验证方法</h2><ol>
+<li>启动后打一个断点。</li>
+<li>在断点附近写：</li>
+</ol>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python">LOGGER.info(<span class="hljs-string">&quot;debug_probe run_id=%s&quot;</span>, run_id)<br></code></pre></td></tr></table></figure>
+
+<ol start="3">
+<li>看 PyCharm Debug Console 是否出现：</li>
+</ol>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">2026-xx-xx xx:xx:xx,xxx INFO [app.orchestrator] debug_probe run_id=...<br></code></pre></td></tr></table></figure>
+
+<p>出现就说明链路打通了。</p>
+<h2 id="5-三个容易踩坑的点"><a href="#5-三个容易踩坑的点" class="headerlink" title="5) 三个容易踩坑的点"></a>5) 三个容易踩坑的点</h2><ol>
+<li>直接 Run <code>main.py</code> 期待服务自动启动（多数项目不会，除非你写了 <code>if __name__ == &quot;__main__&quot;</code> 启动逻辑）。</li>
+<li>项目里有多个 venv，PyCharm 解释器选错。</li>
+<li>调试期默认开 <code>--reload</code>，导致你以为“断点或日志失效”。</li>
+</ol>
+<p>如果你在做 FastAPI 的日常开发，这套配置建议固化成团队模板，能省掉不少无效排查时间。</p>
 
                 
               </div>
@@ -313,7 +350,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80/" class="print-no-link">#知识沉淀</a>
+        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+      
+        <a href="/tags/Python/" class="print-no-link">#Python</a>
+      
+        <a href="/tags/Uvicorn/" class="print-no-link">#Uvicorn</a>
+      
+        <a href="/tags/PyCharm/" class="print-no-link">#PyCharm</a>
+      
+        <a href="/tags/%E8%B0%83%E8%AF%95/" class="print-no-link">#调试</a>
       
     </div>
   
@@ -325,8 +370,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>关于 posthoc_nemenyi_friedman() 函数的一点思考</div>
-      <div>https://willfordzhan.github.io/2019/12/23/Nemenyi/</div>
+      <div>PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查</div>
+      <div>https://willfordzhan.github.io/2026/02/27/pycharm-uvicorn-fastapi/</div>
     </div>
     <div class="license-meta">
       
@@ -338,7 +383,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2019年12月23日</div>
+          <div>2026年2月27日</div>
         </div>
       
       
@@ -370,18 +415,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/guides/termius-tailscale-tmux/" title="用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/" title="自用的Mac小技巧">
-                        <span class="hidden-mobile">自用的Mac小技巧</span>
+                      <a href="/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/" title="AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理">
+                        <span class="hidden-mobile">AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
