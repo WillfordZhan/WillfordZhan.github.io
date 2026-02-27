@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘</title>
+    <link href="/2026/02/27/ats_iot_ai-ai/"/>
+    <url>/2026/02/27/ats_iot_ai-ai/</url>
+    
+    <content type="html"><![CDATA[<p>这次复盘记录的是 <code>ats_iot_ai</code> 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。</p><h2 id="背景：项目开始失控，必须回到核心-flow"><a href="#背景：项目开始失控，必须回到核心-flow" class="headerlink" title="背景：项目开始失控，必须回到核心 flow"></a>背景：项目开始失控，必须回到核心 flow</h2><p>随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。<br>这轮重构的目标很明确：聚焦核心 flow，把系统重新收敛到一条可解释、可测试、可快速迭代的主路径。</p><h2 id="本次里程碑"><a href="#本次里程碑" class="headerlink" title="本次里程碑"></a>本次里程碑</h2><ol><li><code>Orchestrator</code> 收敛为单一 ReAct 核心循环。</li><li>移除 <code>strategy/eval/policy/guard/verify</code> 这套多层抽象。</li><li>删除对应的复杂测试，保留核心行为测试：<code>run / sse / tool / clarification</code>。</li><li>全量测试结果回归稳定：<code>33 passed</code>。</li></ol><h2 id="关键-Commit"><a href="#关键-Commit" class="headerlink" title="关键 Commit"></a>关键 Commit</h2><ul><li><code>463fc90</code></li><li><code>refactor(orchestrator): collapse to single react loop and remove strategy stack</code></li></ul><p>这次提交基本定义了新架构边界：优先“跑通且可维护”的主链路，而不是保留历史包袱的概念分层。</p><h2 id="重点收益"><a href="#重点收益" class="headerlink" title="重点收益"></a>重点收益</h2><ol><li>复杂度显著下降：调用链更短，排障路径更直接。</li><li>迭代速度提升：新增&#x2F;调整行为时，改动面更小，回归成本更低。</li><li>可维护性改善：核心职责集中，测试更聚焦真实用户路径。</li></ol><h2 id="剩余工作"><a href="#剩余工作" class="headerlink" title="剩余工作"></a>剩余工作</h2><p>下一步计划是把 <code>intent_router</code> 与 <code>clarification slot</code> 进一步并入经典 ReAct 的 <code>plan</code> 步，让意图判定与澄清收集更统一地在单循环内完成，继续减少分叉逻辑和隐式状态。</p><hr><p>这次重构再次验证了一个实践原则：当系统复杂度开始压制交付速度时，最有效的优化通常不是“再加一层”，而是先做减法，回到主流程。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>ReAct</tag>
+      
+      <tag>重构复盘</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>架构简化</tag>
+      
+      <tag>ats_iot_ai</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查</title>
     <link href="/2026/02/27/pycharm-uvicorn-fastapi/"/>
     <url>/2026/02/27/pycharm-uvicorn-fastapi/</url>
