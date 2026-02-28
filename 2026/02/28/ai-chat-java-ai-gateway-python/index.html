@@ -19,28 +19,29 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="目标与边界本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：  普通聊天误入 ReAct MCP 工具失败导致 run 直接失败 Qwen 超时后返回 echo 联调时 Python&#x2F;Java token 不一致导致 MCP 401  边界上，Java 只保留 MCP + Tool 能力；会话编">
+    <meta name="description" content="本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。 改造摘要 Java 成为 AI Gateway 统一入口：   前端不再直连 Python，而是走 &#x2F;api&#x2F;ai&#x2F;*。 Java 在转发到 Python 前注入两类内部头： X-AI-GW-TOKEN X-AI-BIZ-CONTEXT（签名">
 <meta property="og:type" content="article">
-<meta property="og:title" content="AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/index.html">
+<meta property="og:title" content="AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/28/ai-chat-java-ai-gateway-python/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="目标与边界本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：  普通聊天误入 ReAct MCP 工具失败导致 run 直接失败 Qwen 超时后返回 echo 联调时 Python&#x2F;Java token 不一致导致 MCP 401  边界上，Java 只保留 MCP + Tool 能力；会话编">
+<meta property="og:description" content="本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。 改造摘要 Java 成为 AI Gateway 统一入口：   前端不再直连 Python，而是走 &#x2F;api&#x2F;ai&#x2F;*。 Java 在转发到 Python 前注入两类内部头： X-AI-GW-TOKEN X-AI-BIZ-CONTEXT（签名">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-27T07:01:48.000Z">
+<meta property="article:published_time" content="2026-02-28T10:00:19.000Z">
 <meta property="article:modified_time" content="2026-02-28T10:02:11.839Z">
 <meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI网关">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="Python">
 <meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="鉴权">
+<meta property="article:tag" content="联调复盘">
+<meta property="article:tag" content="SSE">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="MCP">
-<meta property="article:tag" content="Qwen">
-<meta property="article:tag" content="ReAct">
-<meta property="article:tag" content="稳定性">
-<meta property="article:tag" content="重构复盘">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理 - 味儿福德詹的小站</title>
+  <title>AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +219,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理"></span>
+            <span id="subtitle" data-typed-text="AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地"></span>
           
         </div>
 
@@ -229,8 +230,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-27 15:01" pubdate>
-          2026年2月27日 下午
+        <time datetime="2026-02-28 18:00" pubdate>
+          2026年2月28日 晚上
         </time>
       </span>
     
@@ -289,90 +290,76 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</h1>
+            <h1 id="seo-header">AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="目标与边界"><a href="#目标与边界" class="headerlink" title="目标与边界"></a>目标与边界</h2><p>本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：</p>
+                <p>本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。</p>
+<h2 id="改造摘要"><a href="#改造摘要" class="headerlink" title="改造摘要"></a>改造摘要</h2><ol>
+<li>Java 成为 AI Gateway 统一入口：</li>
+</ol>
 <ul>
-<li>普通聊天误入 ReAct</li>
-<li>MCP 工具失败导致 run 直接失败</li>
-<li>Qwen 超时后返回 <code>echo</code></li>
-<li>联调时 Python&#x2F;Java token 不一致导致 MCP 401</li>
+<li>前端不再直连 Python，而是走 <code>/api/ai/*</code>。</li>
+<li>Java 在转发到 Python 前注入两类内部头：<ul>
+<li><code>X-AI-GW-TOKEN</code></li>
+<li><code>X-AI-BIZ-CONTEXT</code>（签名业务上下文，包含 <code>userId/tenantDeptId/traceId/iat/exp</code> 等）</li>
 </ul>
-<p>边界上，Java 只保留 MCP + Tool 能力；会话编排、SSE、策略、前端调试全部归到 Python。</p>
-<h2 id="最终架构"><a href="#最终架构" class="headerlink" title="最终架构"></a>最终架构</h2><pre><code class=" mermaid">flowchart LR
-  FE[AI Assistant / Debug UI] --&gt; PY[Python ai-gateway + orchestrator]
-  PY --&gt;|tools/list tools/call| JM[Java MCP Server]
-  JM --&gt; TOOLS[业务 Tool 实现]
-  PY --&gt; QWEN[Qwen API]
-  PY --&gt; STORE[RunStore + Events]
+</li>
+</ul>
+<ol start="2">
+<li>Python 新增并强制执行网关鉴权中间件：</li>
+</ol>
+<ul>
+<li>所有 <code>/ai/*</code> 业务接口默认需要 <code>X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT</code>。</li>
+<li>通过 HMAC 校验上下文签名，并校验时间窗口（<code>iat/exp</code> + <code>AI_GATEWAY_CLOCK_SKEW_SECONDS</code>）。</li>
+<li>鉴权通过后将上下文写入 <code>request.state.auth_context</code>，用于 run owner 与工具上下文注入。</li>
+</ul>
+<ol start="3">
+<li>前端调用路径统一为 Java 网关：</li>
+</ol>
+<ul>
+<li><code>assistant.js</code> 默认 <code>aiApiPrefix</code> 为 <code>/api/ai</code>。</li>
+<li>前端不再管理 <code>x-user-id/x-tenant-dept-id</code> 直传头，用户上下文由 Java 登录态和网关注入机制统一处理。</li>
+</ul>
+<h2 id="端到端链路（当前状态）"><a href="#端到端链路（当前状态）" class="headerlink" title="端到端链路（当前状态）"></a>端到端链路（当前状态）</h2><pre><code class=" mermaid">flowchart LR
+  FE[assistant.html / assistant.js] --&gt;|/api/ai/* + Bearer| JGW[Java AI Gateway]
+  JGW --&gt;|X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT| PY[Python Control Plane]
+  PY --&gt; MCP[Java MCP tools/list tools/call]
+  PY --&gt; LLM[Qwen]
+  PY --&gt; SSE[SSE Events]
 </code></pre>
 
-<h2 id="本次整体改动（按模块）"><a href="#本次整体改动（按模块）" class="headerlink" title="本次整体改动（按模块）"></a>本次整体改动（按模块）</h2><h3 id="1-Java-侧：AI-模块收口为-MCP-only"><a href="#1-Java-侧：AI-模块收口为-MCP-only" class="headerlink" title="1) Java 侧：AI 模块收口为 MCP-only"></a>1) Java 侧：AI 模块收口为 MCP-only</h3><ul>
-<li>移除非 MCP 的旧 AI 运行链路、历史配置和无关依赖，降低维护面。</li>
-<li>工具注册与元数据从 LangChain4j 解耦，保留必要实体与执行能力。</li>
-<li>新增&#x2F;增强 MCP 入口能力：<code>tools/list</code>、<code>tools/call</code>、上下文解析与注入快照。</li>
-<li>完成 MCP 端单测替换：从旧测试迁移到 MCP 端点覆盖。</li>
-<li>增加本地&#x2F;开发调试必需能力（如 dev&#x2F;local 启动兼容、调试登录入口）。</li>
+<p>状态结论：</p>
+<ul>
+<li>主链路已打通：前端 -&gt; Java 网关 -&gt; Python -&gt; MCP&#x2F;LLM -&gt; SSE 回流。</li>
+<li>Python 侧已从“可选透传头”切到“默认强制网关签名头”。</li>
 </ul>
-<h3 id="2-Python-侧：编排能力生产化"><a href="#2-Python-侧：编排能力生产化" class="headerlink" title="2) Python 侧：编排能力生产化"></a>2) Python 侧：编排能力生产化</h3><ul>
-<li>意图路由改为 LLM-first，统一 <code>IntentRouter -&gt; Policy -&gt; Strategy</code>。</li>
-<li>策略明确化：<ul>
-<li><code>CHAT -&gt; DIRECT</code></li>
-<li><code>TOOL_CALL/ANALYZE/TRACE -&gt; REACT</code></li>
-</ul>
+<h2 id="联调排障发现（重点）"><a href="#联调排障发现（重点）" class="headerlink" title="联调排障发现（重点）"></a>联调排障发现（重点）</h2><ol>
+<li><p>无签名头直连 Python 会被拒绝<br>现象：<code>401</code>，提示缺少 <code>X-AI-GW-TOKEN</code> 和 <code>X-AI-BIZ-CONTEXT</code>。<br>结论：符合预期，防止前端或外部直接绕过网关调用。</p>
 </li>
-<li>ReAct 失败时不再硬失败，触发 <code>tool_fallback</code> 后降级 DIRECT，保证会话可恢复。</li>
-<li>运行时绑定与上下文快照注入，增强跨事件可追踪性。</li>
-</ul>
-<h3 id="3-MCP-联调治理"><a href="#3-MCP-联调治理" class="headerlink" title="3) MCP 联调治理"></a>3) MCP 联调治理</h3><ul>
-<li>Python MCP token 来源简化为 <code>MCP_API_TOKEN</code>，本地默认 <code>AAA</code>。</li>
-<li>与 Java MCP internal token 对齐，修复 401 鉴权不一致问题。</li>
-<li>启动日志和调试页展示 Java MCP 连接状态，联调可视化更直接。</li>
-</ul>
-<h3 id="4-Qwen-稳定性治理"><a href="#4-Qwen-稳定性治理" class="headerlink" title="4) Qwen 稳定性治理"></a>4) Qwen 稳定性治理</h3><ul>
-<li>去掉异常时 <code>echo: 用户问题</code> 的回退行为。</li>
-<li>超时与重试参数化：<ul>
-<li><code>QWEN_TIMEOUT_SECONDS=60</code></li>
-<li><code>QWEN_MAX_RETRIES=2</code></li>
-</ul>
+<li><p>签名或 token 不一致会 401<br>现象：<code>invalid gateway internal token</code> 或 <code>invalid gateway context signature</code>。<br>结论：Java&#x2F;Python 需严格对齐 <code>AI_GATEWAY_INTERNAL_TOKEN</code> 与签名密钥。</p>
 </li>
-<li>失败时统一用户可读文案：<code>当前模型服务暂不可用，请稍后重试。</code></li>
-</ul>
-<h3 id="5-前端与开发体验"><a href="#5-前端与开发体验" class="headerlink" title="5) 前端与开发体验"></a>5) 前端与开发体验</h3><ul>
-<li>调试页升级为左右分栏：<ul>
-<li>左侧紧凑时间轴卡片（摘要）</li>
-<li>右侧原始 SSE 事件（明细）</li>
-</ul>
+<li><p>Biz Context 时间窗口导致偶发失败<br>现象：<code>gateway context expired</code> 或 <code>gateway context iat is in the future</code>。<br>结论：网关与 Python 服务器时间需同步（NTP），并合理设置 <code>AI_GATEWAY_CLOCK_SKEW_SECONDS</code>。</p>
 </li>
-<li>新增独立用户态页面 <code>assistant.html</code>，与开发调试页分离。</li>
-<li>启动脚本简化并默认跟踪日志，减少“启动了但看不到日志”的调试成本。</li>
-</ul>
-<h2 id="关键问题与修复闭环"><a href="#关键问题与修复闭环" class="headerlink" title="关键问题与修复闭环"></a>关键问题与修复闭环</h2><ol>
-<li><p><code>query=你是谁</code> 误走 ReAct并返回 echo<br>修复：LLM 意图统一路由 + DirectStrategy 取消 echo fallback。</p>
-</li>
-<li><p>MCP 401 (<code>mcp_unauthorized</code>)<br>修复：Python&#x2F;Java token 统一策略，默认 <code>AAA</code>，链路可观测。</p>
-</li>
-<li><p>模型超时导致体验不可控<br>修复：Qwen 超时提升到 60s + 重试 + 明确降级文案。</p>
+<li><p>前端历史环境仍可能误指向 <code>/ai</code><br>现象：浏览器控制台出现 401&#x2F;跨域或无登录态问题。<br>结论：前端配置必须统一到 <code>/api/ai</code>，由 Java 承担认证与上下文注入。</p>
 </li>
 </ol>
-<h2 id="结果验收"><a href="#结果验收" class="headerlink" title="结果验收"></a>结果验收</h2><ul>
-<li>Python 侧自动化测试通过（本轮关键节点执行过 <code>pytest -q</code>，通过）。</li>
-<li>聊天与工具调用链路从“硬失败”转为“可恢复”。</li>
-<li>Java 侧职责收敛，后续可以围绕 Tool 能力继续扩展，而不再背负编排复杂度。</li>
+<h2 id="验证命令（可复现）"><a href="#验证命令（可复现）" class="headerlink" title="验证命令（可复现）"></a>验证命令（可复现）</h2><h3 id="1-Python-单测"><a href="#1-Python-单测" class="headerlink" title="1) Python 单测"></a>1) Python 单测</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">cd</span> ~/Desktop/Work/ats_iot_ai<br>pytest -q tests/test_runs.py tests/test_sqlite_store.py tests/test_assistant_page.py<br></code></pre></td></tr></table></figure>
+
+<h3 id="2-网关链路验证（通过-Java）"><a href="#2-网关链路验证（通过-Java）" class="headerlink" title="2) 网关链路验证（通过 Java）"></a>2) 网关链路验证（通过 Java）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -sS -X POST <span class="hljs-string">&#x27;http://127.0.0.1:10001/api/ai/runs&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Content-Type: application/json&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Authorization: Bearer &lt;java-login-token&gt;&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Idempotency-Key: gw-run-001&#x27;</span> \<br>  -d <span class="hljs-string">&#x27;&#123;&quot;query&quot;:&quot;hello&quot;&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
+
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -N <span class="hljs-string">&#x27;http://127.0.0.1:10001/api/ai/runs/&lt;run_id&gt;/events&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Authorization: Bearer &lt;java-login-token&gt;&#x27;</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="3-负向校验（直连-Python，预期-401）"><a href="#3-负向校验（直连-Python，预期-401）" class="headerlink" title="3) 负向校验（直连 Python，预期 401）"></a>3) 负向校验（直连 Python，预期 401）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -sS -X POST <span class="hljs-string">&#x27;http://127.0.0.1:8000/ai/runs&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Content-Type: application/json&#x27;</span> \<br>  -d <span class="hljs-string">&#x27;&#123;&quot;query&quot;:&quot;should fail without gateway headers&quot;&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
+
+<h2 id="已知-caveats"><a href="#已知-caveats" class="headerlink" title="已知 caveats"></a>已知 caveats</h2><ul>
+<li><code>AI_ALLOW_LEGACY_AUTH</code> 仅建议迁移期临时开启，长期应关闭，避免回退到明文 legacy 头。</li>
+<li>若 Java 代理层未透传 <code>Last-Event-ID</code>，SSE 断线续传能力会受限。</li>
+<li>网关签名上下文需统一编码与签名算法（当前为 <code>v1.&lt;payload_b64url&gt;.&lt;sig_b64url&gt;</code> 约定），任一端改动都必须同步联调。</li>
+<li>调试时优先查看 Python 返回的 401 明细文案，可快速判断是 token、签名、格式还是时钟问题。</li>
 </ul>
-<h2 id="仍待收尾"><a href="#仍待收尾" class="headerlink" title="仍待收尾"></a>仍待收尾</h2><ul>
-<li>部分业务工具在特定上下文下仍可能返回 Java 500（例如个别炉次查询场景）。</li>
-<li>下一步重点是工具级根因治理与端到端业务正确性校验（尤其 scope: tenant&#x2F;dept&#x2F;user 注入一致性）。</li>
-</ul>
-<h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>这次重构的核心价值不是“功能变多”，而是“系统边界清晰 + 失败可恢复 + 可观测可迭代”：</p>
-<ul>
-<li>Java 专注 MCP Tool 执行平面</li>
-<li>Python 专注编排与交互控制平面</li>
-<li>线上故障从“脆断”变成“降级可用”</li>
-</ul>
+<h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>这次重构把 AI Chat 的“入口、鉴权、上下文注入”彻底收口到 Java 网关，Python 专注编排与执行，前端专注交互。架构边界更清晰，线上排障路径也更短。</p>
 
                 
               </div>
@@ -406,19 +393,21 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/AI%E7%BD%91%E5%85%B3/" class="print-no-link">#AI网关</a>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/Python/" class="print-no-link">#Python</a>
+      
         <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
       
+        <a href="/tags/%E9%89%B4%E6%9D%83/" class="print-no-link">#鉴权</a>
+      
+        <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/" class="print-no-link">#联调复盘</a>
+      
+        <a href="/tags/SSE/" class="print-no-link">#SSE</a>
+      
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
-      
-        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
-      
-        <a href="/tags/Qwen/" class="print-no-link">#Qwen</a>
-      
-        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
-      
-        <a href="/tags/%E7%A8%B3%E5%AE%9A%E6%80%A7/" class="print-no-link">#稳定性</a>
-      
-        <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/" class="print-no-link">#重构复盘</a>
       
     </div>
   
@@ -430,8 +419,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理</div>
-      <div>https://willfordzhan.github.io/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/</div>
+      <div>AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地</div>
+      <div>https://willfordzhan.github.io/2026/02/28/ai-chat-java-ai-gateway-python/</div>
     </div>
     <div class="license-meta">
       
@@ -443,7 +432,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月27日</div>
+          <div>2026年2月28日</div>
         </div>
       
       
@@ -475,18 +464,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/27/pycharm-uvicorn-fastapi/" title="PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/25/ai-llm-react/" title="AI控制面生产化改造：LLM意图路由与ReAct执行边界">
-                        <span class="hidden-mobile">AI控制面生产化改造：LLM意图路由与ReAct执行边界</span>
+                      <a href="/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/" title="基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环">
+                        <span class="hidden-mobile">基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
