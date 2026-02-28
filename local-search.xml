@@ -4,6 +4,43 @@
   
   
   <entry>
+    <title>基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环</title>
+    <link href="/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/"/>
+    <url>/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/</url>
+    
+    <content type="html"><![CDATA[<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>这次改造聚焦一个真实线上体验问题：用户问的是通用解释类问题（本质不需要工具），Orchestrator 仍然进入 ReAct 规划，随后触发 <code>CLARIFY</code>，并在后续交互里反复追问，形成“看起来一直要补信息”的循环感。</p><p>目标很明确：在不扩大系统复杂度的前提下，借鉴 OpenClaw 的分层思路，把“是否需要工具”尽早判定，把 <code>CLARIFY</code> 收紧到真正可执行的场景，让非工具问题直接回到 CHAT。</p><h2 id="问题复现"><a href="#问题复现" class="headerlink" title="问题复现"></a>问题复现</h2><p>复现输入（典型）：</p><ul><li>Query：<code>铸造行业的通用定义是什么</code></li><li>可用工具：<code>today_furnace_batches</code> 等业务数据查询工具</li></ul><p>改造前表现（问题态）：</p><ol><li>Query 直接进入 ReAct planner。</li><li>Planner 可能输出 <code>action=CLARIFY</code>，但 <code>tool_name</code> 为空、<code>missing_slots</code> 为空，问题并非“缺参数的工具调用”。</li><li>用户继续回答后，系统仍可能在“澄清-再澄清”路径内打转，无法尽快回到直接回答。</li></ol><p>根因不是模型“笨”，而是编排器缺少足够强的前置闸门与动作约束。</p><h2 id="OpenClaw-关键机制对照"><a href="#OpenClaw-关键机制对照" class="headerlink" title="OpenClaw 关键机制对照"></a>OpenClaw 关键机制对照</h2><p>OpenClaw 给了三个值得借鉴的点：</p><ol><li>先路由再执行：先决定是否走工具链路，再进入工具循环，而不是所有请求都先进入循环。</li><li>结构化动作与守卫：工具调用、终止、澄清都有清晰边界，避免“语义上不成立但语法上合法”的动作继续扩散。</li><li>循环治理：强调无进展循环检测与回退策略，避免 agent 在低价值轨道上反复执行。</li></ol><p>对照下来，我们原链路缺的正是“前置分流 + CLARIFY 可执行性约束 + 明确回退”。</p><h2 id="现状评审"><a href="#现状评审" class="headerlink" title="现状评审"></a>现状评审</h2><p>旧链路的关键风险点：</p><ol><li>没有 <code>CHAT|TOOL|UNKNOWN</code> 前置判定，非工具问题也被送进 ReAct。</li><li><code>CLARIFY</code> 触发条件过宽，只要模型给出 <code>CLARIFY</code> 就可能被接收。</li><li>对“不可执行澄清”缺乏强制回退，导致对用户感知是“问来问去不落地”。</li></ol><p>这三个点叠加后，正好解释了“非工具问题陷入 CLARIFY 循环”。</p><h2 id="奥卡姆方案"><a href="#奥卡姆方案" class="headerlink" title="奥卡姆方案"></a>奥卡姆方案</h2><p>遵循奥卡姆剃刀，这次没有引入新策略层、没有增加多模型协同，只做最小闭环：</p><ol><li>在 ReAct 前增加一个轻量 mode 决策：<code>CHAT|TOOL|UNKNOWN</code>。</li><li>让 <code>CLARIFY</code> 只有在“已锁定具体工具且确实缺必填参数”时才成立。</li><li>对不满足可执行条件的 <code>CLARIFY</code>，直接回退到 CHAT 直答，不继续澄清链路。</li><li>用测试把上述行为固化，避免回归。</li></ol><p>这套方案改动集中、语义清晰、维护成本低。</p><h2 id="改造点（核心）"><a href="#改造点（核心）" class="headerlink" title="改造点（核心）"></a>改造点（核心）</h2><p>这次改造的核心可归纳为四条：</p><ol><li><p><code>CHAT|TOOL|UNKNOWN</code> 前置分流<br>在 <code>_process_input</code> 初始阶段引入 <code>_determine_mode(...)</code>。若判定为 <code>CHAT</code>，直接 <code>policy_decision=chat/respond</code> 并结束；只有 <code>TOOL/UNKNOWN</code> 才进入 ReAct 主循环。</p></li><li><p><code>CLARIFY</code> 触发条件收紧<br>Planner prompt 增加硬规则：非工具问题输出 <code>RESPOND</code>，且只有“已确定 <code>tool_name</code> + 缺必填参数”才能 <code>CLARIFY</code>。<br>同时 <code>_plan_from_intent_route(...)</code> 也改为：只有存在 <code>normalized_call</code> 且有 <code>missing_slots</code> 才映射为 <code>CLARIFY</code>。</p></li><li><p>非可执行 <code>CLARIFY</code> 回退到 CHAT<br>新增 <code>_is_actionable_clarify(...)</code>：若没有具体工具、没有缺失必填参数，判定为不可执行澄清。<br>一旦命中，记录 <code>react_feedback=clarify_without_actionable_tool</code>，再发 <code>policy_decision=chat/fallback</code>，最终走 <code>_direct_answer(query)</code> 结束。</p></li><li><p>相关测试补齐<br>新增并通过关键测试，覆盖“聊天短路”“不可执行澄清回退”与“工具场景仍可多步执行”。</p></li></ol><h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>本次改造后在 <code>ats_iot_ai</code> 仓库执行：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">pytest -q tests/test_runs.py<br><span class="hljs-comment"># 15 passed in 0.28s</span><br><br>pytest -q tests/test_qwen_client.py<br><span class="hljs-comment"># 6 passed in 0.46s</span><br><br>pytest -q<br><span class="hljs-comment"># 37 passed in 0.97s</span><br></code></pre></td></tr></table></figure><p>重点行为用例：</p><ol><li><p><code>test_chat_query_short_circuits_without_react_tool_loop</code><br>验证 CHAT 问题不再进入 <code>react_plan/tool_call/clarification_needed</code>。</p></li><li><p><code>test_non_actionable_clarify_falls_back_to_chat_response</code><br>验证非可执行 <code>CLARIFY</code> 不再继续追问，而是回退直答。</p></li><li><p><code>test_compare_query_forces_second_tool_call_before_respond</code><br>验证工具型对比问题仍保持多步 <code>CALL_TOOL</code> 能力，没有被“过度收紧”误伤。</p></li></ol><h2 id="经验总结"><a href="#经验总结" class="headerlink" title="经验总结"></a>经验总结</h2><ol><li><code>CLARIFY</code> 不是“兜底动作”，而是“可执行动作”：必须绑定具体工具和缺失参数。</li><li>agent 的第一道关卡应是“是否需要工具”，而不是“先规划再看情况”。</li><li>回退策略要显式可观测（事件化），否则线上很难定位“为什么看起来在打转”。</li><li>简化优先于堆叠：先把错误路径切断，再考虑更复杂的智能优化。</li></ol><h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul><li>OpenClaw Docs（Tools &amp; loop detection）：<a href="https://docs.openclaw.ai/architecture/tools">https://docs.openclaw.ai/architecture/tools</a></li><li>OpenClaw Docs（Core architecture）：<a href="https://docs.openclaw.ai/architecture/overview">https://docs.openclaw.ai/architecture/overview</a></li><li>OpenClaw Docs（System prompt &#x2F; tool use policy）：<a href="https://docs.openclaw.ai/architecture/system-prompt">https://docs.openclaw.ai/architecture/system-prompt</a></li></ul>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>FastAPI</tag>
+      
+      <tag>ReAct</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>Orchestrator</tag>
+      
+      <tag>OpenClaw</tag>
+      
+      <tag>CLARIFY</tag>
+      
+      <tag>奥卡姆剃刀</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘</title>
     <link href="/2026/02/27/ats_iot_ai-ai/"/>
     <url>/2026/02/27/ats_iot_ai-ai/</url>
