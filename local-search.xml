@@ -4,6 +4,45 @@
   
   
   <entry>
+    <title>单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理</title>
+    <link href="/2026/03/02/ats-iot-ai-single-model-orchestration-four-phase-retrospective/"/>
+    <url>/2026/03/02/ats-iot-ai-single-model-orchestration-four-phase-retrospective/</url>
+    
+    <content type="html"><![CDATA[<p>这次复盘对应 <code>ats_iot_ai</code> 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。</p><p>先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 prompt、guardrail、memory、cleanup 四个层面的改造都做到了可回归、可审计、可继续扩展。</p><h2 id="一、STAR-总览"><a href="#一、STAR-总览" class="headerlink" title="一、STAR 总览"></a>一、STAR 总览</h2><h3 id="S-Situation"><a href="#S-Situation" class="headerlink" title="S: Situation"></a>S: Situation</h3><p>改造开始前，项目虽然已经具备完整的 AI run 生命周期：</p><ul><li><code>POST /ai/runs</code></li><li><code>GET /ai/runs/&#123;run_id&#125;/events</code></li><li><code>POST /ai/runs/&#123;run_id&#125;/input</code></li></ul><p>但内核层面有四个明显问题：</p><ol><li>Prompt 构建分散在 <code>orchestrator</code> 内部，planner、summary、direct answer 各写各的。</li><li>护栏逻辑和事件编排、状态持久化强耦合，<code>orchestrator.py</code> 过重。</li><li>短期记忆主要依赖事件回放，没有统一门面，也没有增量快照。</li><li>历史遗留模块还在仓库里，容易误导后来的人以为旧链路仍在生产路径上。</li></ol><p>换句话说，当时的系统是“能跑的单模型编排器”，但还不是“适合持续迭代的单模型编排内核”。</p><h3 id="T-Task"><a href="#T-Task" class="headerlink" title="T: Task"></a>T: Task</h3><p>这一轮任务不是推倒重写，而是在几个硬约束下做渐进式重构：</p><ol><li>不改变对外 API 契约。</li><li>不破坏已有 SSE 事件名和关键事件顺序。</li><li>不重新引入第二套 intent&#x2F;router 主流程。</li><li>每个 phase 都要独立提交、独立回归、独立复盘。</li></ol><p>所以这次工作的真实目标，是把单文件大编排器拆成“主循环 + runtime 组件”，同时给后续的 prompt 注入、护栏增强、长期记忆、兼容逻辑收敛留出明确落点。</p><h3 id="A-Action"><a href="#A-Action" class="headerlink" title="A: Action"></a>A: Action</h3><h2 id="二、四个-Phase-的改造亮点"><a href="#二、四个-Phase-的改造亮点" class="headerlink" title="二、四个 Phase 的改造亮点"></a>二、四个 Phase 的改造亮点</h2><table><thead><tr><th>Phase</th><th>目标</th><th>关键提交</th><th>亮点</th></tr></thead><tbody><tr><td>Phase 1</td><td>Prompt Pipeline</td><td><code>ab4168a</code></td><td>把 planner &#x2F; summary &#x2F; direct answer 的 prompt 收口成统一 runtime</td></tr><tr><td>Phase 2</td><td>Guardrail Pipeline</td><td><code>2d0e86c</code></td><td>把 schema、clarification、loop、final answer 护栏从主流程里抽离</td></tr><tr><td>Phase 3</td><td>Memory Facade</td><td><code>95971aa</code></td><td>给短期记忆建立统一 facade，并支持 runtime state 快照</td></tr><tr><td>Phase 4</td><td>Cleanup and Convergence</td><td><code>bb69e01</code></td><td>删除无引用遗留模块，真正完成结构迁移</td></tr></tbody></table><h3 id="Phase-1：提示词流水线运行时化"><a href="#Phase-1：提示词流水线运行时化" class="headerlink" title="Phase 1：提示词流水线运行时化"></a>Phase 1：提示词流水线运行时化</h3><p>关联提交：<code>ab4168a feat(编排): 抽取提示词流水线运行时</code></p><p>这一阶段最重要的动作，是把 prompt 相关职责从 <code>orchestrator.py</code> 中拆出来：</p><ul><li>新增 <code>prompt_builder.py</code>，统一 planner &#x2F; summary &#x2F; direct answer 的 prompt 常量与 payload 组装。</li><li>新增 <code>plan_engine.py</code>，封装 planner 的 LLM 调用，并复用已有纯函数解析能力。</li><li>把 <code>_plan_step()</code>、direct answer、summary 等 prompt 拼装行为改为委托 runtime 组件完成。</li></ul><p>这一 phase 的价值不只是“代码更整洁”，而是建立了 prompt 的统一收口点。后续如果要加租户策略注入、实验 prompt、中间件式 prompt augmentation，不需要再回头撕主编排流程。</p><h3 id="Phase-2：护栏流水线显式化"><a href="#Phase-2：护栏流水线显式化" class="headerlink" title="Phase 2：护栏流水线显式化"></a>Phase 2：护栏流水线显式化</h3><p>关联提交：<code>2d0e86c refactor(编排): 抽取护栏处理流水线</code></p><p>这一阶段新增了 <code>guardrails.py</code>，把以下能力纳入统一 pipeline：</p><ul><li><code>SchemaGuardrail</code></li><li><code>ClarificationGuardrail</code></li><li><code>LoopGuardrail</code></li><li><code>FinalAnswerGuardrail</code></li></ul><p>同时，<code>run_state</code> 的 runtime 维度也开始收口，至少承载了：</p><ul><li><code>pending_tool_call</code></li><li><code>tool_loop_signatures</code></li></ul><p>这一阶段的关键收益是：护栏逻辑不再散落在编排分支里，<code>orchestrator</code> 只保留事件顺序控制和主流程推进，真正开始像 orchestration，而不是“所有逻辑都堆在一个文件里”。</p><h3 id="Phase-3：记忆门面落地"><a href="#Phase-3：记忆门面落地" class="headerlink" title="Phase 3：记忆门面落地"></a>Phase 3：记忆门面落地</h3><p>关联提交：<code>95971aa feat(编排): 增加记忆门面运行时</code></p><p>这一阶段新增 <code>memory_facade.py</code>，把短期记忆的读写路径显式化：</p><ul><li><code>build_short_memory()</code></li><li><code>append_turn_artifacts()</code></li><li><code>search()</code> 预留长期记忆扩展点</li></ul><p>更重要的是，短期记忆的读取策略从“只靠事件回放”变成：</p><ol><li>优先读 <code>run_state.short_memory_turns</code></li><li>缺失时再回退 event replay</li></ol><p>这意味着 <code>run_state</code> 不再只是“待补参状态袋子”，而开始变成真正的 runtime state 容器。后续如果要接长期记忆、做更强的检索式上下文召回，调用点已经固定在 facade 上，不需要再分散改业务流程。</p><h3 id="Phase-4：清理遗留兼容模块"><a href="#Phase-4：清理遗留兼容模块" class="headerlink" title="Phase 4：清理遗留兼容模块"></a>Phase 4：清理遗留兼容模块</h3><p>关联提交：<code>bb69e01 refactor(编排): 清理遗留兼容模块</code></p><p>这一阶段做的是最容易被忽视、但对长期维护最关键的工作：真正把已经退出生产链路的模块删掉。</p><p>清理内容包括：</p><ul><li>删除无引用的 <code>app/orchestration/clarification.py</code></li><li>删除无引用的 <code>app/orchestration/intent_router.py</code></li><li>更新 <code>app/orchestration/__init__.py</code></li><li>收敛 <code>orchestrator.py</code> 中的兼容逻辑，只保留当前仍有意义的恢复点</li></ul><p>很多重构都会出现“新结构已经有了，但旧模块继续躺在仓库里”的情况。这次 Phase 4 的价值就在于，它不是只做抽离，还把真正无用的旧结构一并清场，减少后续维护误判。</p><h3 id="R-Result"><a href="#R-Result" class="headerlink" title="R: Result"></a>R: Result</h3><h2 id="三、结果与验证"><a href="#三、结果与验证" class="headerlink" title="三、结果与验证"></a>三、结果与验证</h2><h3 id="1-主编排器职责真正收敛了"><a href="#1-主编排器职责真正收敛了" class="headerlink" title="1. 主编排器职责真正收敛了"></a>1. 主编排器职责真正收敛了</h3><p>改造完成后，<code>orchestrator.py</code> 的职责更接近一个真正的 orchestrator：</p><ul><li>控制流程推进</li><li>控制事件写入顺序</li><li>装配 runtime 组件</li><li>承接 tool call 与最终收口</li></ul><p>而 prompt、guardrail、memory 的主体实现，已经转移到 <code>app/orchestration/runtime/</code>。</p><h3 id="2-Runtime-分层已经成型"><a href="#2-Runtime-分层已经成型" class="headerlink" title="2. Runtime 分层已经成型"></a>2. Runtime 分层已经成型</h3><p>当前 runtime 层至少已经稳定包含：</p><ul><li><code>prompt_builder.py</code></li><li><code>plan_engine.py</code></li><li><code>guardrails.py</code></li><li><code>memory_facade.py</code></li></ul><p>这一点很关键，因为它意味着后续扩展可以围绕“能力层”推进，而不是继续在大文件里堆条件分支。</p><h3 id="3-当前总体架构已经有了清晰结论"><a href="#3-当前总体架构已经有了清晰结论" class="headerlink" title="3. 当前总体架构已经有了清晰结论"></a>3. 当前总体架构已经有了清晰结论</h3><p>结合 <code>当前项目总体架构</code> 文档，这个项目现在的定位已经比较明确：</p><ul><li>Python 服务负责 run 生命周期、SSE 事件流、ReAct 编排主循环，以及 prompt &#x2F; guardrail &#x2F; memory runtime。</li><li>Java MCP 服务负责工具目录查询、工具执行和具体业务能力落地。</li></ul><p>也就是说，这次四阶段改造不是孤立动作，而是在把仓库真正推进到“单 LLM 编排 + Java MCP 工具执行”的拆分架构上。</p><h3 id="4-测试结果是可追溯、可校验的"><a href="#4-测试结果是可追溯、可校验的" class="headerlink" title="4. 测试结果是可追溯、可校验的"></a>4. 测试结果是可追溯、可校验的</h3><p>这里需要把两个时间点分开写清楚：</p><ul><li>以复盘收口提交 <code>1a668f8</code> 为准，在临时 worktree 中执行 <code>pytest -q</code>，结果是 <code>46 passed</code>。</li><li>截至 2026 年 3 月 2 日，当前主线 HEAD 再次执行 <code>pytest -q</code>，结果已经是 <code>48 passed</code>。</li></ul><p>这两个数字并不冲突。前者是这次四阶段改造复盘口径下的全量回归结果，后者说明主线在此之后又新增了测试覆盖。</p><h3 id="5-这次改造最值得复用的方法论"><a href="#5-这次改造最值得复用的方法论" class="headerlink" title="5. 这次改造最值得复用的方法论"></a>5. 这次改造最值得复用的方法论</h3><p>如果只看代码层面，这轮工作像是在做“分层重构”；但从工程方法上看，更重要的有三点：</p><ol><li>按 phase 逐段推进，而不是一次性重写。</li><li>每个 phase 都有明确 commit，可审计、可回放、可回归。</li><li>兼容路径是显式保留的，不是默认假设没人依赖旧行为。</li></ol><p>这也是为什么这轮改造能在不打断现有 API 和 SSE 语义的前提下完成结构升级。</p><h2 id="四、仍然保留的边界"><a href="#四、仍然保留的边界" class="headerlink" title="四、仍然保留的边界"></a>四、仍然保留的边界</h2><p>这次改造完成的是“内核骨架重整”，不是所有问题都一次性收尾。当前仍有几个边界：</p><ol><li><code>_recover_pending_from_call_plan()</code> 仍是兼容型启发式逻辑。</li><li><code>MemoryFacade.search()</code> 目前还是空实现。</li><li><code>guardrails.py</code>、<code>memory_facade.py</code> 还可以继续补模块级单测。</li><li><code>RunStore.set_run_state()</code> 仍是整包覆盖语义，runtime 层仍需谨慎处理状态合并。</li></ol><p>这些边界不影响这轮改造的成立，但它们决定了后续迭代的优先级。</p><h2 id="五、一句话结论"><a href="#五、一句话结论" class="headerlink" title="五、一句话结论"></a>五、一句话结论</h2><p>这次四阶段改造，完成的不是几个局部优化，而是把 <code>ats_iot_ai</code> 从“可运行的单模型编排实现”，推进成了“具备清晰 runtime 分层、统一状态落点和后续演进空间的单模型编排内核”。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>FastAPI</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>AI编排</tag>
+      
+      <tag>Prompt Engineering</tag>
+      
+      <tag>Guardrails</tag>
+      
+      <tag>Memory</tag>
+      
+      <tag>工程复盘</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>项目技术选型调研：通用Agent与LangGraph+LlamaIndex对比</title>
     <link href="/2026/03/02/agent-langgraph-llamaindex/"/>
     <url>/2026/03/02/agent-langgraph-llamaindex/</url>
@@ -63,11 +102,11 @@
       
       <tag>ReAct</tag>
       
-      <tag>Prompt Injection</tag>
-      
       <tag>Guardrails</tag>
       
       <tag>Memory</tag>
+      
+      <tag>Prompt Injection</tag>
       
     </tags>
     
@@ -436,11 +475,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>工程复盘</tag>
+      
       <tag>RAG</tag>
       
       <tag>OpenSearch</tag>
-      
-      <tag>工程复盘</tag>
       
       <tag>STAR</tag>
       
