@@ -1,0 +1,808 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言这篇文章写给已经在做 Agent 编排、并且踩过“意图层拆太多 + Prompt 越改越乱 + 护栏和主流程耦合”坑的工程师。 核心观点先摆在前面：  单 LLM 节点不是“把所有事都丢给模型”。 OpenClaw 的关键价值，不在“单节点”，而在“模型自决 + 工程护栏 + Prompt 注入可插拔”。 真正可维护的实现，必须把 决策、注入、护栏、记忆 四层切开。   一、单节点到底是什么：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/02/llm-openclaw-prompt/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="前言这篇文章写给已经在做 Agent 编排、并且踩过“意图层拆太多 + Prompt 越改越乱 + 护栏和主流程耦合”坑的工程师。 核心观点先摆在前面：  单 LLM 节点不是“把所有事都丢给模型”。 OpenClaw 的关键价值，不在“单节点”，而在“模型自决 + 工程护栏 + Prompt 注入可插拔”。 真正可维护的实现，必须把 决策、注入、护栏、记忆 四层切开。   一、单节点到底是什么：">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-02T09:49:34.000Z">
+<meta property="article:modified_time" content="2026-03-02T09:51:37.062Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="OpenClaw">
+<meta property="article:tag" content="Agent Engineering">
+<meta property="article:tag" content="Prompt Injection">
+<meta property="article:tag" content="Guardrails">
+<meta property="article:tag" content="Memory">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-02 17:49" pubdate>
+          2026年3月2日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          12 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>这篇文章写给已经在做 Agent 编排、并且踩过“意图层拆太多 + Prompt 越改越乱 + 护栏和主流程耦合”坑的工程师。</p>
+<p>核心观点先摆在前面：</p>
+<ol>
+<li>单 LLM 节点不是“把所有事都丢给模型”。</li>
+<li>OpenClaw 的关键价值，不在“单节点”，而在“模型自决 + 工程护栏 + Prompt 注入可插拔”。</li>
+<li>真正可维护的实现，必须把 <code>决策</code>、<code>注入</code>、<code>护栏</code>、<code>记忆</code> 四层切开。</li>
+</ol>
+<hr>
+<h2 id="一、单节点到底是什么：不是少一步，而是少一层重复决策"><a href="#一、单节点到底是什么：不是少一步，而是少一层重复决策" class="headerlink" title="一、单节点到底是什么：不是少一步，而是少一层重复决策"></a>一、单节点到底是什么：不是少一步，而是少一层重复决策</h2><p>很多团队把“单节点”理解成：</p>
+<ul>
+<li>删掉 intent parser</li>
+<li>直接让模型函数调用</li>
+</ul>
+<p>这通常会带来两种反噬：</p>
+<ol>
+<li>没护栏：模型乱调工具、无限重试、参数污染</li>
+<li>没注入层：每次改策略都得改 orchestrator 主流程</li>
+</ol>
+<p>OpenClaw 的实现思路相反：<strong>决策集中（单节点），控制分层（护栏与 hook）</strong>。</p>
+<hr>
+<h2 id="二、OpenClaw-的-Prompt-处理主链路（典型代码）"><a href="#二、OpenClaw-的-Prompt-处理主链路（典型代码）" class="headerlink" title="二、OpenClaw 的 Prompt 处理主链路（典型代码）"></a>二、OpenClaw 的 Prompt 处理主链路（典型代码）</h2><h3 id="1-先组装统一系统提示词"><a href="#1-先组装统一系统提示词" class="headerlink" title="1) 先组装统一系统提示词"></a>1) 先组装统一系统提示词</h3><p><code>run/attempt.ts</code> 里先汇总 runtime&#x2F;tooling&#x2F;skills&#x2F;safety&#x2F;memory 等信息，构建 system prompt：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> appendPrompt = <span class="hljs-title function_">buildEmbeddedSystemPrompt</span>(&#123;<br>  runtimeInfo,<br>  tools,<br>  skillsPrompt,<br>  sandboxInfo,<br>  memoryCitationsMode,<br>  ...<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<h3 id="2-覆盖并注入到会话-Session"><a href="#2-覆盖并注入到会话-Session" class="headerlink" title="2) 覆盖并注入到会话 Session"></a>2) 覆盖并注入到会话 Session</h3><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> systemPromptOverride = <span class="hljs-title function_">createSystemPromptOverride</span>(appendPrompt);<br><span class="hljs-title function_">applySystemPromptOverrideToSession</span>(session, systemPromptText);<br></code></pre></td></tr></table></figure>
+
+<p>这一步把“系统行为约束”固定在会话级，而不是散在每次 prompt 调用里。</p>
+<h3 id="3-在发送给模型前，运行注入-hook"><a href="#3-在发送给模型前，运行注入-hook" class="headerlink" title="3) 在发送给模型前，运行注入 hook"></a>3) 在发送给模型前，运行注入 hook</h3><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> hookResult = <span class="hljs-keyword">await</span> <span class="hljs-title function_">resolvePromptBuildHookResult</span>(&#123;<br>  <span class="hljs-attr">prompt</span>: params.<span class="hljs-property">prompt</span>,<br>  <span class="hljs-attr">messages</span>: activeSession.<span class="hljs-property">messages</span>,<br>  hookCtx,<br>  hookRunner,<br>&#125;);<br><span class="hljs-keyword">if</span> (hookResult?.<span class="hljs-property">prependContext</span>) &#123;<br>  effectivePrompt = <span class="hljs-string">`<span class="hljs-subst">$&#123;hookResult.prependContext&#125;</span>\n\n<span class="hljs-subst">$&#123;params.prompt&#125;</span>`</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这相当于提供了一个“Prompt 中间件层”：不用改主循环，也能注入租户策略&#x2F;上下文。</p>
+<h3 id="4-最后进入模型调用"><a href="#4-最后进入模型调用" class="headerlink" title="4) 最后进入模型调用"></a>4) 最后进入模型调用</h3><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">await</span> activeSession.<span class="hljs-title function_">prompt</span>(effectivePrompt);<br></code></pre></td></tr></table></figure>
+
+<p>这个流程非常朴素，但工程边界很清晰。</p>
+<hr>
+<h2 id="三、当前业务编排实现（ats-iot-ai）的典型形态"><a href="#三、当前业务编排实现（ats-iot-ai）的典型形态" class="headerlink" title="三、当前业务编排实现（ats_iot_ai）的典型形态"></a>三、当前业务编排实现（ats_iot_ai）的典型形态</h2><p>当前形态已经很接近单节点 ReAct，但仍有明显的“半收敛”特征：</p>
+<h3 id="1-Prompt-分裂为三套角色"><a href="#1-Prompt-分裂为三套角色" class="headerlink" title="1) Prompt 分裂为三套角色"></a>1) Prompt 分裂为三套角色</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">_REACT_PLAN_PROMPT = <span class="hljs-string">&quot;&quot;&quot;...&quot;&quot;&quot;</span><br>_REACT_SUMMARY_PROMPT = <span class="hljs-string">&quot;&quot;&quot;...&quot;&quot;&quot;</span><br><br><span class="hljs-comment"># _direct_answer() 里还有一套内联 system prompt</span><br></code></pre></td></tr></table></figure>
+
+<p>这意味着同一 run 内，模型会在 Planner&#x2F;Summarizer&#x2F;Direct Answer 三种角色间切换。</p>
+<h3 id="2-护栏在主流程中内联分支"><a href="#2-护栏在主流程中内联分支" class="headerlink" title="2) 护栏在主流程中内联分支"></a>2) 护栏在主流程中内联分支</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">validation = _validate_tool_call(call=call, tool_definition=tool_definition)<br><span class="hljs-keyword">if</span> validation.blocking:<br>    observations.append(&#123;<span class="hljs-string">&quot;type&quot;</span>: <span class="hljs-string">&quot;tool_schema_validation_failed&quot;</span>, ...&#125;)<br>    <span class="hljs-keyword">continue</span><br></code></pre></td></tr></table></figure>
+
+<p>功能上可用，但策略扩展会继续膨胀 <code>orchestrator.py</code>。</p>
+<h3 id="3-短期记忆每-step-事件回放构建"><a href="#3-短期记忆每-step-事件回放构建" class="headerlink" title="3) 短期记忆每 step 事件回放构建"></a>3) 短期记忆每 step 事件回放构建</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">events = <span class="hljs-keyword">await</span> <span class="hljs-variable language_">self</span>._store.get_recent_events(<br>    run_id=run_id,<br>    event_types=[<span class="hljs-string">&quot;user_message&quot;</span>, <span class="hljs-string">&quot;final&quot;</span>, <span class="hljs-string">&quot;tool_result&quot;</span>],<br>)<br></code></pre></td></tr></table></figure>
+
+<p>能工作，但每轮重建、每步重复，后期会成为性能和一致性负担。</p>
+<hr>
+<h2 id="四、尖锐评判：问题不是模型，而是边界"><a href="#四、尖锐评判：问题不是模型，而是边界" class="headerlink" title="四、尖锐评判：问题不是模型，而是边界"></a>四、尖锐评判：问题不是模型，而是边界</h2><p>如果让我直说，这类系统的主要风险不是“LLM 不够聪明”，而是“工程边界未解耦”：</p>
+<ol>
+<li>Prompt 组装和流程控制耦合，导致策略演化慢且风险高。</li>
+<li>护栏不成 pipeline，新增规则会持续污染主循环。</li>
+<li>记忆没有门面层，短期与长期能力无法平滑扩展。</li>
+</ol>
+<p>一句话：<strong>你需要的不是更多 Prompt 技巧，而是更干净的运行时架构。</strong></p>
+<hr>
+<h2 id="五、可落地的简洁方案（奥卡姆剃刀版）"><a href="#五、可落地的简洁方案（奥卡姆剃刀版）" class="headerlink" title="五、可落地的简洁方案（奥卡姆剃刀版）"></a>五、可落地的简洁方案（奥卡姆剃刀版）</h2><p>目标：不引入多余层级，只做“最少必要重构”。</p>
+<h3 id="方案总览"><a href="#方案总览" class="headerlink" title="方案总览"></a>方案总览</h3><ol>
+<li>一个决策脑：仅保留 <code>CALL_TOOL|CLARIFY|RESPOND</code> planner 合约</li>
+<li>一条 Prompt 管线：<code>SystemPromptBuilder + PromptPayloadBuilder + PromptMiddleware[]</code></li>
+<li>一条护栏管线：<code>SchemaGuardrail + ClarificationGuardrail + LoopGuardrail</code></li>
+<li>一个记忆门面：<code>MemoryFacade</code>（短期增量 + 长期检索）</li>
+</ol>
+<hr>
+<h2 id="六、关键设计细节"><a href="#六、关键设计细节" class="headerlink" title="六、关键设计细节"></a>六、关键设计细节</h2><h3 id="1-PromptBuilder：稳定层与动态层分离"><a href="#1-PromptBuilder：稳定层与动态层分离" class="headerlink" title="1) PromptBuilder：稳定层与动态层分离"></a>1) PromptBuilder：稳定层与动态层分离</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs python">system_prompt = system_builder.build(<br>    rules=...,<br>    tool_policy=...,<br>    safety=...,<br>)<br>payload = payload_builder.build(<br>    query=query,<br>    short_memory=short_memory,<br>    pending_tool=pending_tool,<br>    observations=observations,<br>    tools=tool_catalog,<br>)<br>ctx = PromptBuildContext(system_prompt=system_prompt, payload=payload)<br><span class="hljs-keyword">for</span> mw <span class="hljs-keyword">in</span> middlewares:<br>    ctx = mw.before_plan_prompt(ctx)<br></code></pre></td></tr></table></figure>
+
+<p>收益：</p>
+<ol>
+<li>业务策略注入不改 orchestrator 主干</li>
+<li>灰度实验可以按 middleware 开关控制</li>
+</ol>
+<h3 id="2-统一-Planner-输出契约"><a href="#2-统一-Planner-输出契约" class="headerlink" title="2) 统一 Planner 输出契约"></a>2) 统一 Planner 输出契约</h3><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CALL_TOOL|CLARIFY|RESPOND&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;tool_name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string or empty&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;arguments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;missing_slots&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;clarification_question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string or empty&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;answer&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string or empty&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;goal_satisfied&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>建议配合 schema 校验（即使底层模型不支持 strict schema，也在本地做强校验）。</p>
+<h3 id="3-护栏独立为-pipeline"><a href="#3-护栏独立为-pipeline" class="headerlink" title="3) 护栏独立为 pipeline"></a>3) 护栏独立为 pipeline</h3><p><code>pre_tool</code>：</p>
+<ol>
+<li>schema&#x2F;required&#x2F;unknown 校验</li>
+<li>日期等参数归一化</li>
+<li>工具白名单校验</li>
+</ol>
+<p><code>post_tool</code>：</p>
+<ol>
+<li><code>ARGUMENT_ERROR</code> -&gt; pending state</li>
+<li><code>clarification_needed</code> 事件</li>
+<li><code>/input</code> 合并后 <code>tool_retry</code></li>
+</ol>
+<p><code>loop</code>：</p>
+<ol>
+<li>记录 <code>tool + args_hash + result_hash</code></li>
+<li>warning 与 critical 分级阻断</li>
+</ol>
+<h3 id="4-MemoryFacade：先简单再增强"><a href="#4-MemoryFacade：先简单再增强" class="headerlink" title="4) MemoryFacade：先简单再增强"></a>4) MemoryFacade：先简单再增强</h3><p>先做短期增量：</p>
+<ol>
+<li><code>run_state.short_memory_turns</code> 维护最近 20 轮</li>
+<li>每轮结束增量写入，planner 直接读取</li>
+</ol>
+<p>再做长期检索：</p>
+<ol>
+<li><code>search(query, k)</code></li>
+<li><code>get(doc_id, spans)</code></li>
+<li><code>append(entry)</code></li>
+</ol>
+<p>这样后续换向量库不会动 orchestrator 主流程。</p>
+<hr>
+<h2 id="七、迁移路线（推荐）"><a href="#七、迁移路线（推荐）" class="headerlink" title="七、迁移路线（推荐）"></a>七、迁移路线（推荐）</h2><h3 id="Phase-A（1-2-天）"><a href="#Phase-A（1-2-天）" class="headerlink" title="Phase A（1-2 天）"></a>Phase A（1-2 天）</h3><ol>
+<li>抽 <code>prompt_builder.py</code> + <code>plan_engine.py</code></li>
+<li>保持事件协议不变</li>
+</ol>
+<h3 id="Phase-B（1-2-天）"><a href="#Phase-B（1-2-天）" class="headerlink" title="Phase B（1-2 天）"></a>Phase B（1-2 天）</h3><ol>
+<li>抽 <code>guardrails.py</code></li>
+<li>实装 loop detection 并持久化 run_state</li>
+</ol>
+<h3 id="Phase-C（1-2-天）"><a href="#Phase-C（1-2-天）" class="headerlink" title="Phase C（1-2 天）"></a>Phase C（1-2 天）</h3><ol>
+<li>引入 <code>memory_facade.py</code></li>
+<li>将短期记忆改增量快照</li>
+</ol>
+<h3 id="Phase-D（0-5-1-天）"><a href="#Phase-D（0-5-1-天）" class="headerlink" title="Phase D（0.5-1 天）"></a>Phase D（0.5-1 天）</h3><ol>
+<li>清理残留模块（intent router&#x2F;parser&#x2F;clarification）</li>
+<li>更新测试夹具与 API 注入参数</li>
+</ol>
+<hr>
+<h2 id="八、工程验收指标（别只看“能跑”）"><a href="#八、工程验收指标（别只看“能跑”）" class="headerlink" title="八、工程验收指标（别只看“能跑”）"></a>八、工程验收指标（别只看“能跑”）</h2><p>最少跟踪这 6 个指标：</p>
+<ol>
+<li><code>avg_steps_per_run</code></li>
+<li><code>tool_schema_validation_failed_rate</code></li>
+<li><code>clarification_needed_rate</code></li>
+<li><code>clarification_success_rate</code></li>
+<li><code>loop_block_rate</code></li>
+<li><code>final_success_rate</code></li>
+</ol>
+<p>如果你做了单节点改造，但这些指标没有改善，说明只是“改写代码”，不是“改进系统”。</p>
+<hr>
+<h2 id="九、给进阶工程师的最后建议"><a href="#九、给进阶工程师的最后建议" class="headerlink" title="九、给进阶工程师的最后建议"></a>九、给进阶工程师的最后建议</h2><p>不要把“单 LLM 节点”当成产品特性，它其实是架构约束：<br><strong>模型负责决策，系统负责约束。</strong></p>
+<p>当你把下面这四层切开，系统才会开始真正可维护：</p>
+<ol>
+<li><code>Decision</code>（planner）</li>
+<li><code>Prompt Injection</code>（builder + middleware）</li>
+<li><code>Guardrails</code>（pre&#x2F;post&#x2F;loop&#x2F;approval）</li>
+<li><code>Memory</code>（short&#x2F;long facade）</li>
+</ol>
+<p>这就是 OpenClaw 范式最值得借鉴的地方，也是业务 Agent 从 Demo 走向工程化的分水岭。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/OpenClaw/" class="print-no-link">#OpenClaw</a>
+      
+        <a href="/tags/Agent-Engineering/" class="print-no-link">#Agent Engineering</a>
+      
+        <a href="/tags/Prompt-Injection/" class="print-no-link">#Prompt Injection</a>
+      
+        <a href="/tags/Guardrails/" class="print-no-link">#Guardrails</a>
+      
+        <a href="/tags/Memory/" class="print-no-link">#Memory</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构</div>
+      <div>https://willfordzhan.github.io/2026/03/02/llm-openclaw-prompt/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月2日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/02/llm-openclaw/" title="从双层意图到单 LLM 自决：OpenClaw 范式与护栏工程化落地">
+                        <span class="hidden-mobile">从双层意图到单 LLM 自决：OpenClaw 范式与护栏工程化落地</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

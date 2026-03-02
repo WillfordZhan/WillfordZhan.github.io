@@ -239,6 +239,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/02/21/java-python-mcp-401-token/" target="_self">
+          Java/Python MCP 401 排查里程碑：Token 对齐与方案简化
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/21/java-python-mcp-401-token/" target="_self">
+        <div>
+          本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-02-22 00:45" pubdate>
+              2026-02-22
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/Python/">#Python</a>
+            
+              <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/">#里程碑</a>
+            
+              <a href="/tags/401%E6%8E%92%E6%9F%A5/">#401排查</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/02/21/rag-opensearch-rrf-ingest/" target="_self">
           RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest
         </a>
@@ -426,11 +497,11 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/ReAct/">#ReAct</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/Orchestrator/">#Orchestrator</a>
             
@@ -499,9 +570,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/AI%E5%B7%A5%E7%A8%8B/">#AI工程</a>
             
@@ -572,11 +643,11 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/Java/">#Java</a>
+              <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/MCP/">#MCP</a>
+              <a href="/tags/Java/">#Java</a>
             
               <a href="/tags/AI%E5%B7%A5%E7%A8%8B/">#AI工程</a>
             
@@ -720,13 +791,13 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/Python/">#Python</a>
+              <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/MCP/">#MCP</a>
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/Python/">#Python</a>
             
               <a href="/tags/AI%E5%B7%A5%E7%A8%8B/">#AI工程</a>
             
@@ -813,46 +884,6 @@
             <i class="iconfont icon-tags"></i>
             
               <a href="/tags/%E7%9F%A5%E8%AF%86%E6%B2%89%E6%B7%80/">#知识沉淀</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/" target="_self">
-          自用的Mac小技巧
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/" target="_self">
-        <div>
-          使用键盘快捷键来快速给文件添加 /删除 标签：添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。设置在终端中启动各种 app 的命令以 Typora 为例：通过添加别名ty来快速启动 Typora。在 ~/.bash_profile (这个文件好像要自己建) 中添加 a
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2019-11-16 23:42" pubdate>
-              2019-11-16
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/%E5%B7%A5%E5%85%B7%E6%8A%80%E5%B7%A7/">#工具技巧</a>
             
           </div>
         
