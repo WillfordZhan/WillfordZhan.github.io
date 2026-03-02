@@ -239,6 +239,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/02/llm-openclaw/" target="_self">
+          从双层意图到单 LLM 自决：OpenClaw 范式与护栏工程化落地
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/llm-openclaw/" target="_self">
+        <div>
+          很多 AI 编排系统一开始都会走到同一个架构：  先做 intent parser（判定 chat &#x2F; tool） 再进入 ReAct（plan&#x2F;act&#x2F;observe）  这套架构可控，但随着需求复杂化，经常出现三个问题：  决策重复（先判一次 intent，再让 planner 再判一次） 状态割裂（intent 状态和 tool 状态不同步） prompt 分裂
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-02 17:18" pubdate>
+              2026-03-02
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/OpenClaw/">#OpenClaw</a>
+            
+              <a href="/tags/AI-Orchestrator/">#AI Orchestrator</a>
+            
+              <a href="/tags/Tool-Guardrails/">#Tool Guardrails</a>
+            
+              <a href="/tags/Function-Calling/">#Function Calling</a>
+            
+              <a href="/tags/Memory/">#Memory</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/02/uni-app-hbuilderx/" target="_self">
           从零把 uni-app 接到微信开发者工具：HBuilderX 全流程与踩坑复盘
         </a>
@@ -834,80 +905,11 @@
     </article>
   </div>
 
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/21/rag-opensearch-rrf-ingest/" target="_self">
-          RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/21/rag-opensearch-rrf-ingest/" target="_self">
-        <div>
-          一句话结论这轮我把 RAG 从“单一本地检索”改造成“可插拔检索链路”：新增 OpenSearch Provider（BM25+向量+过滤）、Hybrid RRF、低置信&#x2F;复杂 Query 的 rerank 触发、分钟级增量 ingest + upsert，并通过 fallback + 默认开关关闭确保 /ai/runs 主链路稳定不受影响。 Done 标准  检索 Provider 可
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-21 21:28" pubdate>
-              2026-02-21
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/RAG/">#RAG</a>
-            
-              <a href="/tags/OpenSearch/">#OpenSearch</a>
-            
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
-            
-              <a href="/tags/STAR/">#STAR</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
 
 
   <nav aria-label="navigation">
     <span class="pagination" id="pagination">
-      <span class="page-number current">1</span><a class="page-number" href="/page/2/#board">2</a><a class="extend next" rel="next" href="/page/2/#board"><i class="iconfont icon-arrowright"></i></a>
+      <span class="page-number current">1</span><a class="page-number" href="/page/2/#board">2</a><a class="page-number" href="/page/3/#board">3</a><a class="extend next" rel="next" href="/page/2/#board"><i class="iconfont icon-arrowright"></i></a>
     </span>
   </nav>
 
