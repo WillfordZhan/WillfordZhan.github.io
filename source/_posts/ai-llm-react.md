@@ -13,7 +13,7 @@ tags:
   - "Verify"
 ---
 
-这次改造把 `ats_iot_ai` 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。
+这次改造把 `sample_ai_service` 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。
 
 ## 背景
 
@@ -51,13 +51,13 @@ tags:
 
 ## 代码落点
 
-- `app/orchestration/intent_router.py`
-- `app/orchestration/intent_llm_parser.py`
-- `app/orchestration/policy_engine.py`
-- `app/orchestration/strategies.py`
-- `app/orchestration/verify.py`
-- `app/orchestrator.py`
-- `tests/orchestrator/*`
+- `app/runtime_core/intent_router.py`
+- `app/runtime_core/intent_llm_parser.py`
+- `app/runtime_core/policy_engine.py`
+- `app/runtime_core/strategies.py`
+- `app/runtime_core/verify.py`
+- `app/main_orchestrator.py`
+- `tests/runtime_core/*`
 
 ## 文档同步
 

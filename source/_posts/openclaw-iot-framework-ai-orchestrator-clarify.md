@@ -85,7 +85,7 @@ OpenClaw 给了三个值得借鉴的点：
 
 ## 测试结果
 
-本次改造后在 `ats_iot_ai` 仓库执行：
+本次改造后在 `sample_ai_service` 仓库执行：
 
 ```bash
 pytest -q tests/test_runs.py

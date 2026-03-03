@@ -19,25 +19,25 @@ tags:
 ## 改造摘要
 
 1. Java 成为 AI Gateway 统一入口：
-- 前端不再直连 Python，而是走 `/api/ai/*`。
+- 前端不再直连 Python，而是走 `/api/mock-ai/*`。
 - Java 在转发到 Python 前注入两类内部头：
   - `X-AI-GW-TOKEN`
   - `X-AI-BIZ-CONTEXT`（签名业务上下文，包含 `userId/tenantDeptId/traceId/iat/exp` 等）
 
 2. Python 新增并强制执行网关鉴权中间件：
-- 所有 `/ai/*` 业务接口默认需要 `X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT`。
+- 所有 `/mock-ai/*` 业务接口默认需要 `X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT`。
 - 通过 HMAC 校验上下文签名，并校验时间窗口（`iat/exp` + `AI_GATEWAY_CLOCK_SKEW_SECONDS`）。
 - 鉴权通过后将上下文写入 `request.state.auth_context`，用于 run owner 与工具上下文注入。
 
 3. 前端调用路径统一为 Java 网关：
-- `assistant.js` 默认 `aiApiPrefix` 为 `/api/ai`。
+- `assistant.js` 默认 `aiApiPrefix` 为 `/api/mock-ai`。
 - 前端不再管理 `x-user-id/x-tenant-dept-id` 直传头，用户上下文由 Java 登录态和网关注入机制统一处理。
 
 ## 端到端链路（当前状态）
 
 ```mermaid
 flowchart LR
-  FE[assistant.html / assistant.js] -->|/api/ai/* + Bearer| JGW[Java AI Gateway]
+  FE[assistant.html / assistant.js] -->|/api/mock-ai/* + Bearer| JGW[Java AI Gateway]
   JGW -->|X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT| PY[Python Control Plane]
   PY --> MCP[Java MCP tools/list tools/call]
   PY --> LLM[Qwen]
@@ -62,23 +62,23 @@ flowchart LR
 现象：`gateway context expired` 或 `gateway context iat is in the future`。  
 结论：网关与 Python 服务器时间需同步（NTP），并合理设置 `AI_GATEWAY_CLOCK_SKEW_SECONDS`。
 
-4. 前端历史环境仍可能误指向 `/ai`  
+4. 前端历史环境仍可能误指向 `/mock-ai`  
 现象：浏览器控制台出现 401/跨域或无登录态问题。  
-结论：前端配置必须统一到 `/api/ai`，由 Java 承担认证与上下文注入。
+结论：前端配置必须统一到 `/api/mock-ai`，由 Java 承担认证与上下文注入。
 
 ## 验证命令（可复现）
 
 ### 1) Python 单测
 
 ```bash
-cd ~/Desktop/Work/ats_iot_ai
+cd ~/Desktop/Work/sample_ai_service
 pytest -q tests/test_runs.py tests/test_sqlite_store.py tests/test_assistant_page.py
 ```
 
 ### 2) 网关链路验证（通过 Java）
 
 ```bash
-curl -sS -X POST 'http://127.0.0.1:10001/api/ai/runs' \
+curl -sS -X POST 'http://127.0.0.1:19001/api/mock-ai/runs' \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <java-login-token>' \
   -H 'Idempotency-Key: gw-run-001' \
@@ -86,14 +86,14 @@ curl -sS -X POST 'http://127.0.0.1:10001/api/ai/runs' \
 ```
 
 ```bash
-curl -N 'http://127.0.0.1:10001/api/ai/runs/<run_id>/events' \
+curl -N 'http://127.0.0.1:19001/api/mock-ai/runs/<run_id>/events' \
   -H 'Authorization: Bearer <java-login-token>'
 ```
 
 ### 3) 负向校验（直连 Python，预期 401）
 
 ```bash
-curl -sS -X POST 'http://127.0.0.1:8000/ai/runs' \
+curl -sS -X POST 'http://127.0.0.1:18000/api/mock-ai/runs' \
   -H 'Content-Type: application/json' \
   -d '{"query":"should fail without gateway headers"}'
 ```

@@ -14,7 +14,7 @@ tags:
   - "AI工作日志"
 ---
 
-这次复盘对应 `ats_iot_ai` 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。
+这次复盘对应 `sample_ai_service` 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。
 
 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 prompt、guardrail、memory、cleanup 四个层面的改造都做到了可回归、可审计、可继续扩展。
 
@@ -24,9 +24,9 @@ tags:
 
 改造开始前，项目虽然已经具备完整的 AI run 生命周期：
 
-- `POST /ai/runs`
-- `GET /ai/runs/{run_id}/events`
-- `POST /ai/runs/{run_id}/input`
+- `POST /api/mock-ai/runs`
+- `GET /api/mock-ai/runs/{run_id}/events`
+- `POST /api/mock-ai/runs/{run_id}/conversation-input`
 
 但内核层面有四个明显问题：
 
@@ -114,9 +114,9 @@ tags:
 
 清理内容包括：
 
-- 删除无引用的 `app/orchestration/clarification.py`
-- 删除无引用的 `app/orchestration/intent_router.py`
-- 更新 `app/orchestration/__init__.py`
+- 删除无引用的 `app/runtime_core/clarification.py`
+- 删除无引用的 `app/runtime_core/intent_router.py`
+- 更新 `app/runtime_core/__init__.py`
 - 收敛 `orchestrator.py` 中的兼容逻辑，只保留当前仍有意义的恢复点
 
 很多重构都会出现“新结构已经有了，但旧模块继续躺在仓库里”的情况。这次 Phase 4 的价值就在于，它不是只做抽离，还把真正无用的旧结构一并清场，减少后续维护误判。
@@ -134,7 +134,7 @@ tags:
 - 装配 runtime 组件
 - 承接 tool call 与最终收口
 
-而 prompt、guardrail、memory 的主体实现，已经转移到 `app/orchestration/runtime/`。
+而 prompt、guardrail、memory 的主体实现，已经转移到 `app/runtime_core/runtime/`。
 
 ### 2. Runtime 分层已经成型
 
@@ -188,4 +188,4 @@ tags:
 
 ## 五、一句话结论
 
-这次四阶段改造，完成的不是几个局部优化，而是把 `ats_iot_ai` 从“可运行的单模型编排实现”，推进成了“具备清晰 runtime 分层、统一状态落点和后续演进空间的单模型编排内核”。
+这次四阶段改造，完成的不是几个局部优化，而是把 `sample_ai_service` 从“可运行的单模型编排实现”，推进成了“具备清晰 runtime 分层、统一状态落点和后续演进空间的单模型编排内核”。

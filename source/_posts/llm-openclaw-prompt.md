@@ -93,7 +93,7 @@ await activeSession.prompt(effectivePrompt);
 
 ---
 
-## 三、当前业务编排实现（ats_iot_ai）的典型形态
+## 三、当前业务编排实现（sample_ai_service）的典型形态
 
 当前形态已经很接近单节点 ReAct，但仍有明显的“半收敛”特征：
 
@@ -213,7 +213,7 @@ for mw in middlewares:
 
 1. `ARGUMENT_ERROR` -> pending state
 2. `clarification_needed` 事件
-3. `/input` 合并后 `tool_retry`
+3. `/conversation-input` 合并后 `tool_retry`
 
 `loop`：
 

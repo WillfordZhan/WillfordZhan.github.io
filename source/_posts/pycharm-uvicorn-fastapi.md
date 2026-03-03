@@ -22,7 +22,7 @@ tags:
 
 - `Run`: `Module name`
 - `Module name`: `uvicorn`
-- `Parameters`: `main:app --host 127.0.0.1 --port 8000`
+- `Parameters`: `main:app --host 127.0.0.1 --port 18000`
 - `Working directory`: 项目根目录
 - `Python interpreter`: 安装过依赖的虚拟环境
 
