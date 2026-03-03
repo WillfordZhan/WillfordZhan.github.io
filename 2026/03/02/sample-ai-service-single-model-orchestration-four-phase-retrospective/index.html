@@ -19,24 +19,24 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这次复盘对应 ats_iot_ai 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 pr">
+    <meta name="description" content="这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上">
 <meta property="og:type" content="article">
 <meta property="og:title" content="单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/02/ats-iot-ai-single-model-orchestration-four-phase-retrospective/index.html">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这次复盘对应 ats_iot_ai 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 pr">
+<meta property="og:description" content="这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-02T15:57:58.000Z">
-<meta property="article:modified_time" content="2026-03-03T03:34:05.609Z">
+<meta property="article:modified_time" content="2026-03-03T03:44:30.761Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="FastAPI">
 <meta property="article:tag" content="MCP">
-<meta property="article:tag" content="AI编排">
-<meta property="article:tag" content="Prompt Engineering">
 <meta property="article:tag" content="Guardrails">
 <meta property="article:tag" content="Memory">
 <meta property="article:tag" content="工程复盘">
+<meta property="article:tag" content="AI编排">
+<meta property="article:tag" content="Prompt Engineering">
 <meta name="twitter:card" content="summary_large_image">
   
   
@@ -295,13 +295,13 @@
             
               <div class="markdown-body">
                 
-                <p>这次复盘对应 <code>ats_iot_ai</code> 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。</p>
+                <p>这次复盘对应 <code>sample_ai_service</code> 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。</p>
 <p>先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 prompt、guardrail、memory、cleanup 四个层面的改造都做到了可回归、可审计、可继续扩展。</p>
 <h2 id="一、STAR-总览"><a href="#一、STAR-总览" class="headerlink" title="一、STAR 总览"></a>一、STAR 总览</h2><h3 id="S-Situation"><a href="#S-Situation" class="headerlink" title="S: Situation"></a>S: Situation</h3><p>改造开始前，项目虽然已经具备完整的 AI run 生命周期：</p>
 <ul>
-<li><code>POST /ai/runs</code></li>
-<li><code>GET /ai/runs/&#123;run_id&#125;/events</code></li>
-<li><code>POST /ai/runs/&#123;run_id&#125;/input</code></li>
+<li><code>POST /api/mock-ai/runs</code></li>
+<li><code>GET /api/mock-ai/runs/&#123;run_id&#125;/events</code></li>
+<li><code>POST /api/mock-ai/runs/&#123;run_id&#125;/conversation-input</code></li>
 </ul>
 <p>但内核层面有四个明显问题：</p>
 <ol>
@@ -392,9 +392,9 @@
 <p>这一阶段做的是最容易被忽视、但对长期维护最关键的工作：真正把已经退出生产链路的模块删掉。</p>
 <p>清理内容包括：</p>
 <ul>
-<li>删除无引用的 <code>app/orchestration/clarification.py</code></li>
-<li>删除无引用的 <code>app/orchestration/intent_router.py</code></li>
-<li>更新 <code>app/orchestration/__init__.py</code></li>
+<li>删除无引用的 <code>app/runtime_core/clarification.py</code></li>
+<li>删除无引用的 <code>app/runtime_core/intent_router.py</code></li>
+<li>更新 <code>app/runtime_core/__init__.py</code></li>
 <li>收敛 <code>orchestrator.py</code> 中的兼容逻辑，只保留当前仍有意义的恢复点</li>
 </ul>
 <p>很多重构都会出现“新结构已经有了，但旧模块继续躺在仓库里”的情况。这次 Phase 4 的价值就在于，它不是只做抽离，还把真正无用的旧结构一并清场，减少后续维护误判。</p>
@@ -405,7 +405,7 @@
 <li>装配 runtime 组件</li>
 <li>承接 tool call 与最终收口</li>
 </ul>
-<p>而 prompt、guardrail、memory 的主体实现，已经转移到 <code>app/orchestration/runtime/</code>。</p>
+<p>而 prompt、guardrail、memory 的主体实现，已经转移到 <code>app/runtime_core/runtime/</code>。</p>
 <h3 id="2-Runtime-分层已经成型"><a href="#2-Runtime-分层已经成型" class="headerlink" title="2. Runtime 分层已经成型"></a>2. Runtime 分层已经成型</h3><p>当前 runtime 层至少已经稳定包含：</p>
 <ul>
 <li><code>prompt_builder.py</code></li>
@@ -441,7 +441,7 @@
 <li><code>RunStore.set_run_state()</code> 仍是整包覆盖语义，runtime 层仍需谨慎处理状态合并。</li>
 </ol>
 <p>这些边界不影响这轮改造的成立，但它们决定了后续迭代的优先级。</p>
-<h2 id="五、一句话结论"><a href="#五、一句话结论" class="headerlink" title="五、一句话结论"></a>五、一句话结论</h2><p>这次四阶段改造，完成的不是几个局部优化，而是把 <code>ats_iot_ai</code> 从“可运行的单模型编排实现”，推进成了“具备清晰 runtime 分层、统一状态落点和后续演进空间的单模型编排内核”。</p>
+<h2 id="五、一句话结论"><a href="#五、一句话结论" class="headerlink" title="五、一句话结论"></a>五、一句话结论</h2><p>这次四阶段改造，完成的不是几个局部优化，而是把 <code>sample_ai_service</code> 从“可运行的单模型编排实现”，推进成了“具备清晰 runtime 分层、统一状态落点和后续演进空间的单模型编排内核”。</p>
 
                 
               </div>
@@ -481,15 +481,15 @@
       
         <a href="/tags/MCP/" class="print-no-link">#MCP</a>
       
-        <a href="/tags/AI%E7%BC%96%E6%8E%92/" class="print-no-link">#AI编排</a>
-      
-        <a href="/tags/Prompt-Engineering/" class="print-no-link">#Prompt Engineering</a>
-      
         <a href="/tags/Guardrails/" class="print-no-link">#Guardrails</a>
       
         <a href="/tags/Memory/" class="print-no-link">#Memory</a>
       
         <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/" class="print-no-link">#工程复盘</a>
+      
+        <a href="/tags/AI%E7%BC%96%E6%8E%92/" class="print-no-link">#AI编排</a>
+      
+        <a href="/tags/Prompt-Engineering/" class="print-no-link">#Prompt Engineering</a>
       
     </div>
   
@@ -502,7 +502,7 @@
   <div class="license-box my-3">
     <div class="license-title">
       <div>单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理</div>
-      <div>https://willfordzhan.github.io/2026/03/02/ats-iot-ai-single-model-orchestration-four-phase-retrospective/</div>
+      <div>https://willfordzhan.github.io/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/</div>
     </div>
     <div class="license-meta">
       

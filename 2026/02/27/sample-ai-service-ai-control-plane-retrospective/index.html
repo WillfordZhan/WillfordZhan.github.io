@@ -19,26 +19,26 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这次复盘记录的是 ats_iot_ai 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。 背景：项目开始失控，必须回到核心 flow随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。这轮重构的目标很明确：聚焦核心 flow，把系统重新收敛到一条可解">
+    <meta name="description" content="这次复盘记录的是 sample_ai_service 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。 背景：项目开始失控，必须回到核心 flow随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。这轮重构的目标很明确：聚焦核心 flow，把系统重新">
 <meta property="og:type" content="article">
-<meta property="og:title" content="奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/27/ats_iot_ai-ai/index.html">
+<meta property="og:title" content="奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/02/27/sample-ai-service-ai-control-plane-retrospective/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这次复盘记录的是 ats_iot_ai 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。 背景：项目开始失控，必须回到核心 flow随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。这轮重构的目标很明确：聚焦核心 flow，把系统重新收敛到一条可解">
+<meta property="og:description" content="这次复盘记录的是 sample_ai_service 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。 背景：项目开始失控，必须回到核心 flow随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。这轮重构的目标很明确：聚焦核心 flow，把系统重新">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-02-27T09:06:53.000Z">
-<meta property="article:modified_time" content="2026-03-03T03:34:05.609Z">
+<meta property="article:modified_time" content="2026-03-03T03:44:30.761Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="ReAct">
 <meta property="article:tag" content="重构复盘">
 <meta property="article:tag" content="架构简化">
-<meta property="article:tag" content="ats_iot_ai">
+<meta property="article:tag" content="sample_ai_service">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘 - 味儿福德詹的小站</title>
+  <title>奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -216,7 +216,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘"></span>
+            <span id="subtitle" data-typed-text="奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘"></span>
           
         </div>
 
@@ -287,12 +287,12 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘</h1>
+            <h1 id="seo-header">奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这次复盘记录的是 <code>ats_iot_ai</code> 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。</p>
+                <p>这次复盘记录的是 <code>sample_ai_service</code> 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。</p>
 <h2 id="背景：项目开始失控，必须回到核心-flow"><a href="#背景：项目开始失控，必须回到核心-flow" class="headerlink" title="背景：项目开始失控，必须回到核心 flow"></a>背景：项目开始失控，必须回到核心 flow</h2><p>随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。<br>这轮重构的目标很明确：聚焦核心 flow，把系统重新收敛到一条可解释、可测试、可快速迭代的主路径。</p>
 <h2 id="本次里程碑"><a href="#本次里程碑" class="headerlink" title="本次里程碑"></a>本次里程碑</h2><ol>
 <li><code>Orchestrator</code> 收敛为单一 ReAct 核心循环。</li>
@@ -354,7 +354,7 @@
       
         <a href="/tags/%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8C%96/" class="print-no-link">#架构简化</a>
       
-        <a href="/tags/ats-iot-ai/" class="print-no-link">#ats_iot_ai</a>
+        <a href="/tags/sample-ai-service/" class="print-no-link">#sample_ai_service</a>
       
     </div>
   
@@ -366,8 +366,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘</div>
-      <div>https://willfordzhan.github.io/2026/02/27/ats_iot_ai-ai/</div>
+      <div>奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘</div>
+      <div>https://willfordzhan.github.io/2026/02/27/sample-ai-service-ai-control-plane-retrospective/</div>
     </div>
     <div class="license-meta">
       

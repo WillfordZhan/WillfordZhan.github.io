@@ -320,7 +320,7 @@
       
       <a class="index-excerpt index-excerpt__noimg" href="/2026/02/25/ai-llm-react/" target="_self">
         <div>
-          这次改造把 ats_iot_ai 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： Understa
+          这次改造把 sample_ai_service 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： U
         </div>
       </a>
 
@@ -393,7 +393,7 @@
       
       <a class="index-excerpt index-excerpt__noimg" href="/2026/02/25/react-orchestrator-qa/" target="_self">
         <div>
-          这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：/ai/runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Policy 更像静态映射
+          这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：/api/mock-ai/runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Poli
         </div>
       </a>
 
@@ -576,11 +576,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
-            
               <a href="/tags/RAG/">#RAG</a>
             
               <a href="/tags/OpenSearch/">#OpenSearch</a>
+            
+              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
             
               <a href="/tags/STAR/">#STAR</a>
             

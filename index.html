@@ -287,15 +287,15 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
-        <a href="/2026/03/02/ats-iot-ai-single-model-orchestration-four-phase-retrospective/" target="_self">
+        <a href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
           单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理
         </a>
       </h2>
 
       
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/ats-iot-ai-single-model-orchestration-four-phase-retrospective/" target="_self">
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
         <div>
-          这次复盘对应 ats_iot_ai 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 pr
+          这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上
         </div>
       </a>
 
@@ -340,15 +340,15 @@
             
               <a href="/tags/MCP/">#MCP</a>
             
-              <a href="/tags/AI%E7%BC%96%E6%8E%92/">#AI编排</a>
-            
-              <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
-            
               <a href="/tags/Guardrails/">#Guardrails</a>
             
               <a href="/tags/Memory/">#Memory</a>
             
               <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
+            
+              <a href="/tags/AI%E7%BC%96%E6%8E%92/">#AI编排</a>
+            
+              <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
             
           </div>
         
@@ -488,11 +488,11 @@
             
               <a href="/tags/ReAct/">#ReAct</a>
             
+              <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
+            
               <a href="/tags/Guardrails/">#Guardrails</a>
             
               <a href="/tags/Memory/">#Memory</a>
-            
-              <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
             
           </div>
         
@@ -633,7 +633,7 @@
       
       <a class="index-excerpt index-excerpt__noimg" href="/2026/02/28/ai-chat-java-ai-gateway-python/" target="_self">
         <div>
-          本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。 改造摘要 Java 成为 AI Gateway 统一入口：   前端不再直连 Python，而是走 /api/ai/*。 Java 在转发到 Python 前注入两类内部头： X-AI-GW-TOKEN X-AI-BIZ-CONTEXT（签名
+          本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。 改造摘要 Java 成为 AI Gateway 统一入口：   前端不再直连 Python，而是走 /api/mock-ai/*。 Java 在转发到 Python 前注入两类内部头： X-AI-GW-TOKEN X-AI-BIZ-CONTE
         </div>
       </a>
 
@@ -773,15 +773,15 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
-        <a href="/2026/02/27/ats_iot_ai-ai/" target="_self">
-          奥卡姆剃刀式瘦身重构：ats_iot_ai AI 控制面分类复盘
+        <a href="/2026/02/27/sample-ai-service-ai-control-plane-retrospective/" target="_self">
+          奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘
         </a>
       </h2>
 
       
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/27/ats_iot_ai-ai/" target="_self">
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/27/sample-ai-service-ai-control-plane-retrospective/" target="_self">
         <div>
-          这次复盘记录的是 ats_iot_ai 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。 背景：项目开始失控，必须回到核心 flow随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。这轮重构的目标很明确：聚焦核心 flow，把系统重新收敛到一条可解
+          这次复盘记录的是 sample_ai_service 一轮典型的「奥卡姆剃刀式瘦身重构」：不再追求架构层面的概念完整性，而是优先保证主流程简单、稳定、可持续迭代。 背景：项目开始失控，必须回到核心 flow随着功能和抽象层不断叠加，编排链路已经从“可理解”滑向“难维护”：策略层、评估层、策略守卫与验证层交织，导致新增一个行为就要跨多个抽象点改动。这轮重构的目标很明确：聚焦核心 flow，把系统重新
         </div>
       </a>
 
@@ -828,7 +828,7 @@
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8C%96/">#架构简化</a>
             
-              <a href="/tags/ats-iot-ai/">#ats_iot_ai</a>
+              <a href="/tags/sample-ai-service/">#sample_ai_service</a>
             
           </div>
         

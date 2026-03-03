@@ -19,15 +19,15 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这次改造把 ats_iot_ai 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： Understa">
+    <meta name="description" content="这次改造把 sample_ai_service 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： U">
 <meta property="og:type" content="article">
 <meta property="og:title" content="AI控制面生产化改造：LLM意图路由与ReAct执行边界">
 <meta property="og:url" content="https://willfordzhan.github.io/2026/02/25/ai-llm-react/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这次改造把 ats_iot_ai 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： Understa">
+<meta property="og:description" content="这次改造把 sample_ai_service 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： U">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-02-25T11:29:24.000Z">
-<meta property="article:modified_time" content="2026-03-03T03:34:05.609Z">
+<meta property="article:modified_time" content="2026-03-03T03:44:30.760Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="Qwen">
@@ -294,7 +294,7 @@
             
               <div class="markdown-body">
                 
-                <p>这次改造把 <code>ats_iot_ai</code> 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。</p>
+                <p>这次改造把 <code>sample_ai_service</code> 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。</p>
 <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>线上痛点很明确：<code>process_input</code> 里 <code>IntentRouter.route(query)</code> 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。</p>
 <p>目标是把链路拉直为：</p>
 <p><code>Understand -&gt; Decide -&gt; Act -&gt; Verify -&gt; Respond</code></p>
@@ -341,13 +341,13 @@
 <li>新增 <code>clarification_needed</code>、<code>verification_failed</code>。</li>
 </ul>
 <h2 id="代码落点"><a href="#代码落点" class="headerlink" title="代码落点"></a>代码落点</h2><ul>
-<li><code>app/orchestration/intent_router.py</code></li>
-<li><code>app/orchestration/intent_llm_parser.py</code></li>
-<li><code>app/orchestration/policy_engine.py</code></li>
-<li><code>app/orchestration/strategies.py</code></li>
-<li><code>app/orchestration/verify.py</code></li>
-<li><code>app/orchestrator.py</code></li>
-<li><code>tests/orchestrator/*</code></li>
+<li><code>app/runtime_core/intent_router.py</code></li>
+<li><code>app/runtime_core/intent_llm_parser.py</code></li>
+<li><code>app/runtime_core/policy_engine.py</code></li>
+<li><code>app/runtime_core/strategies.py</code></li>
+<li><code>app/runtime_core/verify.py</code></li>
+<li><code>app/main_orchestrator.py</code></li>
+<li><code>tests/runtime_core/*</code></li>
 </ul>
 <h2 id="文档同步"><a href="#文档同步" class="headerlink" title="文档同步"></a>文档同步</h2><ul>
 <li><code>README.md</code> 切到 Production Mode 描述。</li>
