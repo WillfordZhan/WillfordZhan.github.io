@@ -239,6 +239,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/03/iot-app-kafka/" target="_self">
+          本地启动 iot-app 禁用 Kafka 配置实践
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/iot-app-kafka/" target="_self">
+        <div>
+          本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-03 17:20" pubdate>
+              2026-03-03
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/Spring-Boot/">#Spring Boot</a>
+            
+              <a href="/tags/Kafka/">#Kafka</a>
+            
+              <a href="/tags/Nacos/">#Nacos</a>
+            
+              <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91/">#本地开发</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/03/hbuilderx-uni-app/" target="_self">
           HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新
         </a>
@@ -829,54 +898,6 @@
               <a href="/tags/%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8C%96/">#架构简化</a>
             
               <a href="/tags/sample-ai-service/">#sample_ai_service</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/27/pycharm-uvicorn-fastapi/" target="_self">
-          PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/27/pycharm-uvicorn-fastapi/" target="_self">
-        <div>
-          最近在调试一个 FastAPI + Uvicorn 的项目时，遇到两个高频问题：  PyCharm 里到底怎么正确配 uvicorn main:app？ 代码里明明写了 LOGGER.info(...)，控制台却看不到日志？  这篇只讲可直接落地的做法。 1) PyCharm 里如何用 Uvicorn 调试新增一个 Python 类型 Run Configuration：  Run: Module
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-27 15:39" pubdate>
-              2026-02-27
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/Uvicorn/">#Uvicorn</a>
-            
-              <a href="/tags/PyCharm/">#PyCharm</a>
-            
-              <a href="/tags/%E8%B0%83%E8%AF%95/">#调试</a>
             
           </div>
         

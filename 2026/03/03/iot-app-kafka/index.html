@@ -19,28 +19,26 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+    <meta name="description" content="本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla">
 <meta property="og:type" content="article">
-<meta property="og:title" content="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/index.html">
+<meta property="og:title" content="本地启动 iot-app 禁用 Kafka 配置实践">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/03/iot-app-kafka/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+<meta property="og:description" content="本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-20T14:44:15.000Z">
+<meta property="article:published_time" content="2026-03-03T09:20:27.000Z">
 <meta property="article:modified_time" content="2026-03-03T09:24:49.992Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="Java">
-<meta property="article:tag" content="MCP">
-<meta property="article:tag" content="AI工程">
-<meta property="article:tag" content="里程碑">
-<meta property="article:tag" content="依赖治理">
-<meta property="article:tag" content="配置清理">
+<meta property="article:tag" content="Spring Boot">
+<meta property="article:tag" content="Kafka">
+<meta property="article:tag" content="Nacos">
+<meta property="article:tag" content="本地开发">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>里程碑进展：Java AI 模块配置与依赖清理（MCP 版） - 味儿福德詹的小站</title>
+  <title>本地启动 iot-app 禁用 Kafka 配置实践 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +216,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）"></span>
+            <span id="subtitle" data-typed-text="本地启动 iot-app 禁用 Kafka 配置实践"></span>
           
         </div>
 
@@ -229,8 +227,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-20 22:44" pubdate>
-          2026年2月20日 晚上
+        <time datetime="2026-03-03 17:20" pubdate>
+          2026年3月3日 下午
         </time>
       </span>
     
@@ -241,7 +239,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          466 字
+          1.1k 字
         
       </span>
     
@@ -252,7 +250,7 @@
         
         
         
-          4 分钟
+          10 分钟
         
       </span>
     
@@ -289,40 +287,81 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</h1>
+            <h1 id="seo-header">本地启动 iot-app 禁用 Kafka 配置实践</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="里程碑范围"><a href="#里程碑范围" class="headerlink" title="里程碑范围"></a>里程碑范围</h2><p>本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。</p>
-<h2 id="配置清理结果（YAML）"><a href="#配置清理结果（YAML）" class="headerlink" title="配置清理结果（YAML）"></a>配置清理结果（YAML）</h2><p>在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：</p>
-<ol>
-<li>删除历史遗留且已废弃的配置段：<code>ai.model</code>、<code>ai.store</code>、<code>ai.prompt</code>、<code>ai.archive</code>。</li>
-<li>保留当前仍在使用的配置段：<code>ai.mcp</code>、<code>ai.dify</code>。</li>
-<li>结果：配置语义与当前架构一致，避免“看得见但不会生效”的伪配置继续干扰排查。</li>
-</ol>
-<h2 id="依赖清理结果（POM）"><a href="#依赖清理结果（POM）" class="headerlink" title="依赖清理结果（POM）"></a>依赖清理结果（POM）</h2><p>在 <code>pom</code> 依赖中，已完成未使用 legacy AI 依赖剔除：</p>
-<ol>
-<li>移除：<code>langchain4j-dashscope</code>、<code>langchain4j-open-ai</code>。</li>
-<li>保留：<code>langchain4j</code> 核心能力（按当前实现需要）与 <code>dashscope-sdk-java</code>（在需要的位置继续使用）。</li>
-<li>结果：依赖树更干净，后续升级与漏洞治理成本下降。</li>
-</ol>
-<h2 id="验证结论"><a href="#验证结论" class="headerlink" title="验证结论"></a>验证结论</h2><p>已执行编译验证命令并通过：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">mvn -pl ruoyi-admin -am -DskipTests compile<br></code></pre></td></tr></table></figure>
+                <p>本地联调 <code>iot-app</code> 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。</p>
+<p>这次采用的做法是：保留 Nacos 配置加载，只在 <code>local</code> 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op <code>KafkaTemplate</code>，让依赖 <code>KafkaTemplate</code> 的业务 Bean 仍然可以正常注入。</p>
+<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>一个典型的现象是：</p>
+<ul>
+<li>应用本地启动时会从 Nacos 拉到 Kafka 地址</li>
+<li><code>@KafkaListener</code> 会尝试启动消费者</li>
+<li><code>KafkaTemplate</code> 相关 Bean 会按生产者配置初始化</li>
+<li>本地没有 Kafka 或不希望访问测试环境 Kafka 时，启动过程就容易卡住或报错</li>
+</ul>
+<p>如果项目里只是简单依赖了 <code>spring-kafka</code>，只关掉一个配置项往往不够，因为业务代码里通常已经直接注入了 <code>KafkaTemplate</code>，甚至还有多个消息消费者。</p>
+<h2 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h2><p>本地启动满足下面三个条件：</p>
+<ul>
+<li>仍然读取 Nacos 中除 Kafka 之外的配置</li>
+<li>不创建 Kafka 自动配置相关 Bean</li>
+<li>业务代码里已有的 <code>KafkaTemplate</code> 注入不报错</li>
+</ul>
+<h2 id="实现思路"><a href="#实现思路" class="headerlink" title="实现思路"></a>实现思路</h2><h3 id="1-增加应用级开关"><a href="#1-增加应用级开关" class="headerlink" title="1. 增加应用级开关"></a>1. 增加应用级开关</h3><p>先在公共配置里增加一个总开关，默认开启：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">iot-app:</span><br>  <span class="hljs-attr">kafka:</span><br>    <span class="hljs-attr">enabled:</span> <span class="hljs-literal">true</span><br></code></pre></td></tr></table></figure>
 
-<p>这说明本次“配置 + 依赖”清理在当前里程碑范围内未引入编译级回归。</p>
-<h2 id="当前验收状态"><a href="#当前验收状态" class="headerlink" title="当前验收状态"></a>当前验收状态</h2><p>当前里程碑验收状态：<strong>已通过（范围内通过）</strong>。</p>
-<p>说明：</p>
-<ol>
-<li>MCP 方向相关配置与依赖清理目标已达成。</li>
-<li>编译链路已验证可通过。</li>
-<li>全量测试基线仍存在历史遗留的无关失败项，本次不作为阻塞项。</li>
-</ol>
-<h2 id="下一步计划"><a href="#下一步计划" class="headerlink" title="下一步计划"></a>下一步计划</h2><ol>
-<li>建立并收敛一版“可重复”的全量测试基线，先对历史失败做归因分层（本次改动相关 &#x2F; 无关）。</li>
-<li>在 CI 中补充针对 AI 模块的最小回归检查（至少覆盖配置加载、关键 Bean 初始化、核心调用链烟测）。</li>
-<li>持续推进 legacy 残留项扫描，避免后续分支再次引入已移除依赖或配置段。</li>
-</ol>
+<p>然后在 <code>application-local.yml</code> 中显式关闭：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">spring:</span><br>  <span class="hljs-attr">autoconfigure:</span><br>    <span class="hljs-attr">exclude:</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">org.springframework.boot.autoconfigure.kafka.KafkaAnnotationDrivenConfiguration</span><br><br><span class="hljs-attr">iot-app:</span><br>  <span class="hljs-attr">kafka:</span><br>    <span class="hljs-attr">enabled:</span> <span class="hljs-literal">false</span><br></code></pre></td></tr></table></figure>
+
+<p>这里的关键点有两个：</p>
+<ul>
+<li><code>exclude</code> 直接禁掉 Spring Boot 的 Kafka 自动配置</li>
+<li>本地环境把 <code>iot-app.kafka.enabled</code> 设为 <code>false</code>，让自定义条件配置生效</li>
+</ul>
+<h3 id="2-给-Kafka-消费者加条件开关"><a href="#2-给-Kafka-消费者加条件开关" class="headerlink" title="2. 给 Kafka 消费者加条件开关"></a>2. 给 Kafka 消费者加条件开关</h3><p>如果项目里已经有消费者类，可以直接按配置控制是否注册：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Component</span><br><span class="hljs-meta">@ConditionalOnProperty(</span><br><span class="hljs-meta">    prefix = &quot;iot-app.kafka&quot;,</span><br><span class="hljs-meta">    name = &quot;enabled&quot;,</span><br><span class="hljs-meta">    havingValue = &quot;true&quot;,</span><br><span class="hljs-meta">    matchIfMissing = true</span><br><span class="hljs-meta">)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">MsgQueueConsumer</span> &#123;<br>    <span class="hljs-meta">@KafkaListener(topics = &quot;demo-topic&quot;, groupId = &quot;$&#123;spring.application.name&#125;&quot;)</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">onMessage</span><span class="hljs-params">(String payload)</span> &#123;<br>        <span class="hljs-comment">// ...</span><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这样在本地环境下，消费者 Bean 不会创建，<code>@KafkaListener</code> 也不会启动。</p>
+<h3 id="3-提供一个-no-op-KafkaTemplate"><a href="#3-提供一个-no-op-KafkaTemplate" class="headerlink" title="3. 提供一个 no-op KafkaTemplate"></a>3. 提供一个 no-op KafkaTemplate</h3><p>只禁用自动配置还不够。如果业务代码里已经有下面这种依赖：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> KafkaTemplate&lt;String, String&gt; kafkaTemplate;<br></code></pre></td></tr></table></figure>
+
+<p>那么启动时仍然可能因为缺少 <code>KafkaTemplate</code> Bean 失败。一个更稳的做法是：在 <code>iot-app.kafka.enabled=false</code> 时，注册一个空实现。</p>
+<p>示意代码如下：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Configuration</span><br><span class="hljs-meta">@ConditionalOnProperty(prefix = &quot;iot-app.kafka&quot;, name = &quot;enabled&quot;, havingValue = &quot;false&quot;)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">KafkaDisabledConfig</span> &#123;<br><br>    <span class="hljs-meta">@Bean</span><br>    <span class="hljs-meta">@Primary</span><br>    <span class="hljs-meta">@ConditionalOnMissingBean(KafkaTemplate.class)</span><br>    <span class="hljs-keyword">public</span> KafkaTemplate&lt;String, String&gt; <span class="hljs-title function_">kafkaTemplate</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">NoOpKafkaTemplate</span>();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这个 no-op <code>KafkaTemplate</code> 只需要覆盖当前项目实际会调用到的 <code>send(topic, data)</code> 方法，在本地环境下直接吞掉消息并返回一个已完成的 Future 即可。</p>
+<h2 id="为什么不用直接改-Nacos"><a href="#为什么不用直接改-Nacos" class="headerlink" title="为什么不用直接改 Nacos"></a>为什么不用直接改 Nacos</h2><p>原因很简单：本地不连 Kafka，不等于本地不用 Nacos。</p>
+<p>很多项目的本地运行仍然依赖远程配置中心里的：</p>
+<ul>
+<li>数据源</li>
+<li>Redis</li>
+<li>多租户或工厂配置</li>
+<li>其他业务开关</li>
+</ul>
+<p>如果为了禁用 Kafka 去改共享 Nacos 配置，影响面会比本地代码开关大得多，也更容易误伤其他环境。</p>
+<h2 id="一个更实用的经验"><a href="#一个更实用的经验" class="headerlink" title="一个更实用的经验"></a>一个更实用的经验</h2><p>如果你只是为了本地调接口、调页面、调成本逻辑，通常不需要真正发送或消费 Kafka 消息。这时候：</p>
+<ul>
+<li>消费者直接不注册</li>
+<li>生产者发送直接 no-op</li>
+</ul>
+<p>比“本地也搭一套 Kafka”更省时间，问题边界也更清晰。</p>
+<p>当然，这种方案只适合本地开发和非 Kafka 联调场景。如果你要验证消息链路、重试、消费幂等、分区行为，还是应该连真实 Kafka 或独立测试环境。</p>
+<h2 id="脱敏说明"><a href="#脱敏说明" class="headerlink" title="脱敏说明"></a>脱敏说明</h2><p>为了避免把内部信息带到公开文章中，本文所有示例都做了脱敏处理：</p>
+<ul>
+<li>内网域名、IP、端口改成示例值或占位符</li>
+<li>本地绝对路径改成通用模块路径</li>
+<li>密钥、令牌、命名空间等敏感字段不展示真实值</li>
+<li>代码片段只保留实现思路，不直接贴完整业务代码</li>
+</ul>
+<p>如果你也在写团队外可见的技术博客，这一步建议作为固定动作，而不是临发布前临时检查。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>本地启动 <code>iot-app</code> 又不想使用 Nacos 下发的 Kafka 配置时，比较稳妥的一套组合是：</p>
+<ul>
+<li><code>local</code> 环境排除 Kafka 自动配置</li>
+<li>用业务开关控制消费者是否注册</li>
+<li>提供 no-op <code>KafkaTemplate</code> 兜底注入</li>
+</ul>
+<p>这样既保住了本地开发效率，也避免为了一个中间件把整套远程配置体系拆开。</p>
 
                 
               </div>
@@ -341,7 +380,7 @@
     
       <span class="category-chain">
         
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
   
   
 
@@ -356,19 +395,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
-      
         <a href="/tags/Java/" class="print-no-link">#Java</a>
       
-        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+        <a href="/tags/Spring-Boot/" class="print-no-link">#Spring Boot</a>
       
-        <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
+        <a href="/tags/Kafka/" class="print-no-link">#Kafka</a>
       
-        <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
+        <a href="/tags/Nacos/" class="print-no-link">#Nacos</a>
       
-        <a href="/tags/%E4%BE%9D%E8%B5%96%E6%B2%BB%E7%90%86/" class="print-no-link">#依赖治理</a>
-      
-        <a href="/tags/%E9%85%8D%E7%BD%AE%E6%B8%85%E7%90%86/" class="print-no-link">#配置清理</a>
+        <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91/" class="print-no-link">#本地开发</a>
       
     </div>
   
@@ -380,8 +415,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</div>
-      <div>https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/</div>
+      <div>本地启动 iot-app 禁用 Kafka 配置实践</div>
+      <div>https://willfordzhan.github.io/2026/03/03/iot-app-kafka/</div>
     </div>
     <div class="license-meta">
       
@@ -393,7 +428,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月20日</div>
+          <div>2026年3月3日</div>
         </div>
       
       
@@ -425,18 +460,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/20/dify-rag-mes-erp/" title="Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/20/dynamic-paradigm-orchestrator-optimization/" title="动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化">
-                        <span class="hidden-mobile">动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化</span>
+                      <a href="/2026/03/03/hbuilderx-uni-app/" title="HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新">
+                        <span class="hidden-mobile">HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
