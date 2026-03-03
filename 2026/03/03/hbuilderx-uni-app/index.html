@@ -19,15 +19,15 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  如果你也遇到“源码有 diff，但微信">
+    <meta name="description" content="这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  本机 Java 服务联调时报错：  1">
 <meta property="og:type" content="article">
 <meta property="og:title" content="HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新">
 <meta property="og:url" content="https://willfordzhan.github.io/2026/03/03/hbuilderx-uni-app/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  如果你也遇到“源码有 diff，但微信">
+<meta property="og:description" content="这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  本机 Java 服务联调时报错：  1">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-03T02:56:55.000Z">
-<meta property="article:modified_time" content="2026-03-03T03:12:34.553Z">
+<meta property="article:modified_time" content="2026-03-03T03:34:05.609Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="uni-app">
 <meta property="article:tag" content="微信小程序">
@@ -239,7 +239,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.8k 字
+          2.3k 字
         
       </span>
     
@@ -250,7 +250,7 @@
         
         
         
-          16 分钟
+          20 分钟
         
       </span>
     
@@ -299,13 +299,18 @@
 <li>登录时报错：</li>
 </ul>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">login:fail 系统错误，错误码：41002, appid missing [undefined]<br></code></pre></td></tr></table></figure>
+<ul>
+<li>本机 Java 服务联调时报错：</li>
+</ul>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">http://127.0.0.1:10002 不在以下 request 合法域名列表中<br></code></pre></td></tr></table></figure>
 
-<p>如果你也遇到“源码有 diff，但微信里没变化”“<code>wx.login</code> 报 <code>appid missing</code>”这两个问题，可以直接按这篇处理。</p>
-<h2 id="先说结论"><a href="#先说结论" class="headerlink" title="先说结论"></a>先说结论</h2><p>核心结论其实只有 4 条：</p>
+<p>如果你也遇到“源码有 diff，但微信里没变化”“<code>wx.login</code> 报 <code>appid missing</code>”或者“本机接口被合法域名拦住”这几个问题，可以直接按这篇处理。</p>
+<h2 id="先说结论"><a href="#先说结论" class="headerlink" title="先说结论"></a>先说结论</h2><p>核心结论其实只有 5 条：</p>
 <ol>
 <li><code>uni-app</code> 改的是源码，不是微信开发者工具直接运行的产物</li>
 <li>改完代码后，要先在 <strong>HBuilderX 重新编译</strong></li>
 <li>微信开发者工具最好先打开 <strong>服务端口</strong></li>
+<li>如果要在微信开发者工具里直连本机接口，先打开 <strong>开发环境不校验请求域名、TLS 版本及 HTTPS 证书</strong></li>
 <li>如果微信开发者工具里项目详情的 <code>AppID</code> 显示为空，关键是 <strong>把 AppID 补进去</strong></li>
 </ol>
 <h2 id="为什么改了源码，微信开发者工具里没变化"><a href="#为什么改了源码，微信开发者工具里没变化" class="headerlink" title="为什么改了源码，微信开发者工具里没变化"></a>为什么改了源码，微信开发者工具里没变化</h2><p><code>uni-app</code> 项目最容易让人误判的一点是：</p>
@@ -382,6 +387,36 @@
 <li>如果还没变化，再点一次 <code>清缓存并编译</code></li>
 </ol>
 <p>很多时候问题不在代码，而是微信开发者工具还停留在旧产物。</p>
+<h2 id="这次新增踩坑：本机-Java-服务被合法域名拦住"><a href="#这次新增踩坑：本机-Java-服务被合法域名拦住" class="headerlink" title="这次新增踩坑：本机 Java 服务被合法域名拦住"></a>这次新增踩坑：本机 Java 服务被合法域名拦住</h2><p>联调本地 Java app 时，这次还遇到了这个报错：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">http://127.0.0.1:10002 不在以下 request 合法域名列表中<br></code></pre></td></tr></table></figure>
+
+<p>这不是后端接口本身坏了，而是微信开发者工具默认会校验请求域名。</p>
+<p>如果只是为了在本机开发阶段联调自己电脑上的服务，最直接的处理方式是：</p>
+<ol>
+<li>打开微信开发者工具</li>
+<li>点击右上角 <code>详情</code></li>
+<li>进入 <code>本地设置</code></li>
+<li>打开 <code>开发环境不校验请求域名、TLS版本及HTTPS证书</code></li>
+<li>回到项目重新编译</li>
+</ol>
+<p>开完这一项后，开发者工具里的模拟器就可以直接请求：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">http://127.0.0.1:10002/epservice<br></code></pre></td></tr></table></figure>
+
+<p>这里还要补一个边界：</p>
+<ul>
+<li>这适合 <strong>微信开发者工具本机联调</strong></li>
+<li>不适合 <strong>真机用 <code>127.0.0.1</code> 联调</strong></li>
+</ul>
+<p>因为对手机来说，<code>127.0.0.1</code> 指向的是手机自己，不是你电脑。</p>
+<p>如果要真机联调，应该改成你电脑的局域网 IP，比如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">http://192.168.1.23:10002/epservice<br></code></pre></td></tr></table></figure>
+
+<p>同时保证：</p>
+<ul>
+<li>手机和电脑在同一个局域网</li>
+<li>Java 服务监听的是外网可访问地址，而不是只绑定 <code>127.0.0.1</code></li>
+<li>本机防火墙放通 <code>10002</code></li>
+</ul>
 <h2 id="这次新增踩坑：登录失败，报-appid-missing"><a href="#这次新增踩坑：登录失败，报-appid-missing" class="headerlink" title="这次新增踩坑：登录失败，报 appid missing"></a>这次新增踩坑：登录失败，报 <code>appid missing</code></h2><p>这次另一个非常典型的问题是：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">login:fail 系统错误，错误码：41002,appid missing [undefined]<br></code></pre></td></tr></table></figure>
 
@@ -447,6 +482,7 @@
 <ol>
 <li>修改 <code>uni-app</code> 源码</li>
 <li>微信开发者工具开启 <code>服务端口</code></li>
+<li>如果要连本机接口，先在 <code>详情 -&gt; 本地设置</code> 里打开 <code>开发环境不校验请求域名、TLS版本及HTTPS证书</code></li>
 <li>回 HBuilderX 执行 <code>运行 -&gt; 运行到小程序模拟器 -&gt; 微信开发者工具</code></li>
 <li>确认 <code>unpackage/dist/build/mp-weixin</code> 已更新</li>
 <li>微信开发者工具里重新编译</li>
@@ -462,8 +498,12 @@
 <li><strong>没重新编译</strong></li>
 <li><strong>微信开发者工具当前运行实例的 AppID 是空的</strong></li>
 </ol>
+<p>如果还在本机联调后端，再加一个高频原因：</p>
+<ol start="3">
+<li><strong>微信开发者工具没有关闭开发环境的域名校验</strong></li>
+</ol>
 <p>一句话总结：</p>
-<p><strong><code>uni-app</code> 联调时，先确认产物有没有重新生成，再确认微信开发者工具里当前项目的 AppID 不是空；补 AppID 是关键，手动导入只是备选。</strong></p>
+<p><strong><code>uni-app</code> 联调时，先确认产物有没有重新生成，再确认微信开发者工具里当前项目的 AppID 不是空；如果要连本机服务，还要先关闭开发环境域名校验。补 AppID 是关键，手动导入只是备选。</strong></p>
 
                 
               </div>
