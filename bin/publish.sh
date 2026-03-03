@@ -12,8 +12,8 @@ Usage: publish.sh [-r repo_path] [-m message] [--skip-build]
 Publishes Hexo source to origin/hexo-src, triggering GitHub Actions deploy to master.
 
 Examples:
-  bash scripts/publish.sh -m "post: add new article"
-  BLOG_REPO=~/Desktop/Project/blog bash scripts/publish.sh -m "chore: update"
+  bash bin/publish.sh -m "post: add new article"
+  BLOG_REPO=~/Desktop/Project/blog bash bin/publish.sh -m "chore: update"
 USAGE
 }
 

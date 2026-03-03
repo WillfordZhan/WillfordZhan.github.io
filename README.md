@@ -5,6 +5,7 @@
 ## 写文章
 
 - 新建文章：在 `source/_posts/` 下新增一个 `.md`
+- 或使用辅助脚本：`python3 bin/new_post.py --title "文章标题" --tags "标签1,标签2"`
 - 本地预览：
 
 ```bash
@@ -19,9 +20,7 @@ npm run server
 ```bash
 git checkout hexo-src
 # 修改/新增文章后
-git add -A
-git commit -m "post: ..."
-git push origin hexo-src
+bash bin/publish.sh -m "post: ..."
 ```
 
 ## 目录约定

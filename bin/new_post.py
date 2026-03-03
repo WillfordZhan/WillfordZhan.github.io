@@ -106,7 +106,7 @@ def main() -> int:
                 [
                     "- 写正文",
                     "- 本地预览：`npm run server`",
-                    "- 发布：`bash scripts/publish.sh -m \"post: ...\"`",
+                    "- 发布：`bash bin/publish.sh -m \"post: ...\"`",
                 ]
             ),
         ]
