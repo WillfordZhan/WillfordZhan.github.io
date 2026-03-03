@@ -247,7 +247,7 @@
       
       <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/metadata-lock-ai-communicationsexception/" target="_self">
         <div>
-          这篇文章记录一次很典型、也很容易被误判的线上故障：Java 应用里一条普通的查询 SQL，最终抛出来的却是 CommunicationsException。如果只盯着“通信失败”四个字，很容易沿着网络、连接池、驱动参数一路排查下去；但这次真正的根因，是一把被 DDL 队列放大的 metadata lock。 这个坑对后端开发工程师很有价值，因为它横跨了 4 层：  MySQL DDL 与 meta
+          这篇文章记录一次线上故障：Java 应用里一条普通查询，最终抛出来的是 CommunicationsException。表面看像网络或连接池问题，实际是被 DDL 等待放大的 metadata lock。 排查过程横跨 4 层：  MySQL DDL 与 metadata lock 机制 JDBC 驱动的超时表现 连接池里的空闲连接与未结束事务 应用层对异常语义的误判  先说结论根因是：  某些旧
         </div>
       </a>
 
@@ -486,11 +486,11 @@
             
               <a href="/tags/Memory/">#Memory</a>
             
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
-            
               <a href="/tags/AI%E7%BC%96%E6%8E%92/">#AI编排</a>
             
               <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
+            
+              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
             
           </div>
         
