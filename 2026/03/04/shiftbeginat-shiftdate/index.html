@@ -19,27 +19,25 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义">
+    <meta name="description" content="这次排障集中在同一条链路上，表面上是两个错误，实质上都和 JSON 序列化&#x2F;反序列化契约漂移有关。 关联提交（按你本地排障记录）：  8ba6d3c5914c23f29cd52f5326c79af4a0e8eced 49957ccc62e80014546bf5a62685e9c73f0d8000  现象1) shiftBeginAt 返回成数组接口返回里的 shiftBeginAt 形态">
 <meta property="og:type" content="article">
-<meta property="og:title" content="Java&#x2F;Python MCP 401 排查里程碑：Token 对齐与方案简化">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/21/java-python-mcp-401-token/index.html">
+<meta property="og:title" content="成本管理踩坑记录：shiftBeginAt 时间数组与 shiftDate 反序列化问题">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/04/shiftbeginat-shiftdate/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。 里程碑结论 401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 X-AI-MCP-TOKEN 校验失败。 方案已简化：Python 侧仅保留一个配置入口 MCP_API_TOKEN，默认值固定为 AAA，移除复杂 fallback 链路，减少歧义">
+<meta property="og:description" content="这次排障集中在同一条链路上，表面上是两个错误，实质上都和 JSON 序列化&#x2F;反序列化契约漂移有关。 关联提交（按你本地排障记录）：  8ba6d3c5914c23f29cd52f5326c79af4a0e8eced 49957ccc62e80014546bf5a62685e9c73f0d8000  现象1) shiftBeginAt 返回成数组接口返回里的 shiftBeginAt 形态">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-21T16:45:55.000Z">
-<meta property="article:modified_time" content="2026-03-04T09:24:07.150Z">
+<meta property="article:published_time" content="2026-03-04T09:21:55.000Z">
+<meta property="article:modified_time" content="2026-03-04T09:24:07.152Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="Java">
-<meta property="article:tag" content="Python">
-<meta property="article:tag" content="MCP">
-<meta property="article:tag" content="里程碑">
-<meta property="article:tag" content="401排查">
+<meta property="article:tag" content="成本管理">
+<meta property="article:tag" content="Jackson">
+<meta property="article:tag" content="踩坑记录">
+<meta property="article:tag" content="iot-framework">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>Java/Python MCP 401 排查里程碑：Token 对齐与方案简化 - 味儿福德詹的小站</title>
+  <title>成本管理踩坑记录：shiftBeginAt 时间数组与 shiftDate 反序列化问题 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -217,7 +215,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="Java/Python MCP 401 排查里程碑：Token 对齐与方案简化"></span>
+            <span id="subtitle" data-typed-text="成本管理踩坑记录：shiftBeginAt 时间数组与 shiftDate 反序列化问题"></span>
           
         </div>
 
@@ -228,8 +226,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-22 00:45" pubdate>
-          2026年2月22日 凌晨
+        <time datetime="2026-03-04 17:21" pubdate>
+          2026年3月4日 下午
         </time>
       </span>
     
@@ -240,7 +238,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          540 字
+          783 字
         
       </span>
     
@@ -251,7 +249,7 @@
         
         
         
-          5 分钟
+          7 分钟
         
       </span>
     
@@ -288,69 +286,62 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</h1>
+            <h1 id="seo-header">成本管理踩坑记录：shiftBeginAt 时间数组与 shiftDate 反序列化问题</h1>
             
             
               <div class="markdown-body">
                 
-                <p>本篇记录本次 Java&#x2F;Python MCP 401 问题的收敛结论、方案调整与发布证据。</p>
-<h2 id="里程碑结论"><a href="#里程碑结论" class="headerlink" title="里程碑结论"></a>里程碑结论</h2><ul>
-<li>401 根因已确认：Java 侧与 Python 侧在 MCP 鉴权 token 上不一致，导致请求头 <code>X-AI-MCP-TOKEN</code> 校验失败。</li>
-<li>方案已简化：Python 侧仅保留一个配置入口 <code>MCP_API_TOKEN</code>，默认值固定为 <code>AAA</code>，移除复杂 fallback 链路，减少歧义与隐式行为。</li>
-</ul>
-<h2 id="方案变更说明（单一目的）"><a href="#方案变更说明（单一目的）" class="headerlink" title="方案变更说明（单一目的）"></a>方案变更说明（单一目的）</h2><p>本次变更目标只有一个：让 Python MCPClient 的 token 来源明确、默认行为稳定，避免再次出现“配置看似生效但实际不一致”的 401。</p>
+                <p>这次排障集中在同一条链路上，表面上是两个错误，实质上都和 JSON 序列化&#x2F;反序列化契约漂移有关。</p>
+<p>关联提交（按你本地排障记录）：</p>
 <ul>
-<li>配置入口：<code>MCP_API_TOKEN</code></li>
-<li>默认值：<code>AAA</code></li>
-<li>行为：若未显式设置环境变量，统一走默认 <code>AAA</code>；若设置了 <code>MCP_API_TOKEN</code>，严格使用该值。</li>
+<li><code>8ba6d3c5914c23f29cd52f5326c79af4a0e8eced</code></li>
+<li><code>49957ccc62e80014546bf5a62685e9c73f0d8000</code></li>
 </ul>
-<h2 id="验证证据"><a href="#验证证据" class="headerlink" title="验证证据"></a>验证证据</h2><h3 id="1-直连-probe（MCP-可达性-工具数量）"><a href="#1-直连-probe（MCP-可达性-工具数量）" class="headerlink" title="1) 直连 probe（MCP 可达性 + 工具数量）"></a>1) 直连 probe（MCP 可达性 + 工具数量）</h3><p>命令：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -sS -X POST <span class="hljs-string">&#x27;http://127.0.0.1:10001/ai/mcp/tools/list&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Content-Type: application/json&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;X-AI-MCP-TOKEN: AAA&#x27;</span> \<br>  -d <span class="hljs-string">&#x27;&#123;&#125;&#x27;</span><br><br>curl -sS <span class="hljs-string">&#x27;http://127.0.0.1:8000/system/mcp/status?refresh=true&#x27;</span><br></code></pre></td></tr></table></figure>
+<h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><h3 id="1-shiftBeginAt-返回成数组"><a href="#1-shiftBeginAt-返回成数组" class="headerlink" title="1) shiftBeginAt 返回成数组"></a>1) <code>shiftBeginAt</code> 返回成数组</h3><p>接口返回里的 <code>shiftBeginAt</code> 形态是：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-attr">&quot;shiftBeginAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-number">2026</span><span class="hljs-punctuation">,</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span> <span class="hljs-number">2</span><span class="hljs-punctuation">,</span> <span class="hljs-number">11</span><span class="hljs-punctuation">,</span> <span class="hljs-number">14</span><span class="hljs-punctuation">,</span> <span class="hljs-number">39</span><span class="hljs-punctuation">]</span><br></code></pre></td></tr></table></figure>
 
-<p>结果要点：</p>
-<ul>
-<li><code>tools/list</code> 返回 <code>code=200</code></li>
-<li><code>system/mcp/status</code> 返回：<ul>
-<li><code>connected=true</code></li>
-<li><code>tool_count=10</code></li>
-<li><code>detail=&quot;ok (tools=10)&quot;</code></li>
-</ul>
-</li>
-</ul>
-<h3 id="2-Python-单测"><a href="#2-Python-单测" class="headerlink" title="2) Python 单测"></a>2) Python 单测</h3><p>命令：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pytest tests/test_mcp_client.py<br></code></pre></td></tr></table></figure>
+<p>前端期望通常是字符串时间（如 <code>2026-03-02 11:14:39</code>）或时间戳。数组格式会直接造成展示层&#x2F;解析层兼容问题。</p>
+<h3 id="2-请求体传-shiftDate-报-Jackson-反序列化异常"><a href="#2-请求体传-shiftDate-报-Jackson-反序列化异常" class="headerlink" title="2) 请求体传 shiftDate 报 Jackson 反序列化异常"></a>2) 请求体传 <code>shiftDate</code> 报 Jackson 反序列化异常</h3><p>请求体（脱敏后）大致是：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;furnaceCode&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;9&quot;</span><span class="hljs-punctuation">,</span><span class="hljs-attr">&quot;shiftDate&quot;</span><span class="hljs-punctuation">:</span><span class="hljs-string">&quot;2026-03-04&quot;</span><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
 
-<p>结果要点：</p>
+<p>接口抛错为：<code>Unrecognized field &quot;shiftDate&quot; ... not marked as ignorable</code>，并且日志提示 DTO 已知字段只有 <code>furnaceCode</code>。</p>
+<h2 id="排查链路"><a href="#排查链路" class="headerlink" title="排查链路"></a>排查链路</h2><h3 id="事实"><a href="#事实" class="headerlink" title="事实"></a>事实</h3><ul>
+<li><code>8ba6d3c...</code> 在 <code>AiAutoConfiguration</code> 里移除了自建 <code>ObjectMapper</code> Bean（<code>@ConditionalOnMissingBean</code> 的兜底 Bean 被删）。</li>
+<li><code>49957ccc...</code> 又改成在配置类中手动 <code>new ObjectMapper().findAndRegisterModules()</code>，并改为不再通过 Spring 注入传递 <code>ObjectMapper</code>。</li>
+</ul>
+<h3 id="推断"><a href="#推断" class="headerlink" title="推断"></a>推断</h3><p>同一个应用内出现了多个 <code>ObjectMapper</code> 来源：</p>
 <ul>
-<li><code>collected 5 items</code></li>
-<li><code>5 passed</code></li>
-<li>核验覆盖了：<ul>
-<li>未设置 <code>MCP_API_TOKEN</code> 时默认 <code>AAA</code></li>
-<li>设置 <code>MCP_API_TOKEN</code> 时优先使用环境变量值</li>
+<li>Spring Boot 自动配置出来的全局 <code>ObjectMapper</code>（通常带统一模块和全局特性）</li>
+<li>配置类私有手动 <code>new</code> 的 <code>ObjectMapper</code></li>
 </ul>
-</li>
+<p>这会导致“同一份 DTO&#x2F;时间字段，在不同路径上被不同规则处理”。</p>
+<h3 id="已确认的根因"><a href="#已确认的根因" class="headerlink" title="已确认的根因"></a>已确认的根因</h3><p>根因不是“Jackson 随机异常”，而是<strong>序列化&#x2F;反序列化配置失去统一入口</strong>：</p>
+<ul>
+<li>时间类型是否写成数组、字符串，取决于启用的特性和模块。</li>
+<li>字段是否可识别，取决于当前反序列化器绑定的目标 DTO 结构与配置。</li>
 </ul>
-<h2 id="回滚与风险说明（按-SPEC）"><a href="#回滚与风险说明（按-SPEC）" class="headerlink" title="回滚与风险说明（按 SPEC）"></a>回滚与风险说明（按 SPEC）</h2><h3 id="可追溯"><a href="#可追溯" class="headerlink" title="可追溯"></a>可追溯</h3><ul>
-<li>结论、命令、结果均已固化在本工作日志。</li>
-<li>验证入口固定：<code>/system/mcp/status?refresh=true</code> 与 <code>tests/test_mcp_client.py</code>。</li>
+<p>当调用链路混用了多个 <code>ObjectMapper</code>，行为就会出现非预期分叉。</p>
+<h2 id="修复思路"><a href="#修复思路" class="headerlink" title="修复思路"></a>修复思路</h2><h3 id="1-ObjectMapper-只保留一个应用级共享实例"><a href="#1-ObjectMapper-只保留一个应用级共享实例" class="headerlink" title="1) ObjectMapper 只保留一个应用级共享实例"></a>1) <code>ObjectMapper</code> 只保留一个应用级共享实例</h3><p>在 Spring Boot 应用中，优先使用容器内的单例 Bean，不要在业务配置类里 <code>new ObjectMapper()</code>。</p>
+<h3 id="2-所有-JSON-入口-出口统一走注入实例"><a href="#2-所有-JSON-入口-出口统一走注入实例" class="headerlink" title="2) 所有 JSON 入口&#x2F;出口统一走注入实例"></a>2) 所有 JSON 入口&#x2F;出口统一走注入实例</h3><p>包括工具分发、入口服务、HTTP 序列化响应，不要混用“注入 mapper + 私有 mapper”。</p>
+<h3 id="3-局部定制用-ObjectWriter-ObjectReader-或-copy"><a href="#3-局部定制用-ObjectWriter-ObjectReader-或-copy" class="headerlink" title="3) 局部定制用 ObjectWriter/ObjectReader 或 copy()"></a>3) 局部定制用 <code>ObjectWriter/ObjectReader</code> 或 <code>copy()</code></h3><p>如果某个场景要临时格式化（例如特殊日期格式），不要改全局 mapper。</p>
+<h2 id="延伸问答：ObjectMapper-很重吗？要不要共享？"><a href="#延伸问答：ObjectMapper-很重吗？要不要共享？" class="headerlink" title="延伸问答：ObjectMapper 很重吗？要不要共享？"></a>延伸问答：<code>ObjectMapper</code> 很重吗？要不要共享？</h2><p>结论：<strong>很重，且应共享。</strong></p>
+<ul>
+<li><code>new ObjectMapper()</code> 的成本不低，包含模块注册、注解元数据处理、序列化器&#x2F;反序列化器缓存建立等。</li>
+<li>运行期复用单例，可以持续命中缓存，吞吐通常明显高于每次临时 new（常见基准能到数量级差距）。</li>
+<li><code>ObjectMapper</code> 在“先完成配置、后并发使用”的前提下是线程安全的。</li>
 </ul>
-<h3 id="可回退"><a href="#可回退" class="headerlink" title="可回退"></a>可回退</h3><p>若线上出现不兼容，可按最小改动回退：</p>
-<ol>
-<li>回退 Python 侧本次 token 简化提交（仅回退 token 配置相关变更）。</li>
-<li>恢复旧配置逻辑后，立即执行：<ul>
-<li><code>pytest tests/test_mcp_client.py</code></li>
-<li><code>curl .../system/mcp/status?refresh=true</code></li>
+<p>实践建议：</p>
+<ul>
+<li>Spring 项目：定义并复用一个全局 <code>ObjectMapper</code> Bean。</li>
+<li>禁止在热路径中反复 <code>new ObjectMapper()</code>。</li>
+<li>不在运行中动态改全局 mapper 配置；临时需求用 <code>ObjectWriter</code>&#x2F;<code>ObjectReader</code> 或 <code>copy()</code>。</li>
 </ul>
-</li>
-<li>以 <code>connected</code>、<code>tool_count</code>、401 告警是否消失作为回退验收。</li>
-</ol>
-<h3 id="单一目的变更"><a href="#单一目的变更" class="headerlink" title="单一目的变更"></a>单一目的变更</h3><ul>
-<li>本次只处理 MCP token 对齐与默认值策略，不扩展到工具路由、SSE、RunStore 等其他模块。</li>
-<li>遵循最小变更面，降低联动回归风险。</li>
-</ul>
-<h2 id="后续观察项"><a href="#后续观察项" class="headerlink" title="后续观察项"></a>后续观察项</h2><ul>
-<li>统一各环境（dev&#x2F;test&#x2F;prod）<code>MCP_API_TOKEN</code> 注入方式，避免“本地默认可用、环境变量缺失”导致偏差。</li>
-<li>监控 Java MCP 401&#x2F;403 比例，作为 token 配置漂移的早期信号。</li>
+<h2 id="复盘结论"><a href="#复盘结论" class="headerlink" title="复盘结论"></a>复盘结论</h2><p>这次坑位本质是“配置入口分裂”问题，不是单点字段 bug。</p>
+<p>可执行的长期约束：</p>
+<ul>
+<li>统一 <code>ObjectMapper</code> 来源。</li>
+<li>在 Code Review 中把“手动 new ObjectMapper”设为高风险项。</li>
+<li>给关键接口补一层契约测试（日期字段格式、DTO 字段白名单&#x2F;兼容行为），避免类似回归。</li>
 </ul>
 
                 
@@ -360,42 +351,17 @@
             <div>
               <div class="post-metas my-3">
   
-    <div class="post-meta mr-3 d-flex align-items-center">
-      <i class="iconfont icon-category"></i>
-      
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-    </div>
-  
   
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+        <a href="/tags/%E6%88%90%E6%9C%AC%E7%AE%A1%E7%90%86/" class="print-no-link">#成本管理</a>
       
-        <a href="/tags/Java/" class="print-no-link">#Java</a>
+        <a href="/tags/Jackson/" class="print-no-link">#Jackson</a>
       
-        <a href="/tags/Python/" class="print-no-link">#Python</a>
+        <a href="/tags/%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/" class="print-no-link">#踩坑记录</a>
       
-        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
-      
-        <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
-      
-        <a href="/tags/401%E6%8E%92%E6%9F%A5/" class="print-no-link">#401排查</a>
+        <a href="/tags/iot-framework/" class="print-no-link">#iot-framework</a>
       
     </div>
   
@@ -407,8 +373,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</div>
-      <div>https://willfordzhan.github.io/2026/02/21/java-python-mcp-401-token/</div>
+      <div>成本管理踩坑记录：shiftBeginAt 时间数组与 shiftDate 反序列化问题</div>
+      <div>https://willfordzhan.github.io/2026/03/04/shiftbeginat-shiftdate/</div>
     </div>
     <div class="license-meta">
       
@@ -420,7 +386,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月22日</div>
+          <div>2026年3月4日</div>
         </div>
       
       
@@ -452,18 +418,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/25/react-orchestrator-qa/" title="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/21/rag-opensearch-rrf-ingest/" title="RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest">
-                        <span class="hidden-mobile">RAG可插拔改造复盘：OpenSearch混合检索、RRF与增量Ingest</span>
+                      <a href="/2026/03/03/metadata-lock-ai-communicationsexception/" title="一次被 Metadata Lock 隐藏的 AI 聊天故障：从 CommunicationsException 到长事务排查">
+                        <span class="hidden-mobile">一次被 Metadata Lock 隐藏的 AI 聊天故障：从 CommunicationsException 到长事务排查</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
