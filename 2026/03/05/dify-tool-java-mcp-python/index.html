@@ -19,24 +19,26 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="使用键盘快捷键来快速给文件添加 &#x2F;删除 标签：添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。设置在终端中启动各种 app 的命令以 Typora 为例：通过添加别名ty来快速启动 Typora。在 ~&#x2F;.bash_profile (这个文件好像要自己建) 中添加 a">
+    <meta name="description" content="背景在 iot-framework 的 AI 链路里，我们已经有一条稳定的工具调用架构：  Java AI Gateway 对外暴露 &#x2F;api&#x2F;ai&#x2F;* Python ats_iot_ai 负责编排与执行（LangGraph + SSE） Java MCP 负责 &#x2F;ai&#x2F;mcp&#x2F;tools&#x2F;list 与 &#x2F;ai&#x2F;mcp&#x2F;tools&#x2F;call  这次目标是把 Dify 知识库检索接成一个 tool，">
 <meta property="og:type" content="article">
-<meta property="og:title" content="自用的Mac小技巧">
-<meta property="og:url" content="https://willfordzhan.github.io/2019/11/16/%E8%87%AA%E7%94%A8%E7%9A%84Mac%E5%B0%8F%E6%8A%80%E5%B7%A7/index.html">
+<meta property="og:title" content="Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/dify-tool-java-mcp-python/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="使用键盘快捷键来快速给文件添加 &#x2F;删除 标签：添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。设置在终端中启动各种 app 的命令以 Typora 为例：通过添加别名ty来快速启动 Typora。在 ~&#x2F;.bash_profile (这个文件好像要自己建) 中添加 a">
+<meta property="og:description" content="背景在 iot-framework 的 AI 链路里，我们已经有一条稳定的工具调用架构：  Java AI Gateway 对外暴露 &#x2F;api&#x2F;ai&#x2F;* Python ats_iot_ai 负责编排与执行（LangGraph + SSE） Java MCP 负责 &#x2F;ai&#x2F;mcp&#x2F;tools&#x2F;list 与 &#x2F;ai&#x2F;mcp&#x2F;tools&#x2F;call  这次目标是把 Dify 知识库检索接成一个 tool，">
 <meta property="og:locale" content="zh_CN">
-<meta property="og:image" content="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg">
-<meta property="article:published_time" content="2019-11-16T15:42:05.000Z">
-<meta property="article:modified_time" content="2026-03-05T11:32:23.228Z">
+<meta property="article:published_time" content="2026-03-05T11:30:41.000Z">
+<meta property="article:modified_time" content="2026-03-05T11:32:23.227Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="工具技巧">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="架构">
+<meta property="article:tag" content="Dify">
+<meta property="article:tag" content="知识库">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg">
   
   
   
-  <title>自用的Mac小技巧 - 味儿福德詹的小站</title>
+  <title>Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -214,7 +216,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="自用的Mac小技巧"></span>
+            <span id="subtitle" data-typed-text="Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径"></span>
           
         </div>
 
@@ -225,8 +227,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2019-11-16 23:42" pubdate>
-          2019年11月16日 晚上
+        <time datetime="2026-03-05 19:30" pubdate>
+          2026年3月5日 晚上
         </time>
       </span>
     
@@ -237,7 +239,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          317 字
+          922 字
         
       </span>
     
@@ -248,7 +250,7 @@
         
         
         
-          3 分钟
+          8 分钟
         
       </span>
     
@@ -285,12 +287,112 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">自用的Mac小技巧</h1>
+            <h1 id="seo-header">Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径</h1>
             
             
               <div class="markdown-body">
                 
-                <h3 id=""><a href="#" class="headerlink" title=""></a></h3><h4 id="使用键盘快捷键来快速给文件添加-删除-标签："><a href="#使用键盘快捷键来快速给文件添加-删除-标签：" class="headerlink" title="使用键盘快捷键来快速给文件添加 /删除 标签："></a>使用键盘快捷键来快速给文件添加 /删除 标签：</h4><ul><li>添加标签: 选择文件，然后使用 Control-1 到 Control-7 来添加（或移除）个人收藏标签。</li><li>移除标签: 选择文件，使用 Control-0（零）会移除文件的所有标签。</li></ul><h4 id="设置在终端中启动各种-app-的命令"><a href="#设置在终端中启动各种-app-的命令" class="headerlink" title="设置在终端中启动各种 app 的命令"></a>设置在终端中启动各种 app 的命令</h4><p>以 Typora 为例：</p><ol><li><p>通过添加别名<code>ty</code>来快速启动 Typora。在 <code>~/.bash_profile</code> (这个文件好像要自己建) 中添加 <code>alias ty=&quot;open -a typora&quot;</code></p></li><li><p>添加完成后，执行<code>source ~/.bash_profile</code>(source [executable_file] = ./executable_file ), 就可以在命令行中用 <code>ty [filepath/filename]</code> 以快速用 Typora 打开并编辑文件</p></li></ol><h4 id="文本编辑类"><a href="#文本编辑类" class="headerlink" title="文本编辑类"></a>文本编辑类</h4><ol><li><p><strong>文字退格</strong>： TAB 右移，按 SHIFT+TAB 左移</p></li><li><p><strong>输入 ⍺，β，𝞬 等特殊字符</strong>：用（⌘⌃-Space）呼出 Mac emoji 输入框，搜索 alpha, beta 等想要的字符即可</p></li><li><p><strong>在 word 中输入数学公式</strong>：(‘’⌃’’ + ‘’=’’) 即可呼出word 公式编辑框，输入 LaTeX 公式即可</p></li></ol><h4 id="解决网络端口占用"><a href="#解决网络端口占用" class="headerlink" title="解决网络端口占用"></a>解决网络端口占用</h4><ol><li>查看是占用所需端口的进程：终端输入<code>lsof -i tcp:[port]</code> 将port换成被占用的端口(如：4000)，将会出现占用端口的进程信息。</li></ol><img src="https://tva1.sinaimg.cn/large/006y8mN6gy1g917abws8fj30zk02h762.jpg" srcset="/img/loading.gif" lazyload srcset="/img/loading.gif" alt="查看占用端口的进程"  /><ol start="2"><li>Kill 进程：找到进程的PID,使用kill命令：<code>kill [PID]</code>（进程的PID，如71881），杀死对应的进程，这样所占端口就被释放啦</li></ol>
+                <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>在 iot-framework 的 AI 链路里，我们已经有一条稳定的工具调用架构：</p>
+<ul>
+<li>Java AI Gateway 对外暴露 <code>/api/ai/*</code></li>
+<li>Python <code>ats_iot_ai</code> 负责编排与执行（LangGraph + SSE）</li>
+<li>Java MCP 负责 <code>/ai/mcp/tools/list</code> 与 <code>/ai/mcp/tools/call</code></li>
+</ul>
+<p>这次目标是把 Dify 知识库检索接成一个 tool，纳入现有 tool list。</p>
+<h2 id="现场排摸结论（2026-03-05）"><a href="#现场排摸结论（2026-03-05）" class="headerlink" title="现场排摸结论（2026-03-05）"></a>现场排摸结论（2026-03-05）</h2><h3 id="1-页面地址不是检索-API"><a href="#1-页面地址不是检索-API" class="headerlink" title="1) 页面地址不是检索 API"></a>1) 页面地址不是检索 API</h3><p>给出的 URL：</p>
+<ul>
+<li><code>https://ai-studio.allthinkstars.com:10443/datasets/&#123;dataset_id&#125;/documents</code></li>
+</ul>
+<p>这是 Console 页面（HTML），不是后端服务调用用的检索接口。</p>
+<h3 id="2-真正检索接口是-v1-datasets-dataset-id-retrieve"><a href="#2-真正检索接口是-v1-datasets-dataset-id-retrieve" class="headerlink" title="2) 真正检索接口是 /v1/datasets/{dataset_id}/retrieve"></a>2) 真正检索接口是 <code>/v1/datasets/&#123;dataset_id&#125;/retrieve</code></h3><p>最小可用方式：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -k -X POST <span class="hljs-string">&#x27;https://ai-studio.allthinkstars.com:10443/v1/datasets/&lt;dataset_id&gt;/retrieve&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Authorization: Bearer &lt;DATASET_API_KEY&gt;&#x27;</span> \<br>  -H <span class="hljs-string">&#x27;Content-Type: application/json&#x27;</span> \<br>  -d <span class="hljs-string">&#x27;&#123;&quot;query&quot;:&quot;铸造工艺优化&quot;&#125;&#x27;</span><br></code></pre></td></tr></table></figure>
+
+<h3 id="3-Console-会话-token-不能替代-API-Key"><a href="#3-Console-会话-token-不能替代-API-Key" class="headerlink" title="3) Console 会话 token 不能替代 API Key"></a>3) Console 会话 token 不能替代 API Key</h3><p>排摸中验证到：</p>
+<ul>
+<li>浏览器 Cookie &#x2F; Console access_token 可以访问 <code>GET /console/api/datasets/.../documents</code></li>
+<li>但不能用于 <code>POST /v1/datasets/.../retrieve</code>，会返回 <code>401 Access token is invalid</code></li>
+</ul>
+<p>结论：服务端 tool 接入必须使用 Dify API Key（Bearer），不能用账号密码或浏览器会话。</p>
+<h3 id="4-版本兼容点：Dify-1-13-0-的-score-threshold-enabled"><a href="#4-版本兼容点：Dify-1-13-0-的-score-threshold-enabled" class="headerlink" title="4) 版本兼容点：Dify 1.13.0 的 score_threshold_enabled"></a>4) 版本兼容点：Dify 1.13.0 的 <code>score_threshold_enabled</code></h3><p>在该实例上，若请求体带 <code>retrieval_model</code> 但缺少 <code>score_threshold_enabled</code>，可能报：</p>
+<ul>
+<li><code>500 internal_server_error: &#39;score_threshold_enabled&#39;</code></li>
+</ul>
+<p>所以请求模板建议显式带：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;query&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;铸造工艺优化&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;retrieval_model&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;search_method&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;semantic_search&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;reranking_enable&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;top_k&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;score_threshold_enabled&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;score_threshold&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">0.3</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<h2 id="集成策略"><a href="#集成策略" class="headerlink" title="集成策略"></a>集成策略</h2><h2 id="方案-A：接入-Java-MCP（推荐为正式方案）"><a href="#方案-A：接入-Java-MCP（推荐为正式方案）" class="headerlink" title="方案 A：接入 Java MCP（推荐为正式方案）"></a>方案 A：接入 Java MCP（推荐为正式方案）</h2><p>把 Dify KB 查询实现为 Java MCP 的一个标准工具（例如 <code>knowledge.search</code>）。</p>
+<h3 id="为什么推荐放-Java-MCP"><a href="#为什么推荐放-Java-MCP" class="headerlink" title="为什么推荐放 Java MCP"></a>为什么推荐放 Java MCP</h3><ul>
+<li>统一工具治理：继续沿用 <code>tools/list -&gt; tools/call</code> 单入口</li>
+<li>统一安全能力：密钥管理、审计、租户边界、限流&#x2F;熔断集中在一层</li>
+<li>编排层解耦：Python 不承载 Dify 协议细节，保持“编排器”角色</li>
+<li>可替换性更好：后续换向量库或别的 KB Provider，只改 MCP 实现</li>
+</ul>
+<h3 id="建议-Tool-Contract"><a href="#建议-Tool-Contract" class="headerlink" title="建议 Tool Contract"></a>建议 Tool Contract</h3><p>输入参数：</p>
+<ul>
+<li><code>query</code>（required）</li>
+<li><code>dataset_id</code>（optional，默认取配置）</li>
+<li><code>top_k</code>（optional）</li>
+<li><code>score_threshold</code>（optional）</li>
+<li><code>search_method</code>（optional：<code>semantic_search | keyword_search | hybrid_search</code>）</li>
+</ul>
+<p>输出参数（建议标准化）：</p>
+<ul>
+<li><code>items[]</code></li>
+<li><code>items[].document_id</code></li>
+<li><code>items[].document_name</code></li>
+<li><code>items[].score</code></li>
+<li><code>items[].snippet</code></li>
+<li><code>provider</code>（<code>dify</code>）</li>
+<li><code>dataset_id</code></li>
+</ul>
+<p>错误映射：</p>
+<ul>
+<li>参数校验失败 -&gt; <code>ARGUMENT_ERROR</code></li>
+<li>上游 4xx&#x2F;5xx -&gt; <code>UPSTREAM_ERROR</code></li>
+<li>超时 -&gt; <code>TIMEOUT_ERROR</code></li>
+</ul>
+<p>配置建议：</p>
+<ul>
+<li><code>DIFY_BASE_URL</code></li>
+<li><code>DIFY_API_KEY</code></li>
+<li><code>DIFY_DATASET_ID_DEFAULT</code></li>
+<li><code>DIFY_DATASET_ID_WHITELIST</code>（可选）</li>
+<li><code>DIFY_TIMEOUT_MS</code></li>
+</ul>
+<h2 id="方案-B：接入-Python（推荐仅-PoC）"><a href="#方案-B：接入-Python（推荐仅-PoC）" class="headerlink" title="方案 B：接入 Python（推荐仅 PoC）"></a>方案 B：接入 Python（推荐仅 PoC）</h2><p>可直接在 Python 侧新增 <code>dify_knowledge_search</code> 工具函数并挂入编排。</p>
+<p>优点：</p>
+<ul>
+<li>改动快，能快速验证召回质量与业务价值</li>
+</ul>
+<p>缺点：</p>
+<ul>
+<li>破坏当前“Python 编排、Java 工具治理”的边界</li>
+<li>密钥与重试熔断能力会在双端分散</li>
+<li>后续迁回 Java MCP 会产生二次改造</li>
+</ul>
+<p>建议：PoC 可 Python 先行，正式上线收敛回 Java MCP。</p>
+<h2 id="分阶段落地计划"><a href="#分阶段落地计划" class="headerlink" title="分阶段落地计划"></a>分阶段落地计划</h2><h3 id="Phase-1：最小可用"><a href="#Phase-1：最小可用" class="headerlink" title="Phase 1：最小可用"></a>Phase 1：最小可用</h3><ul>
+<li>Java MCP 新增 <code>knowledge.search</code></li>
+<li>固定单 dataset（配置读取）</li>
+<li>返回裁剪后的 <code>items[]</code>，避免超长原文直接灌给模型</li>
+</ul>
+<h3 id="Phase-2：可运营"><a href="#Phase-2：可运营" class="headerlink" title="Phase 2：可运营"></a>Phase 2：可运营</h3><ul>
+<li>支持 <code>dataset_id</code> 入参 + 白名单校验</li>
+<li>增加超时、重试、熔断与指标</li>
+<li>加调用审计字段（tenantId&#x2F;userId&#x2F;requestId）</li>
+</ul>
+<h3 id="Phase-3：可扩展"><a href="#Phase-3：可扩展" class="headerlink" title="Phase 3：可扩展"></a>Phase 3：可扩展</h3><ul>
+<li>抽象 provider SPI（Dify &#x2F; OpenSearch &#x2F; Milvus）</li>
+<li>提供统一工具语义，不改变上层 prompt&#x2F;tool 使用方式</li>
+</ul>
+<h2 id="安全注意事项"><a href="#安全注意事项" class="headerlink" title="安全注意事项"></a>安全注意事项</h2><ul>
+<li>不在代码或日志中打印完整 API Key</li>
+<li>已在聊天或工单中暴露过的 key 需要立即轮换（revoke + recreate）</li>
+<li>账号密码和浏览器 token 不进入服务端配置</li>
+<li>在公开文档中只保留接口结构，不保留真实密钥与内部主机细节</li>
+</ul>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这次接入的关键不是“能不能请求到 Dify”，而是“把知识库能力放到正确的治理层”。</p>
+<p>在当前 iot-framework AI 架构下，正式方案应优先选择 Java MCP 接入，Python 保持编排层纯净；若要快速试验，可以 Python 先跑通，但应预留迁回 Java MCP 的路径。</p>
 
                 
               </div>
@@ -299,11 +401,40 @@
             <div>
               <div class="post-metas my-3">
   
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
   
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/%E5%B7%A5%E5%85%B7%E6%8A%80%E5%B7%A7/" class="print-no-link">#工具技巧</a>
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84/" class="print-no-link">#架构</a>
+      
+        <a href="/tags/Dify/" class="print-no-link">#Dify</a>
+      
+        <a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/" class="print-no-link">#知识库</a>
       
     </div>
   
@@ -315,8 +446,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>自用的Mac小技巧</div>
-      <div>https://willfordzhan.github.io/2019/11/16/自用的Mac小技巧/</div>
+      <div>Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径</div>
+      <div>https://willfordzhan.github.io/2026/03/05/dify-tool-java-mcp-python/</div>
     </div>
     <div class="license-meta">
       
@@ -328,7 +459,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2019年11月16日</div>
+          <div>2026年3月5日</div>
         </div>
       
       
@@ -360,18 +491,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2019/12/23/Nemenyi/" title="关于 posthoc_nemenyi_friedman() 函数的一点思考">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">关于 posthoc_nemenyi_friedman() 函数的一点思考</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2019/11/15/hello-world/" title="Hello World">
-                        <span class="hidden-mobile">Hello World</span>
+                      <a href="/2026/03/05/p1/" title="P1解析失败恢复：从误报模型不可用到可恢复澄清链路">
+                        <span class="hidden-mobile">P1解析失败恢复：从误报模型不可用到可恢复澄清链路</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
