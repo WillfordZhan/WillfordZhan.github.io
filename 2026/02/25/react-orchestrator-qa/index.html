@@ -27,7 +27,7 @@
 <meta property="og:description" content="这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：&#x2F;api&#x2F;mock-ai&#x2F;runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Poli">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-02-25T10:42:15.000Z">
-<meta property="article:modified_time" content="2026-03-05T12:20:24.489Z">
+<meta property="article:modified_time" content="2026-03-05T15:29:43.409Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="ReAct">
@@ -37,6 +37,8 @@
 <meta property="article:tag" content="Tool Calling">
 <meta name="twitter:card" content="summary_large_image">
   
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
   
   
   <title>ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要 - 味儿福德詹的小站</title>
@@ -257,6 +259,15 @@
     
 
     
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
     
   </div>
 
@@ -590,6 +601,32 @@
     </div>
   
   
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
   
 </div>
 
@@ -734,6 +771,8 @@
   <script>Fluid.plugins.imageCaption();</script>
 
   <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
 
 
 

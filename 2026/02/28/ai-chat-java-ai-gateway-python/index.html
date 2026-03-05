@@ -27,7 +27,7 @@
 <meta property="og:description" content="本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。 改造摘要 Java 成为 AI Gateway 统一入口：   前端不再直连 Python，而是走 &#x2F;api&#x2F;mock-ai&#x2F;*。 Java 在转发到 Python 前注入两类内部头： X-INTERNAL-GW-TOKEN X-INTERN">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-02-28T10:00:19.000Z">
-<meta property="article:modified_time" content="2026-03-05T12:20:24.487Z">
+<meta property="article:modified_time" content="2026-03-05T15:29:43.407Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="AI网关">
@@ -39,6 +39,8 @@
 <meta property="article:tag" content="SSE">
 <meta name="twitter:card" content="summary_large_image">
   
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
   
   
   <title>AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地 - 味儿福德詹的小站</title>
@@ -259,6 +261,15 @@
     
 
     
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
     
   </div>
 
@@ -582,6 +593,32 @@
     </div>
   
   
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
   
 </div>
 
@@ -726,6 +763,8 @@
   <script>Fluid.plugins.imageCaption();</script>
 
   <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
 
 
 
