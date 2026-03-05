@@ -18,6 +18,14 @@ index:
 post:
   meta:
     date_format: "YYYY-MM-DD"
+    views:
+      enable: true
+      source: "busuanzi"
+
+footer:
+  statistics:
+    enable: true
+    source: "busuanzi"
 
 search:
   enable: true
