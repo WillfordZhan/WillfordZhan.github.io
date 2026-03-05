@@ -4,6 +4,37 @@
   
   
   <entry>
+    <title>LangGraph 编排重构实录：拆编排不拆对外契约（STAR）</title>
+    <link href="/2026/03/05/langgraph-star/"/>
+    <url>/2026/03/05/langgraph-star/</url>
+    
+    <content type="html"><![CDATA[<p>这篇复盘写给已经在做 Agent&#x2F;LLM 编排、并且被“历史包袱 + 线上契约 + 多系统联动”三连击过的工程师。</p><p>一句话版结论：这次不是“把代码搬到新目录”，而是把编排从“单文件扛全场”升级为“LangGraph 节点化 + 对外契约不动”的可演进内核。过程不炫技，核心是稳。</p><p>如果要用一句带点黑色幽默的话描述这次重构：</p><blockquote><p>我们终于把 <code>orchestrator.py</code> 从“全栈菩萨”劝退成“职业编导”。</p></blockquote><h2 id="0-先交代边界（避免复盘变成文学）"><a href="#0-先交代边界（避免复盘变成文学）" class="headerlink" title="0. 先交代边界（避免复盘变成文学）"></a>0. 先交代边界（避免复盘变成文学）</h2><p>本次复盘基于 <code>ats_iot_ai</code> 最近一轮真实改造记录，重点覆盖：</p><ul><li>LangGraph 单轨编排落地（不再双轨）</li><li>节点拆分到独立文件（bootstrap &#x2F; plan &#x2F; tool_call &#x2F; clarify &#x2F; respond）</li><li>API、MCP、Store 对外契约保持兼容</li><li>事件持久化切到 Java Store（Python 作为调用方）</li><li>LLM 接入异常与 MCP 401 的联调定位</li></ul><p>对应代码边界：</p><ul><li>编排：<code>app/orchestrator.py</code>、<code>app/langgraph/**</code></li><li>Infra：<code>app/store.py</code>、<code>app/mcp_client.py</code>、<code>app/tool_service.py</code>、<code>app/http_tool_adapter.py</code></li><li>API：<code>app/api.py</code></li><li>回归：<code>tests/test_orchestrator_langgraph.py</code>、<code>tests/test_plan_schema.py</code>、<code>tests/test_plan_parser.py</code>、<code>tests/test_mcp_client.py</code>、<code>tests/test_mcp_status.py</code>、<code>tests/test_event_idempotency.py</code></li></ul><h2 id="1-STAR-总览"><a href="#1-STAR-总览" class="headerlink" title="1. STAR 总览"></a>1. STAR 总览</h2><h3 id="S（Situation）"><a href="#S（Situation）" class="headerlink" title="S（Situation）"></a>S（Situation）</h3><p>重构前的主要矛盾不是“功能缺失”，而是“演进成本不可控”：</p><ol><li>编排逻辑虽然可用，但职责边界有历史耦合，变更常常牵一发而动全身。</li><li>API 层已经被外部 Java 网关和前端消费，不能轻易改调用契约。</li><li>MCP 工具执行、事件存储、编排决策属于不同关注点，却在改造时容易被一起搅动。</li><li>线上调试时，一旦出现 <code>模型服务暂不可用</code> 或 <code>/system/mcp/status</code> 的 401，排障链路会跨 Python&#x2F;Java 两侧，成本高。</li></ol><p>典型症状是：业务希望“快速改编排”，工程师却先在想“这次会不会把外部接口带崩”。</p><h3 id="T（Task）"><a href="#T（Task）" class="headerlink" title="T（Task）"></a>T（Task）</h3><p>目标不是“写一版更酷的新 orchestrator”，而是更硬核也更无聊的一件事：</p><ol><li>在不破坏 <code>app/api.py</code> 对外调用形态的前提下，替换编排内核为 LangGraph 单轨。</li><li>把节点职责拆干净，让后续多节点扩展不是灾难性 diff。</li><li>明确资产边界：编排归编排，Infra 归 Infra，MCP 归 MCP，API 只做入口与协议。</li><li>保障回归：关键链路都要有测试兜底，避免“重构成功，联调翻车”。</li></ol><h3 id="A（Action）"><a href="#A（Action）" class="headerlink" title="A（Action）"></a>A（Action）</h3><h4 id="A1-先冻结对外契约，再动编排内核"><a href="#A1-先冻结对外契约，再动编排内核" class="headerlink" title="A1. 先冻结对外契约，再动编排内核"></a>A1. 先冻结对外契约，再动编排内核</h4><p>这是这次最省命的一步。</p><ul><li><code>app/api.py</code> 原先调用 orchestrator 的位置尽量不动。</li><li>需要过渡时，用“外部接口不变、内部实现替换”的方式推进。</li><li>先保证调用方无感，再逐步清理编排内部历史链路。</li></ul><p>好处很现实：即使编排内部改炸了，至少 Java 网关和前端不会第一时间一起炸。</p><h4 id="A2-LangGraph-单轨化，节点按职责拆分"><a href="#A2-LangGraph-单轨化，节点按职责拆分" class="headerlink" title="A2. LangGraph 单轨化，节点按职责拆分"></a>A2. LangGraph 单轨化，节点按职责拆分</h4><p>落地成 <code>app/langgraph/</code> 分层：</p><ul><li><code>graph.py</code>：图结构与路由</li><li><code>state.py</code>：统一状态模型</li><li><code>nodes/bootstrap.py</code>：启动态整理与上下文预处理</li><li><code>nodes/plan.py</code>：计划&#x2F;动作决策与结构化解析</li><li><code>nodes/tool_call.py</code>：工具调用与结果回写</li><li><code>nodes/clarify.py</code>：澄清问题输出</li><li><code>nodes/respond.py</code>：最终回复收敛</li><li><code>schemas/</code> + <code>decoders/</code>：结构化输出约束与修复</li></ul><p>这一步本质上是在做“可维护性财政改革”：每个节点只管一类决策，减少跨文件隐式耦合。</p><h4 id="A3-工具调用从“自由发挥”改为“结构化契约”"><a href="#A3-工具调用从“自由发挥”改为“结构化契约”" class="headerlink" title="A3. 工具调用从“自由发挥”改为“结构化契约”"></a>A3. 工具调用从“自由发挥”改为“结构化契约”</h4><p>关键收敛点：</p><ul><li>统一 <code>tool_calls</code> 数组语义</li><li>在 schema&#x2F;decoder 层处理“模型输出不规范”的恢复</li><li>参数归一化与澄清机制前置，避免盲调工具</li></ul><p>换句话说，不再赌模型每次都输出 perfect JSON，而是把“模型偶发抽风”纳入系统设计。</p><h4 id="A4-Infra-MCP-Store-侧边界固化"><a href="#A4-Infra-MCP-Store-侧边界固化" class="headerlink" title="A4. Infra&#x2F;MCP&#x2F;Store 侧边界固化"></a>A4. Infra&#x2F;MCP&#x2F;Store 侧边界固化</h4><p>编排只负责流程，不直接背 infra 细节：</p><ul><li><code>store.py</code>：会话与事件存储抽象（含 Java Store 接入）</li><li><code>mcp_client.py</code>：MCP HTTP 协议与错误包装</li><li><code>tool_service.py</code> &#x2F; <code>http_tool_adapter.py</code>：工具层适配</li></ul><p>这让后续你要换存储后端、换工具执行策略，理论上都不需要重写编排图。</p><h4 id="A5-把“线上异常”当一等公民处理"><a href="#A5-把“线上异常”当一等公民处理" class="headerlink" title="A5. 把“线上异常”当一等公民处理"></a>A5. 把“线上异常”当一等公民处理</h4><p>本轮联调里，两个高频问题被重点治理：</p><ol><li><code>当前模型服务暂不可用，请稍后重试</code>：优先核查 LLM API 接入参数与服务可达性，再核对编排节点回退逻辑。</li><li><code>/epservice/api/ai/system/mcp/status</code> 返回 <code>401 unauthenticated</code>：定位到鉴权上下文缺失&#x2F;Token 不一致，按 Java 网关与 Python MCP 配置统一修复。</li></ol><p>工程经验是：不要把“401&#x2F;超时&#x2F;解析失败”当偶发边角料，真实系统里它们才是主剧情。</p><h3 id="R（Result）"><a href="#R（Result）" class="headerlink" title="R（Result）"></a>R（Result）</h3><h4 id="结果-1：编排可以持续演进，而不是一次性工程"><a href="#结果-1：编排可以持续演进，而不是一次性工程" class="headerlink" title="结果 1：编排可以持续演进，而不是一次性工程"></a>结果 1：编排可以持续演进，而不是一次性工程</h4><ul><li>LangGraph 单轨已成为主编排路径。</li><li>节点拆分后，新增节点或替换单节点的改动面显著降低。</li><li>编排主流程从“巨石函数”转向“节点化职责协作”。</li></ul><h4 id="结果-2：对外资产稳定，重构风险被隔离"><a href="#结果-2：对外资产稳定，重构风险被隔离" class="headerlink" title="结果 2：对外资产稳定，重构风险被隔离"></a>结果 2：对外资产稳定，重构风险被隔离</h4><ul><li>API 层调用接口保持兼容，外部调用方无需同步大改。</li><li>MCP &#x2F; Store &#x2F; Tool Adapter 作为 infra 资产得以保留并独立演进。</li><li>重构影响主要收敛在编排侧，不扩散到全局。</li></ul><h4 id="结果-3：测试覆盖围住关键回归点"><a href="#结果-3：测试覆盖围住关键回归点" class="headerlink" title="结果 3：测试覆盖围住关键回归点"></a>结果 3：测试覆盖围住关键回归点</h4><ul><li>编排主链路：<code>tests/test_orchestrator_langgraph.py</code></li><li>结构化解析与恢复：<code>tests/test_plan_schema.py</code>、<code>tests/test_plan_parser.py</code></li><li>MCP 协议与状态：<code>tests/test_mcp_client.py</code>、<code>tests/test_mcp_status.py</code></li><li>事件幂等：<code>tests/test_event_idempotency.py</code></li></ul><p>这意味着下次再改 plan&#x2F;tool_call，不再靠“玄学自信”上线。</p><h4 id="结果-4：排障路径更短，责任域更清晰"><a href="#结果-4：排障路径更短，责任域更清晰" class="headerlink" title="结果 4：排障路径更短，责任域更清晰"></a>结果 4：排障路径更短，责任域更清晰</h4><ul><li>模型不可用问题和 MCP 鉴权问题可以分层定位。</li><li>“是编排决策错了，还是 infra 调用挂了”不再混成一锅粥。</li></ul><h2 id="2-这轮重构真正的收益（给进阶工程师）"><a href="#2-这轮重构真正的收益（给进阶工程师）" class="headerlink" title="2. 这轮重构真正的收益（给进阶工程师）"></a>2. 这轮重构真正的收益（给进阶工程师）</h2><h3 id="收益一：把“接口稳定性”从口号变成工程约束"><a href="#收益一：把“接口稳定性”从口号变成工程约束" class="headerlink" title="收益一：把“接口稳定性”从口号变成工程约束"></a>收益一：把“接口稳定性”从口号变成工程约束</h3><p>先锁 API 契约再改内核，听起来保守，但它是多人协作场景下最有效的重构杠杆。你会明显感到评审和联调冲突下降。</p><h3 id="收益二：把“模型不稳定”变成“系统可处理”"><a href="#收益二：把“模型不稳定”变成“系统可处理”" class="headerlink" title="收益二：把“模型不稳定”变成“系统可处理”"></a>收益二：把“模型不稳定”变成“系统可处理”</h3><p>结构化解析 + 恢复策略的价值，不在 happy path，而在模型输出半残时系统还能给出可预期行为。</p><h3 id="收益三：把“可测试性”设计进架构"><a href="#收益三：把“可测试性”设计进架构" class="headerlink" title="收益三：把“可测试性”设计进架构"></a>收益三：把“可测试性”设计进架构</h3><p>节点化后，测试粒度终于可以对准行为单元。过去改一个点全链路冒烟，现在能做到局部验证 + 端到端抽查。</p><h3 id="收益四：为后续多节点编排留了正规扩展位"><a href="#收益四：为后续多节点编排留了正规扩展位" class="headerlink" title="收益四：为后续多节点编排留了正规扩展位"></a>收益四：为后续多节点编排留了正规扩展位</h3><p>这次先做的是单轨主链路，但图结构已经把后续“多节点策略编排”预留好了，不用再把代码推倒重来。</p><h2 id="3-反思（顺便帮你省下未来两周）"><a href="#3-反思（顺便帮你省下未来两周）" class="headerlink" title="3. 反思（顺便帮你省下未来两周）"></a>3. 反思（顺便帮你省下未来两周）</h2><ol><li>重构最怕“同时改契约 + 改内核 + 改依赖”。这次有意识分层，是关键。</li><li>如果没有测试护栏，LangGraph 拆得再漂亮也会在联调阶段还债。</li><li>排障文档要跟代码一起演进，不然团队知识会蒸发成聊天记录。</li></ol><h2 id="4-给下一轮编排设计的建议"><a href="#4-给下一轮编排设计的建议" class="headerlink" title="4. 给下一轮编排设计的建议"></a>4. 给下一轮编排设计的建议</h2><ol><li>把节点间共享能力（幂等、重试、去重、错误分级）策略化，不要写死在某个节点内部。</li><li>给每个节点定义统一输入&#x2F;输出 patch 契约，避免状态字段随手长。</li><li>将可观测性（trace_id、node_latency、tool_error_class）纳入默认事件模型，不要靠临时日志救火。</li></ol><h2 id="5-收尾"><a href="#5-收尾" class="headerlink" title="5. 收尾"></a>5. 收尾</h2><p>这次重构的价值，不是“我们用了 LangGraph”，而是“我们终于把编排当成可以长期维护的系统工程来做”。</p><p>至于那种“先写成一坨，后面再拆”的冲动，建议保留在周末 Hackathon。工作日的系统，还是让边界先说话。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>重构复盘</tag>
+      
+      <tag>架构治理</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径</title>
     <link href="/2026/03/05/dify-tool-java-mcp-python/"/>
     <url>/2026/03/05/dify-tool-java-mcp-python/</url>
@@ -88,34 +119,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>编排</tag>
       
-    </tags>
-    
-  </entry>
-  
-  
-  
-  <entry>
-    <title>LangGraph 编排清理复盘：一次最小增量重构（STAR）</title>
-    <link href="/2026/03/05/langgraph-star/"/>
-    <url>/2026/03/05/langgraph-star/</url>
-    
-    <content type="html"><![CDATA[<p>近期对 <code>ats_iot_ai</code> 的 LangGraph 编排层做了一轮“小步快跑”的整理。目标不是大改架构，而是把最容易反复出问题的边界先收紧。</p><h2 id="Situation"><a href="#Situation" class="headerlink" title="Situation"></a>Situation</h2><p>改造前的主要痛点集中在三处：</p><ol><li>plan 解析链路偏脆弱：对模型输出格式依赖较强，非标准结构时兜底不清晰。</li><li>节点输出不一致：不同节点返回 patch 形态不统一，状态合并逻辑分散，排查回归成本高。</li><li>tool schema 校验偏弱：unknown&#x2F;missing args 场景下行为不够显式，容易出现“调用成功但语义错误”的隐患。</li></ol><h2 id="Task"><a href="#Task" class="headerlink" title="Task"></a>Task</h2><p>约束是“最小增量重构”：</p><ol><li>不引入大规模接口破坏，优先可回滚、可验证的小提交。</li><li>同时提升三件事：简单性（代码路径更少）、健壮性（异常输入有明确 fallback）、可扩展性（后续新增工具&#x2F;节点不需要复制粘贴式改造）。</li><li>保持可观测性，确保失败原因可定位。</li></ol><h2 id="Action"><a href="#Action" class="headerlink" title="Action"></a>Action</h2><p>按提交拆分，逐步落地。</p><h3 id="1-refactor-langgraph-unify-node-state-patch-outputs"><a href="#1-refactor-langgraph-unify-node-state-patch-outputs" class="headerlink" title="1) refactor(langgraph): unify node state patch outputs"></a>1) <code>refactor(langgraph): unify node state patch outputs</code></h3><p>核心动作：统一节点 state patch 输出契约。</p><ul><li>在编排相关实现中收敛 patch 返回结构，减少“节点各自定义”的分叉行为。</li><li>将状态合并规则集中化，避免散落在节点函数里的隐式 merge。</li><li>结果是：节点职责更单一，调试时只需对照统一 patch 约定。</li></ul><h3 id="2-refactor-langgraph-adopt-structured-plan-parser-and-tool-spec-normalization"><a href="#2-refactor-langgraph-adopt-structured-plan-parser-and-tool-spec-normalization" class="headerlink" title="2) refactor(langgraph): adopt structured plan parser and tool-spec normalization"></a>2) <code>refactor(langgraph): adopt structured plan parser and tool-spec normalization</code></h3><p>核心动作：替换解析轮子并补齐参数规范化。</p><ul><li>plan parser 切换到 <code>langchain_core</code> 的 <code>PydanticOutputParser</code>。</li><li>移除自定义 <code>structured_output</code> 轮子，降低维护成本与行为分歧。</li><li>增加 tool-spec normalization：对 unknown&#x2F;missing args 给出明确 fallback 规则，避免隐式吞错。</li></ul><p>文件级变更重点（按职责）：</p><ul><li>计划解析模块：引入结构化 parser，统一解析入口与异常分支。</li><li>tool schema&#x2F;规范化模块：补充参数归一化与缺省处理逻辑。</li><li>orchestrator 相关模块：接入新的 parser 与规范化结果，统一运行时行为。</li></ul><h3 id="3-test-langgraph-cover-structured-parsing-and-tool-validation-fallbacks"><a href="#3-test-langgraph-cover-structured-parsing-and-tool-validation-fallbacks" class="headerlink" title="3) test(langgraph): cover structured parsing and tool validation fallbacks"></a>3) <code>test(langgraph): cover structured parsing and tool validation fallbacks</code></h3><p>核心动作：把关键回归点落到测试。</p><ul><li>新增&#x2F;完善 <code>test_plan_schema.py</code>：覆盖结构定义与边界校验。</li><li>新增&#x2F;完善 <code>test_plan_parser.py</code>：覆盖结构化解析成功与 fallback 分支。</li><li>新增&#x2F;完善 <code>test_orchestrator_langgraph.py</code>：覆盖 orchestrator 与 tool 校验联动行为。</li></ul><h2 id="Result"><a href="#Result" class="headerlink" title="Result"></a>Result</h2><ul><li><code>pytest</code> 结果：<code>39/39</code> 通过。</li><li>自定义解析轮子被移除，LangGraph 周边实现更贴近标准组件。</li><li>节点 patch 与 tool 参数处理更一致，后续排障与扩展成本下降。</li><li>失败路径更可解释，可观测性提升（能更快定位是解析问题还是 schema 问题）。</li></ul><h2 id="关键收益"><a href="#关键收益" class="headerlink" title="关键收益"></a>关键收益</h2><ol><li>降低认知负担：统一契约后，新增节点&#x2F;工具不必重复发明输出与校验逻辑。</li><li>降低回归风险：核心边界由测试覆盖，改动可快速验证。</li><li>降低维护成本：减少自研轮子，优先复用社区成熟能力。</li></ol><h2 id="后续可选增强"><a href="#后续可选增强" class="headerlink" title="后续可选增强"></a>后续可选增强</h2><ol><li>为 tool-spec normalization 增加结构化错误码，便于前端&#x2F;调用方做精细化提示。</li><li>在 orchestrator 增补按阶段打点指标（解析耗时、校验失败类型分布）。</li><li>为关键 fallback 增加快照型回归样例，降低未来重构时的行为漂移。</li></ol>]]></content>
-    
-    
-    
-    <tags>
-      
-      <tag>LangGraph</tag>
-      
-      <tag>重构</tag>
-      
-      <tag>可维护性</tag>
-      
-      <tag>测试</tag>
+      <tag>复盘</tag>
       
     </tags>
     
@@ -144,11 +150,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>复盘</tag>
+      
       <tag>ats_iot_ai</tag>
       
       <tag>AI重构</tag>
-      
-      <tag>复盘</tag>
       
     </tags>
     
@@ -857,15 +863,15 @@
       
       <tag>MCP</tag>
       
-      <tag>Dify</tag>
-      
-      <tag>知识库</tag>
-      
       <tag>AI工程</tag>
       
       <tag>RAG</tag>
       
+      <tag>Dify</tag>
+      
       <tag>架构设计</tag>
+      
+      <tag>知识库</tag>
       
     </tags>
     

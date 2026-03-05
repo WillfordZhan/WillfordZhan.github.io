@@ -27,7 +27,7 @@
 <meta property="og:description" content="这篇文章记录一次线上故障：Java 应用里一条普通查询，最终抛出来的是 CommunicationsException。表面看像网络或连接池问题，实际是被 DDL 等待放大的 metadata lock。 排查过程横跨 4 层：  MySQL DDL 与 metadata lock 机制 JDBC 驱动的超时表现 连接池里的空闲连接与未结束事务 应用层对异常语义的误判  先说结论根因是：  某些旧">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-03T11:12:35.000Z">
-<meta property="article:modified_time" content="2026-03-05T11:36:16.640Z">
+<meta property="article:modified_time" content="2026-03-05T12:20:24.488Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="Spring Boot">
