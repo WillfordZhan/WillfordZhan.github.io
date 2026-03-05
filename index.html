@@ -239,6 +239,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/05/p1/" target="_self">
+          P1解析失败恢复：从误报模型不可用到可恢复澄清链路
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/p1/" target="_self">
+        <div>
+          这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus=schema_validation_failed) -&
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-05 19:13" pubdate>
+              2026-03-05
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/">#联调复盘</a>
+            
+              <a href="/tags/%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D/">#故障恢复</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/05/chat-star/" target="_self">
           直接回复未走 Chat 优化的踩坑复盘（STAR）
         </a>
@@ -286,9 +353,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
             
@@ -399,9 +466,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/ats-iot-ai/">#ats_iot_ai</a>
             
@@ -704,15 +771,15 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
             
               <a href="/tags/MCP/">#MCP</a>
             
-              <a href="/tags/Guardrails/">#Guardrails</a>
-            
               <a href="/tags/Memory/">#Memory</a>
+            
+              <a href="/tags/Guardrails/">#Guardrails</a>
             
               <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
             
@@ -779,8 +846,6 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">#技术选型</a>
             
               <a href="/tags/LangGraph/">#LangGraph</a>
@@ -791,78 +856,7 @@
             
               <a href="/tags/Agent-Engineering/">#Agent Engineering</a>
             
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/02/llm-openclaw-prompt/" target="_self">
-          单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/llm-openclaw-prompt/" target="_self">
-        <div>
-          前言这篇文章写给已经在做 Agent 编排、并且踩过“意图层拆太多 + Prompt 越改越乱 + 护栏和主流程耦合”坑的工程师。 核心观点先摆在前面：  单 LLM 节点不是“把所有事都丢给模型”。 OpenClaw 的关键价值，不在“单节点”，而在“模型自决 + 工程护栏 + Prompt 注入可插拔”。 真正可维护的实现，必须把 决策、注入、护栏、记忆 四层切开。   一、单节点到底是什么：
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-02 17:49" pubdate>
-              2026-03-02
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/OpenClaw/">#OpenClaw</a>
-            
-              <a href="/tags/Agent-Engineering/">#Agent Engineering</a>
-            
-              <a href="/tags/ReAct/">#ReAct</a>
-            
-              <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
-            
-              <a href="/tags/Guardrails/">#Guardrails</a>
-            
-              <a href="/tags/Memory/">#Memory</a>
             
           </div>
         

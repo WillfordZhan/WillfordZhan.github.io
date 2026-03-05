@@ -19,28 +19,25 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+    <meta name="description" content="这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus&#x3D;schema_validation_failed) -&amp;">
 <meta property="og:type" content="article">
-<meta property="og:title" content="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/index.html">
+<meta property="og:title" content="P1解析失败恢复：从误报模型不可用到可恢复澄清链路">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/p1/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="里程碑范围本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。 配置清理结果（YAML）在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：  删除历史遗留且已废弃的配置段：ai.model、ai.store、ai.prompt、ai.archive。 保留当前仍在使用的配置段：ai.mcp、ai.">
+<meta property="og:description" content="这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus&#x3D;schema_validation_failed) -&amp;">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-20T14:44:15.000Z">
-<meta property="article:modified_time" content="2026-03-05T11:14:30.154Z">
+<meta property="article:published_time" content="2026-03-05T11:13:03.000Z">
+<meta property="article:modified_time" content="2026-03-05T11:14:30.155Z">
 <meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="LangGraph">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="Java">
-<meta property="article:tag" content="MCP">
-<meta property="article:tag" content="AI工程">
-<meta property="article:tag" content="里程碑">
-<meta property="article:tag" content="依赖治理">
-<meta property="article:tag" content="配置清理">
+<meta property="article:tag" content="联调复盘">
+<meta property="article:tag" content="故障恢复">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>里程碑进展：Java AI 模块配置与依赖清理（MCP 版） - 味儿福德詹的小站</title>
+  <title>P1解析失败恢复：从误报模型不可用到可恢复澄清链路 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +215,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="里程碑进展：Java AI 模块配置与依赖清理（MCP 版）"></span>
+            <span id="subtitle" data-typed-text="P1解析失败恢复：从误报模型不可用到可恢复澄清链路"></span>
           
         </div>
 
@@ -229,8 +226,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-20 22:44" pubdate>
-          2026年2月20日 晚上
+        <time datetime="2026-03-05 19:13" pubdate>
+          2026年3月5日 晚上
         </time>
       </span>
     
@@ -241,7 +238,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          466 字
+          902 字
         
       </span>
     
@@ -252,7 +249,7 @@
         
         
         
-          4 分钟
+          8 分钟
         
       </span>
     
@@ -289,40 +286,132 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</h1>
+            <h1 id="seo-header">P1解析失败恢复：从误报模型不可用到可恢复澄清链路</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="里程碑范围"><a href="#里程碑范围" class="headerlink" title="里程碑范围"></a>里程碑范围</h2><p>本次里程碑聚焦 Java 侧 AI 模块的“减法治理”：明确 MCP 方案的保留项，移除历史遗留配置与依赖，降低维护复杂度并收敛运行面。</p>
-<h2 id="配置清理结果（YAML）"><a href="#配置清理结果（YAML）" class="headerlink" title="配置清理结果（YAML）"></a>配置清理结果（YAML）</h2><p>在本地 YAML 配置中，已完成 MCP-only 重构的配置收口：</p>
+                <p>这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。</p>
+<h2 id="STAR-复盘"><a href="#STAR-复盘" class="headerlink" title="STAR 复盘"></a>STAR 复盘</h2><h3 id="S（Situation）背景"><a href="#S（Situation）背景" class="headerlink" title="S（Situation）背景"></a>S（Situation）背景</h3><p>在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：</p>
+<ul>
+<li>用户输入：<code>帮我查知识库</code></li>
+<li>实际事件：<code>llm_request -&gt; react_plan(parseStatus=schema_validation_failed) -&gt; final(模型不可用)</code></li>
+<li>预期事件：<code>clarification_needed</code>（提示用户补充检索主题）</li>
+</ul>
+<p>触发条件很典型：</p>
+<ul>
+<li>LLM 输出了 <code>action=CALL_TOOL</code>，但缺失 <code>tool_calls</code></li>
+<li>现有 <code>PlanOutput</code> 约束要求 <code>CALL_TOOL</code> 必须有 <code>tool_calls</code></li>
+<li>校验失败后被统一兜底到“模型不可用”，导致故障分类错误</li>
+</ul>
+<h3 id="T（Task）任务"><a href="#T（Task）任务" class="headerlink" title="T（Task）任务"></a>T（Task）任务</h3><p>目标不是修一个 case，而是做一套可复用的编排健壮性改造：</p>
 <ol>
-<li>删除历史遗留且已废弃的配置段：<code>ai.model</code>、<code>ai.store</code>、<code>ai.prompt</code>、<code>ai.archive</code>。</li>
-<li>保留当前仍在使用的配置段：<code>ai.mcp</code>、<code>ai.dify</code>。</li>
-<li>结果：配置语义与当前架构一致，避免“看得见但不会生效”的伪配置继续干扰排查。</li>
+<li>parser 失败时可恢复，不再一刀切到“模型不可用”。</li>
+<li>对 <code>CALL_TOOL</code> 与澄清语义冲突做统一仲裁，优先澄清。</li>
+<li>在事件里区分 <code>planner_parse_failed</code> 与 <code>llm_unavailable</code>。</li>
+<li>用真实联调验证，并纳入典型 case 集。</li>
 </ol>
-<h2 id="依赖清理结果（POM）"><a href="#依赖清理结果（POM）" class="headerlink" title="依赖清理结果（POM）"></a>依赖清理结果（POM）</h2><p>在 <code>pom</code> 依赖中，已完成未使用 legacy AI 依赖剔除：</p>
-<ol>
-<li>移除：<code>langchain4j-dashscope</code>、<code>langchain4j-open-ai</code>。</li>
-<li>保留：<code>langchain4j</code> 核心能力（按当前实现需要）与 <code>dashscope-sdk-java</code>（在需要的位置继续使用）。</li>
-<li>结果：依赖树更干净，后续升级与漏洞治理成本下降。</li>
+<h3 id="A（Action）行动"><a href="#A（Action）行动" class="headerlink" title="A（Action）行动"></a>A（Action）行动</h3><h4 id="A1-编排层改造"><a href="#A1-编排层改造" class="headerlink" title="A1. 编排层改造"></a>A1. 编排层改造</h4><ol>
+<li>新增 parse 失败恢复入口（<code>app/langgraph/decoders.py</code>）</li>
 </ol>
-<h2 id="验证结论"><a href="#验证结论" class="headerlink" title="验证结论"></a>验证结论</h2><p>已执行编译验证命令并通过：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">mvn -pl sample-admin -am -DskipTests compile<br></code></pre></td></tr></table></figure>
-
-<p>这说明本次“配置 + 依赖”清理在当前里程碑范围内未引入编译级回归。</p>
-<h2 id="当前验收状态"><a href="#当前验收状态" class="headerlink" title="当前验收状态"></a>当前验收状态</h2><p>当前里程碑验收状态：<strong>已通过（范围内通过）</strong>。</p>
-<p>说明：</p>
-<ol>
-<li>MCP 方向相关配置与依赖清理目标已达成。</li>
-<li>编译链路已验证可通过。</li>
-<li>全量测试基线仍存在历史遗留的无关失败项，本次不作为阻塞项。</li>
+<ul>
+<li>新增 <code>recover_plan_from_parse_failure(...)</code></li>
+<li>尝试从原始文本提取 JSON payload</li>
+<li>自动修复结构（如从 <code>tool_name/arguments</code> 补齐 <code>tool_calls</code>）</li>
+<li>若仍不满足 schema，但存在澄清语义，降级为 <code>CLARIFY</code></li>
+<li>只有最后才走 <code>RESPOND</code> 兜底</li>
+</ul>
+<p>恢复动作标签：</p>
+<ul>
+<li><code>repair_payload_shape</code></li>
+<li><code>downgrade_to_clarify</code></li>
+</ul>
+<ol start="2">
+<li>新增动作冲突仲裁（<code>app/langgraph/decoders.py</code>）</li>
 </ol>
-<h2 id="下一步计划"><a href="#下一步计划" class="headerlink" title="下一步计划"></a>下一步计划</h2><ol>
-<li>建立并收敛一版“可重复”的全量测试基线，先对历史失败做归因分层（本次改动相关 &#x2F; 无关）。</li>
-<li>在 CI 中补充针对 AI 模块的最小回归检查（至少覆盖配置加载、关键 Bean 初始化、核心调用链烟测）。</li>
-<li>持续推进 legacy 残留项扫描，避免后续分支再次引入已移除依赖或配置段。</li>
+<ul>
+<li>在 <code>normalize_plan_with_tools(...)</code> 增加通用规则：</li>
+<li>当 <code>action=CALL_TOOL</code> 且存在非空 <code>clarification_question</code> 时，改写为 <code>CLARIFY</code></li>
+<li>输出冲突码：<code>planner_conflict:call_tool_with_clarification</code></li>
+</ul>
+<p>这条规则基于状态与 schema，不依赖 query 文本硬编码。</p>
+<ol start="3">
+<li>plan 节点接入失败分级（<code>app/langgraph/nodes/plan.py</code>）</li>
 </ol>
+<ul>
+<li><code>PlanParseError</code> 不再直接套模型不可用兜底</li>
+<li>接入 <code>recover_plan_from_parse_failure(...)</code></li>
+<li><code>react_plan</code> 事件补充：</li>
+<li><code>failureClass</code></li>
+<li><code>recoveryActions</code></li>
+</ul>
+<p>同时区分两类用户文案：</p>
+<ul>
+<li>parse 失败：<code>当前请求解析失败，请换个说法或补充信息后重试。</code></li>
+<li>模型不可用：保留原不可用文案</li>
+</ul>
+<h4 id="A2-测试增强"><a href="#A2-测试增强" class="headerlink" title="A2. 测试增强"></a>A2. 测试增强</h4><ul>
+<li><code>tests/test_plan_parser.py</code></li>
+<li><code>test_recover_plan_from_parse_failure_downgrades_to_clarify</code></li>
+<li><code>tests/test_plan_schema.py</code></li>
+<li><code>test_normalize_plan_with_tools_prefers_clarify_when_planner_outputs_both</code></li>
+<li><code>tests/test_orchestrator_langgraph.py</code></li>
+<li>更新 parse fallback 断言：应为 <code>planner_parse_failed</code>，且文案为“解析失败”</li>
+</ul>
+<h4 id="A3-真实联调与脚本"><a href="#A3-真实联调与脚本" class="headerlink" title="A3. 真实联调与脚本"></a>A3. 真实联调与脚本</h4><ul>
+<li>新增典型用例：<code>典型case.md</code> 的 Case 10</li>
+<li>更新批量脚本：<code>scripts/run_typical_cases.sh</code></li>
+<li>将 macOS 不兼容 <code>timeout</code> 改为 <code>curl --max-time</code></li>
+</ul>
+<h3 id="R（Result）结果"><a href="#R（Result）结果" class="headerlink" title="R（Result）结果"></a>R（Result）结果</h3><h4 id="R1-自动化测试"><a href="#R1-自动化测试" class="headerlink" title="R1. 自动化测试"></a>R1. 自动化测试</h4><ul>
+<li><code>pytest -q tests/test_plan_parser.py tests/test_plan_schema.py tests/test_orchestrator_langgraph.py</code>：25 passed</li>
+<li><code>pytest -q</code>：53 passed</li>
+</ul>
+<h4 id="R2-真实联调证据（Case-10）"><a href="#R2-真实联调证据（Case-10）" class="headerlink" title="R2. 真实联调证据（Case 10）"></a>R2. 真实联调证据（Case 10）</h4><p>关键日志信号（来自 <code>logs/typical-cases/case10_p1_parse_recovery_clarify/sse.log</code>）：</p>
+<ul>
+<li><code>react_plan.action=CLARIFY</code></li>
+<li><code>parseStatus=recovered_parse_failure_clarify</code></li>
+<li><code>failureClass=planner_parse_failed</code></li>
+<li><code>recoveryActions=[&quot;downgrade_to_clarify&quot;]</code></li>
+<li>下游发出 <code>clarification_needed</code></li>
+<li>全链路未出现“模型不可用”误报</li>
+</ul>
+<p>结论：P1 的核心误路由已被修复。</p>
+<h4 id="R3-全量-Case-1-10-观察摘要"><a href="#R3-全量-Case-1-10-观察摘要" class="headerlink" title="R3. 全量 Case 1~10 观察摘要"></a>R3. 全量 Case 1~10 观察摘要</h4><p>通过项：</p>
+<ul>
+<li>Case1&#x2F;8：问候直答正常，未误触发工具</li>
+<li>Case4：知识库命中时，<code>tool_call + tool_result</code> 成对出现</li>
+<li>Case6：缺参触发澄清</li>
+<li>Case9：澄清文案已脱敏（未泄漏内部参数细节）</li>
+<li>Case10：P1 恢复路径按预期生效</li>
+</ul>
+<p>待后续跟进：</p>
+<ul>
+<li>观察到部分会话存在 <code>conversation_started</code> 重复发射迹象（P2）</li>
+<li>Case3 在当前数据环境无匹配，转澄清，属于数据映射问题</li>
+<li>Case7 未触发上游异常，需故障注入复测异常分支</li>
+</ul>
+<h2 id="关键证据清单"><a href="#关键证据清单" class="headerlink" title="关键证据清单"></a>关键证据清单</h2><ul>
+<li>测试汇总：<code>pytest</code> 结果（53 passed）</li>
+<li>典型 case：Case 10 明确验证 <code>schema_validation_failed -&gt; CLARIFY</code> 恢复</li>
+<li>SSE 事件：<code>failureClass</code> 与 <code>recoveryActions</code> 可观测，便于后续排障</li>
+</ul>
+<h2 id="核心代码文件清单"><a href="#核心代码文件清单" class="headerlink" title="核心代码文件清单"></a>核心代码文件清单</h2><ul>
+<li><code>app/langgraph/decoders.py</code></li>
+<li><code>app/langgraph/nodes/plan.py</code></li>
+<li><code>tests/test_plan_parser.py</code></li>
+<li><code>tests/test_plan_schema.py</code></li>
+<li><code>tests/test_orchestrator_langgraph.py</code></li>
+<li><code>典型case.md</code></li>
+<li><code>scripts/run_typical_cases.sh</code></li>
+</ul>
+<h2 id="脱敏说明"><a href="#脱敏说明" class="headerlink" title="脱敏说明"></a>脱敏说明</h2><p>本文仅保留必要技术细节，以下信息均已脱敏处理：</p>
+<ul>
+<li>网关鉴权头（如 token、签名）</li>
+<li>内网地址、端口、私有域名</li>
+<li>可能关联租户或业务身份的标识</li>
+</ul>
+<p>若需要演示联调命令，请使用示例占位符：<code>https://example.com</code>、<code>127.0.0.1</code>、<code>&lt;TOKEN&gt;</code>。</p>
 
                 
               </div>
@@ -356,19 +445,13 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+      
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/Java/" class="print-no-link">#Java</a>
+        <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/" class="print-no-link">#联调复盘</a>
       
-        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
-      
-        <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
-      
-        <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
-      
-        <a href="/tags/%E4%BE%9D%E8%B5%96%E6%B2%BB%E7%90%86/" class="print-no-link">#依赖治理</a>
-      
-        <a href="/tags/%E9%85%8D%E7%BD%AE%E6%B8%85%E7%90%86/" class="print-no-link">#配置清理</a>
+        <a href="/tags/%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D/" class="print-no-link">#故障恢复</a>
       
     </div>
   
@@ -380,8 +463,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>里程碑进展：Java AI 模块配置与依赖清理（MCP 版）</div>
-      <div>https://willfordzhan.github.io/2026/02/20/java-ai-mcp-cleanup-milestone/</div>
+      <div>P1解析失败恢复：从误报模型不可用到可恢复澄清链路</div>
+      <div>https://willfordzhan.github.io/2026/03/05/p1/</div>
     </div>
     <div class="license-meta">
       
@@ -393,7 +476,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月20日</div>
+          <div>2026年3月5日</div>
         </div>
       
       
@@ -425,18 +508,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/20/dify-rag-mes-erp/" title="Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/20/dynamic-paradigm-orchestrator-optimization/" title="动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化">
-                        <span class="hidden-mobile">动态范式编排：Plan-and-Solve + ReAct + Reflection 在 MCP AI 控制平面上的优化</span>
+                      <a href="/2026/03/05/chat-star/" title="直接回复未走 Chat 优化的踩坑复盘（STAR）">
+                        <span class="hidden-mobile">直接回复未走 Chat 优化的踩坑复盘（STAR）</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
