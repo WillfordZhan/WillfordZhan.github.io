@@ -161,6 +161,16 @@ curl -k -X POST 'https://ai-studio.allthinkstars.com:10443/v1/datasets/<dataset_
 - 账号密码和浏览器 token 不进入服务端配置
 - 在公开文档中只保留接口结构，不保留真实密钥与内部主机细节
 
+## 可直接落地的开发 Tips
+
+- `score_threshold_enabled` 和 `score_threshold` 建议总是成对下发，不要依赖默认值。不同 Dify 版本在 `retrieval_model` 的默认行为并不稳定。
+- `knowledge.search` 的返回数据要做“面向 LLM 的裁剪”，尤其是 `snippet` 长度。建议限制在 200~500 字符，避免一次 tool_result 过大导致后续回答质量下降。
+- `dataset_id` 建议支持“参数覆盖 + 默认值 + 白名单”三层策略：调用灵活、运行安全、配置可控。
+- 上游错误要做语义映射，不要透传 HTTP 文本。建议统一为 `tool_auth_error`、`tool_upstream_error`、`tool_args_invalid` 等稳定错误码。
+- 工具审计日志建议只记录 `dataset_id`、`hit_count`、`latency_ms`、`status`，不要记录 query 全量文本，最多记录短 preview。
+- 调试顺序建议固定：先 `tools/list` 看 schema 是否生效，再 `tools/call` 跑最小 query，最后再测异常路径（401/429/timeout）。
+- 回归测试里至少覆盖 6 类场景：参数缺失、参数越界、白名单拒绝、鉴权失败、上游异常、正常命中并标准化返回。
+
 ## 小结
 
 这次接入的关键不是“能不能请求到 Dify”，而是“把知识库能力放到正确的治理层”。
