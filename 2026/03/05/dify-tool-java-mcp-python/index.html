@@ -27,7 +27,7 @@
 <meta property="og:description" content="背景在 iot-framework 的 AI 链路里，我们已经有一条稳定的工具调用架构：  Java AI Gateway 对外暴露 &#x2F;api&#x2F;ai&#x2F;* Python ats_iot_ai 负责编排与执行（LangGraph + SSE） Java MCP 负责 &#x2F;ai&#x2F;mcp&#x2F;tools&#x2F;list 与 &#x2F;ai&#x2F;mcp&#x2F;tools&#x2F;call  这次目标是把 Dify 知识库检索接成一个 tool，">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-05T11:30:41.000Z">
-<meta property="article:modified_time" content="2026-03-05T11:32:23.227Z">
+<meta property="article:modified_time" content="2026-03-05T11:36:16.640Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="MCP">
@@ -239,7 +239,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          922 字
+          1.2k 字
         
       </span>
     
@@ -250,7 +250,7 @@
         
         
         
-          8 分钟
+          10 分钟
         
       </span>
     
@@ -390,6 +390,15 @@
 <li>已在聊天或工单中暴露过的 key 需要立即轮换（revoke + recreate）</li>
 <li>账号密码和浏览器 token 不进入服务端配置</li>
 <li>在公开文档中只保留接口结构，不保留真实密钥与内部主机细节</li>
+</ul>
+<h2 id="可直接落地的开发-Tips"><a href="#可直接落地的开发-Tips" class="headerlink" title="可直接落地的开发 Tips"></a>可直接落地的开发 Tips</h2><ul>
+<li><code>score_threshold_enabled</code> 和 <code>score_threshold</code> 建议总是成对下发，不要依赖默认值。不同 Dify 版本在 <code>retrieval_model</code> 的默认行为并不稳定。</li>
+<li><code>knowledge.search</code> 的返回数据要做“面向 LLM 的裁剪”，尤其是 <code>snippet</code> 长度。建议限制在 200~500 字符，避免一次 tool_result 过大导致后续回答质量下降。</li>
+<li><code>dataset_id</code> 建议支持“参数覆盖 + 默认值 + 白名单”三层策略：调用灵活、运行安全、配置可控。</li>
+<li>上游错误要做语义映射，不要透传 HTTP 文本。建议统一为 <code>tool_auth_error</code>、<code>tool_upstream_error</code>、<code>tool_args_invalid</code> 等稳定错误码。</li>
+<li>工具审计日志建议只记录 <code>dataset_id</code>、<code>hit_count</code>、<code>latency_ms</code>、<code>status</code>，不要记录 query 全量文本，最多记录短 preview。</li>
+<li>调试顺序建议固定：先 <code>tools/list</code> 看 schema 是否生效，再 <code>tools/call</code> 跑最小 query，最后再测异常路径（401&#x2F;429&#x2F;timeout）。</li>
+<li>回归测试里至少覆盖 6 类场景：参数缺失、参数越界、白名单拒绝、鉴权失败、上游异常、正常命中并标准化返回。</li>
 </ul>
 <h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这次接入的关键不是“能不能请求到 Dify”，而是“把知识库能力放到正确的治理层”。</p>
 <p>在当前 iot-framework AI 架构下，正式方案应优先选择 Java MCP 接入，Python 保持编排层纯净；若要快速试验，可以 Python 先跑通，但应预留迁回 Java MCP 的路径。</p>
