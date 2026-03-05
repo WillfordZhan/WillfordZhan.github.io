@@ -53,12 +53,12 @@ tags:
 ```text
 [Client/UI]
    |
-   | HTTP POST /ai/runs
+   | HTTP POST /api/mock-ai/runs
    v
 [Python Control Plane]
-  - Run API (/ai/runs)
+  - Run API (/api/mock-ai/runs)
   - Orchestrator (plan/step/retry)
-  - SSE Stream (/ai/runs/{id}/events)
+  - SSE Stream (/api/mock-ai/runs/{id}/events)
   - MCP Client
    |
    | MCP tool call
@@ -76,11 +76,11 @@ tags:
 
 ## 调用链设计（端到端）
 
-1. 客户端提交问题到 Python `POST /ai/runs`，返回 `runId`（异步）。
+1. 客户端提交问题到 Python `POST /api/mock-ai/runs`，返回 `runId`（异步）。
 2. Orchestrator 创建步骤并触发模型推理，决定是否调用工具。
 3. 若需工具，MCP Client 发起标准化 `tool_call` 到 Java MCP 入口。
 4. Java 侧经 `registry -> authz-lite -> dispatcher` 找到目标工具并执行。
-5. Java 产出 `ai.tool.invoke` 结构化日志与工具结果，返回 MCP 响应。
+5. Java 产出 `tool_invoke_audit` 结构化日志与工具结果，返回 MCP 响应。
 6. Python 将 `tool_result` 写入运行上下文，继续下一步推理。
 7. SSE 端持续推送 `run_started / step / tool_call / tool_result / completed|failed`。
 
@@ -92,14 +92,14 @@ tags:
 
 1. `mcp-entry`：协议入口、请求反序列化、trace 透传。
 2. `tool-registry`：工具元数据与 handler 注册，支持动态发现或配置注册。
-3. `authz-lite`：轻量权限校验（租户、角色、工具级 allowlist）。
+3. `lightweight-auth-gate`：轻量权限校验（作用域、角色、工具级 allowlist）。
 4. `dispatcher`：统一分发、超时控制、错误码标准化。
-5. `ai.tool.invoke` 日志：记录 `runId/toolName/argsDigest/latency/resultCode`，支持审计与性能分析。
+5. `tool_invoke_audit` 日志：记录 `runId/toolName/argsDigest/latency/resultCode`，支持审计与性能分析。
 
 ### Python 侧（控制平面）
 
-1. `/ai/runs`：异步创建运行，立即返回 `runId`。
-2. `/ai/runs/{runId}/events`：SSE 事件流，支持重连后的 replay + tail。
+1. `/api/mock-ai/runs`：异步创建运行，立即返回 `runId`。
+2. `/api/mock-ai/runs/{runId}/events`：SSE 事件流，支持重连后的 replay + tail。
 3. `orchestrator`：步骤状态机、重试策略、工具调用决策。
 4. `mcp-client`：与 Java MCP 协议通信、异常映射、幂等请求头传递。
 
@@ -111,8 +111,8 @@ tags:
 2. Java tool registry（工具注册与查找能力）。
 3. Java `authz-lite`（轻量授权校验链路）。
 4. Java dispatcher（统一调度与执行入口）。
-5. Java `ai.tool.invoke` 日志（工具调用审计关键埋点）。
-6. Python `/ai/runs` + SSE 事件流接口骨架。
+5. Java `tool_invoke_audit` 日志（工具调用审计关键埋点）。
+6. Python `/api/mock-ai/runs` + SSE 事件流接口骨架。
 7. Python MCP client（控制平面到执行平面的协议桥接）。
 
 这意味着架构重构不是“纸面设计”，而是已经完成了核心骨架打通，后续重点转向稳定性与规范化。

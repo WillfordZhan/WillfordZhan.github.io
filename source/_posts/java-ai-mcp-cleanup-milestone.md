@@ -38,7 +38,7 @@ tags:
 已执行编译验证命令并通过：
 
 ```bash
-mvn -pl ruoyi-admin -am -DskipTests compile
+mvn -pl sample-admin -am -DskipTests compile
 ```
 
 这说明本次“配置 + 依赖”清理在当前里程碑范围内未引入编译级回归。

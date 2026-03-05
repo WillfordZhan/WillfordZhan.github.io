@@ -176,7 +176,7 @@ http://127.0.0.1:19002/mock-service
 如果要真机联调，应该改成你电脑的局域网 IP，比如：
 
 ```text
-http://192.168.0.23:19002/mock-service
+http://<你的局域网IP>:19002/mock-service
 ```
 
 同时保证：

@@ -21,11 +21,11 @@ tags:
 1. Java 成为 AI Gateway 统一入口：
 - 前端不再直连 Python，而是走 `/api/mock-ai/*`。
 - Java 在转发到 Python 前注入两类内部头：
-  - `X-AI-GW-TOKEN`
-  - `X-AI-BIZ-CONTEXT`（签名业务上下文，包含 `userId/tenantDeptId/traceId/iat/exp` 等）
+  - `X-INTERNAL-GW-TOKEN`
+  - `X-INTERNAL-BIZ-CONTEXT`（签名业务上下文，包含 `user_scope/org_scope/trace_id/iat/exp` 等）
 
 2. Python 新增并强制执行网关鉴权中间件：
-- 所有 `/mock-ai/*` 业务接口默认需要 `X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT`。
+- 所有 `/mock-ai/*` 业务接口默认需要 `X-INTERNAL-GW-TOKEN + X-INTERNAL-BIZ-CONTEXT`。
 - 通过 HMAC 校验上下文签名，并校验时间窗口（`iat/exp` + `AI_GATEWAY_CLOCK_SKEW_SECONDS`）。
 - 鉴权通过后将上下文写入 `request.state.auth_context`，用于 run owner 与工具上下文注入。
 
@@ -38,7 +38,7 @@ tags:
 ```mermaid
 flowchart LR
   FE[assistant.html / assistant.js] -->|/api/mock-ai/* + Bearer| JGW[Java AI Gateway]
-  JGW -->|X-AI-GW-TOKEN + X-AI-BIZ-CONTEXT| PY[Python Control Plane]
+  JGW -->|X-INTERNAL-GW-TOKEN + X-INTERNAL-BIZ-CONTEXT| PY[Python Control Plane]
   PY --> MCP[Java MCP tools/list tools/call]
   PY --> LLM[Qwen]
   PY --> SSE[SSE Events]
@@ -51,7 +51,7 @@ flowchart LR
 ## 联调排障发现（重点）
 
 1. 无签名头直连 Python 会被拒绝  
-现象：`401`，提示缺少 `X-AI-GW-TOKEN` 和 `X-AI-BIZ-CONTEXT`。  
+现象：`401`，提示缺少 `X-INTERNAL-GW-TOKEN` 和 `X-INTERNAL-BIZ-CONTEXT`。  
 结论：符合预期，防止前端或外部直接绕过网关调用。
 
 2. 签名或 token 不一致会 401  
@@ -71,7 +71,7 @@ flowchart LR
 ### 1) Python 单测
 
 ```bash
-cd ~/Desktop/Work/sample_ai_service
+cd ~/Desktop/Work/sample-control-plane
 pytest -q tests/test_runs.py tests/test_sqlite_store.py tests/test_assistant_page.py
 ```
 
@@ -100,7 +100,7 @@ curl -sS -X POST 'http://127.0.0.1:18000/api/mock-ai/runs' \
 
 ## 已知 caveats
 
-- `AI_ALLOW_LEGACY_AUTH` 仅建议迁移期临时开启，长期应关闭，避免回退到明文 legacy 头。
+- `ALLOW_LEGACY_AUTH` 仅建议迁移期临时开启，长期应关闭，避免回退到明文 legacy 头。
 - 若 Java 代理层未透传 `Last-Event-ID`，SSE 断线续传能力会受限。
 - 网关签名上下文需统一编码与签名算法（当前为 `v1.<payload_b64url>.<sig_b64url>` 约定），任一端改动都必须同步联调。
 - 调试时优先查看 Python 返回的 401 明细文案，可快速判断是 token、签名、格式还是时钟问题。

@@ -43,16 +43,16 @@ tags:
 
 ## 3) 关键代码路径（带文件路径）
 
-- `app/orchestration/intent_router.py`
-- `app/orchestration/policy_engine.py`
-- `app/orchestration/strategies.py`
-- `app/orchestration/runtime_guard.py`
-- `app/orchestration/eval_loop.py`
-- `app/orchestration/types.py`
-- `app/orchestrator.py`
-- `tests/orchestrator/test_intent_policy.py`
-- `tests/orchestrator/test_strategies.py`
-- `tests/orchestrator/test_orchestrator_integration.py`
+- `app/strategy_runtime/intent_router.py`
+- `app/strategy_runtime/policy_engine.py`
+- `app/strategy_runtime/strategies.py`
+- `app/strategy_runtime/runtime_guard.py`
+- `app/strategy_runtime/eval_loop.py`
+- `app/strategy_runtime/types.py`
+- `app/runtime_engine.py`
+- `tests/strategy_runtime/test_intent_policy.py`
+- `tests/strategy_runtime/test_strategies.py`
+- `tests/strategy_runtime/test_runtime_integration.py`
 
 ## 4) 行为兼容性说明
 
