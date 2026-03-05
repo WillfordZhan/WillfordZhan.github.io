@@ -19,29 +19,29 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：&#x2F;api&#x2F;mock-ai&#x2F;runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Poli">
+    <meta name="description" content="这周把一条很“能跑但不优雅”的链路，改成了真正可恢复的人在回路（HITL）语义。 一句话版本：  以前：clarification_needed -&gt; final，一轮结束，下一轮靠外部再喂输入，图内语义断开。 现在：clarify 节点内 interrupt(payload) 挂起，用户补充后 Command(resume&#x3D;...) 继续执行，图内闭环。  下面按工程复盘写清楚：问题是什么">
 <meta property="og:type" content="article">
-<meta property="og:title" content="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/25/react-orchestrator-qa/index.html">
+<meta property="og:title" content="LangGraph HITL 重构复盘：从一次性澄清到可恢复编排">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/langgraph-hitl/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。 背景当前链路已经可用：&#x2F;api&#x2F;mock-ai&#x2F;runs + SSE + Tool Call。但意图层的主要问题是：  路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。 Poli">
+<meta property="og:description" content="这周把一条很“能跑但不优雅”的链路，改成了真正可恢复的人在回路（HITL）语义。 一句话版本：  以前：clarification_needed -&gt; final，一轮结束，下一轮靠外部再喂输入，图内语义断开。 现在：clarify 节点内 interrupt(payload) 挂起，用户补充后 Command(resume&#x3D;...) 继续执行，图内闭环。  下面按工程复盘写清楚：问题是什么">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-25T10:42:15.000Z">
-<meta property="article:modified_time" content="2026-03-05T17:29:55.315Z">
+<meta property="article:published_time" content="2026-03-05T17:11:48.000Z">
+<meta property="article:modified_time" content="2026-03-05T17:29:55.314Z">
 <meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="LangGraph">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="ReAct">
-<meta property="article:tag" content="Orchestrator">
-<meta property="article:tag" content="AI工程">
-<meta property="article:tag" content="意图识别">
-<meta property="article:tag" content="Tool Calling">
+<meta property="article:tag" content="复盘">
+<meta property="article:tag" content="编排">
+<meta property="article:tag" content="LangChain">
+<meta property="article:tag" content="HITL">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要 - 味儿福德詹的小站</title>
+  <title>LangGraph HITL 重构复盘：从一次性澄清到可恢复编排 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -219,7 +219,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要"></span>
+            <span id="subtitle" data-typed-text="LangGraph HITL 重构复盘：从一次性澄清到可恢复编排"></span>
           
         </div>
 
@@ -230,8 +230,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-25 18:42" pubdate>
-          2026年2月25日 晚上
+        <time datetime="2026-03-06 01:11" pubdate>
+          2026年3月6日 凌晨
         </time>
       </span>
     
@@ -242,7 +242,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          995 字
+          1.7k 字
         
       </span>
     
@@ -253,7 +253,7 @@
         
         
         
-          9 分钟
+          14 分钟
         
       </span>
     
@@ -299,90 +299,136 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</h1>
+            <h1 id="seo-header">LangGraph HITL 重构复盘：从一次性澄清到可恢复编排</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇记录来自一次真实的架构评审：我们发现当前 Orchestrator 在意图识别阶段还偏“query直通”，导致后续策略选择和工具调用容易偏离用户真实意图。本文沉淀核心踩坑、关键 QA 结论和可执行改造路径。</p>
-<h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>当前链路已经可用：<code>/api/mock-ai/runs</code> + SSE + Tool Call。但意图层的主要问题是：</p>
+                <p>这周把一条很“能跑但不优雅”的链路，改成了真正可恢复的人在回路（HITL）语义。</p>
+<p>一句话版本：</p>
+<ul>
+<li>以前：<code>clarification_needed -&gt; final</code>，一轮结束，下一轮靠外部再喂输入，图内语义断开。</li>
+<li>现在：<code>clarify 节点内 interrupt(payload)</code> 挂起，用户补充后 <code>Command(resume=...)</code> 继续执行，图内闭环。</li>
+</ul>
+<p>下面按工程复盘写清楚：问题是什么、改了什么、为什么有效、还有什么坑。</p>
+<h2 id="背景：系统在“会聊”但还不“会等人”"><a href="#背景：系统在“会聊”但还不“会等人”" class="headerlink" title="背景：系统在“会聊”但还不“会等人”"></a>背景：系统在“会聊”但还不“会等人”</h2><p>我们这套控制平面是 FastAPI + LangGraph 单轨编排，核心流程是：</p>
 <ol>
-<li>路由以规则&#x2F;关键词为主，语义理解和槽位抽取不足。</li>
-<li>Policy 更像静态映射，不是执行闸门。</li>
-<li>React 执行层仍可能从原始 query 反向 parse 工具调用。</li>
-<li>Tool 成功返回后，缺少统一 Verify 防线。</li>
+<li><code>bootstrap</code> 拉上下文与 tools。</li>
+<li><code>plan</code> 让 LLM 决策 <code>CALL_TOOL | CLARIFY | RESPOND</code>。</li>
+<li><code>tool_call</code> 执行工具。</li>
+<li><code>chat/clarify</code> 收口回答。</li>
 </ol>
-<h2 id="踩坑记录"><a href="#踩坑记录" class="headerlink" title="踩坑记录"></a>踩坑记录</h2><h3 id="坑1：把“路由命中”当成“意图识别完成”"><a href="#坑1：把“路由命中”当成“意图识别完成”" class="headerlink" title="坑1：把“路由命中”当成“意图识别完成”"></a>坑1：把“路由命中”当成“意图识别完成”</h3><p><code>tool:xxx &#123;json&#125;</code> 命中只能说明格式命中，不代表用户任务真正可执行。现实里经常出现：</p>
+<p>早期问题不在“能不能回答”，而在“澄清是不是一等公民”——</p>
 <ul>
-<li>参数不全（缺设备、时间范围）</li>
-<li>参数不合法（schema 不匹配）</li>
-<li>意图冲突（用户其实想“分析原因”，不是“直接执行某工具”）</li>
+<li>澄清路径本质是一次性结束，语义上更像“客服已结束本次工单，请重新提交”。</li>
+<li>在真实多轮业务里，用户补一句参数就该继续，而不是重新开启半条流程。</li>
 </ul>
-<p>结论：必须输出结构化理解对象，而不是只输出一个策略枚举。</p>
-<h3 id="坑2：把策略选择完全交给模型"><a href="#坑2：把策略选择完全交给模型" class="headerlink" title="坑2：把策略选择完全交给模型"></a>坑2：把策略选择完全交给模型</h3><p>如果没有代码层 Policy Gate，模型就既当“语义理解者”又当“执行裁判”。在工业场景这会带来权限、越权、误执行风险。</p>
-<p>结论：让模型决定“可能是什么”，让代码决定“能不能做”。</p>
-<h3 id="坑3：把-Observation-当-Verify"><a href="#坑3：把-Observation-当-Verify" class="headerlink" title="坑3：把 Observation 当 Verify"></a>坑3：把 Observation 当 Verify</h3><p>拿到工具返回（Observation）不等于结果可用。常见失败：</p>
+<h2 id="最近几次关键提交（按因果顺序）"><a href="#最近几次关键提交（按因果顺序）" class="headerlink" title="最近几次关键提交（按因果顺序）"></a>最近几次关键提交（按因果顺序）</h2><h3 id="1-先把工具调用契约理顺（tool-calls-统一语义）"><a href="#1-先把工具调用契约理顺（tool-calls-统一语义）" class="headerlink" title="1) 先把工具调用契约理顺（tool_calls 统一语义）"></a>1) 先把工具调用契约理顺（<code>tool_calls</code> 统一语义）</h3><p>相关提交：<code>505d754</code>、<code>d3c63c6</code></p>
+<p>改动点：</p>
 <ul>
-<li>返回缺关键字段</li>
-<li>结果与上下文不一致</li>
-<li>数据跨租户越权</li>
+<li>统一 planner 输出为 <code>tool_calls[]</code>，不再混用单 tool 字段和数组字段。</li>
+<li>对应测试补齐，避免“看起来没错，实际分支漏处理”。</li>
 </ul>
-<p>结论：Observation 是事实输入，Verify 是规则判定，必须分开。</p>
-<h3 id="坑4：盲目要求输出完整-CoT"><a href="#坑4：盲目要求输出完整-CoT" class="headerlink" title="坑4：盲目要求输出完整 CoT"></a>坑4：盲目要求输出完整 CoT</h3><p>我们讨论后明确：可让模型进行内部推理，但不建议把原始 CoT 作为产品输出，也不建议把长 CoT 作为编排决策主输入。</p>
-<p>结论：编排层只消费结构化字段 + 简短 rationale。</p>
-<h2 id="QA-讨论结论"><a href="#QA-讨论结论" class="headerlink" title="QA 讨论结论"></a>QA 讨论结论</h2><h3 id="Q1：Understand-和-Decide-能不能合并？"><a href="#Q1：Understand-和-Decide-能不能合并？" class="headerlink" title="Q1：Understand 和 Decide 能不能合并？"></a>Q1：Understand 和 Decide 能不能合并？</h3><p>可以在“一次 LLM 调用”中产出理解和候选动作，但架构职责不建议合并。</p>
+<p>收益：</p>
 <ul>
-<li>Understand：语义解析与结构化产出（intent、slots、confidence）</li>
-<li>Decide：代码层 Policy 决策（execute&#x2F;clarify&#x2F;fallback&#x2F;deny）</li>
+<li>工具执行入口变成统一批处理语义。</li>
+<li>后续做校验、重试、聚合不再分叉写两套逻辑。</li>
 </ul>
-<h3 id="Q2：Reasoning-输入输出到底是什么？"><a href="#Q2：Reasoning-输入输出到底是什么？" class="headerlink" title="Q2：Reasoning 输入输出到底是什么？"></a>Q2：Reasoning 输入输出到底是什么？</h3><p>推荐输入：</p>
+<h3 id="2-参数治理从“猜一猜”变“按-schema-说话”"><a href="#2-参数治理从“猜一猜”变“按-schema-说话”" class="headerlink" title="2) 参数治理从“猜一猜”变“按 schema 说话”"></a>2) 参数治理从“猜一猜”变“按 schema 说话”</h3><p>相关提交：<code>a8a04b6</code>、<code>42b1f5d</code></p>
+<p>改动点：</p>
 <ul>
-<li>用户 query</li>
-<li>历史上下文摘要</li>
-<li>工具描述+参数 schema</li>
-<li>当前运行状态（重试次数、预算、前序失败）</li>
-<li>策略约束（权限、风险规则）</li>
+<li>引入 schema 驱动的参数归一化与澄清策略（缺参、未知参、不可用工具统一处理）。</li>
+<li>增加 HTTP -&gt; LangChain <code>StructuredTool</code> 适配能力，为后续 ToolNode 化打基础。</li>
 </ul>
-<p>推荐输出（强结构化）：</p>
+<p>收益：</p>
 <ul>
-<li><code>intent</code></li>
-<li><code>confidence</code></li>
-<li><code>candidates</code></li>
-<li><code>slots</code></li>
-<li><code>missing_slots</code></li>
-<li><code>next_action</code></li>
-<li><code>tool_plan</code></li>
-<li><code>clarification_question</code></li>
-<li><code>brief_rationale</code></li>
+<li>错误路径可解释（不是“模型抽风”，而是“参数不满足契约”）。</li>
+<li>澄清文案可脱敏，不把内部字段名直接甩给用户。</li>
 </ul>
-<h3 id="Q3：Verify-是不是-Observation？"><a href="#Q3：Verify-是不是-Observation？" class="headerlink" title="Q3：Verify 是不是 Observation？"></a>Q3：Verify 是不是 Observation？</h3><p>不是。</p>
+<h3 id="3-稳定性加固：事件幂等-解析恢复"><a href="#3-稳定性加固：事件幂等-解析恢复" class="headerlink" title="3) 稳定性加固：事件幂等 + 解析恢复"></a>3) 稳定性加固：事件幂等 + 解析恢复</h3><p>相关提交：<code>c3a54ce</code>、<code>72e5e5d</code></p>
+<p>改动点：</p>
 <ul>
-<li>Observation：工具执行后的原始返回</li>
-<li>Verify：对返回做完整性&#x2F;一致性&#x2F;权限&#x2F;风险校验</li>
+<li>增加通用事件幂等策略，修复 <code>conversation_started</code> 重复写入。</li>
+<li>Plan 解析失败增加恢复策略，不直接把一切异常都归因到“模型不可用”。</li>
 </ul>
-<p>ReAct 推荐循环：<br><code>Reason -&gt; Act -&gt; Observe -&gt; Verify -&gt; (继续/结束)</code></p>
-<h3 id="Q4：槽位缺失怎么处理？"><a href="#Q4：槽位缺失怎么处理？" class="headerlink" title="Q4：槽位缺失怎么处理？"></a>Q4：槽位缺失怎么处理？</h3><p>缺关键槽位时不执行工具，进入澄清：</p>
+<p>收益：</p>
 <ul>
-<li>触发 <code>clarification_needed</code></li>
-<li>一次只问 1-2 个关键问题</li>
-<li>用户补充后合并上下文再推理</li>
-<li>超过最大澄清轮次则 fallback 或人工接管</li>
+<li>SSE 时间线更干净，可观测性提升。</li>
+<li>出错时可恢复可降级，减少“一次解析失败导致整轮崩掉”。</li>
 </ul>
-<h3 id="Q5：Qwen-是否建议输出-CoT？"><a href="#Q5：Qwen-是否建议输出-CoT？" class="headerlink" title="Q5：Qwen 是否建议输出 CoT？"></a>Q5：Qwen 是否建议输出 CoT？</h3><p>结论：可以启用 thinking 用于内部推理&#x2F;调试，但默认不把原始 CoT 回给用户。系统对外以结构化结果和简短解释为主。</p>
-<h2 id="最终落地优先级（先做这4项）"><a href="#最终落地优先级（先做这4项）" class="headerlink" title="最终落地优先级（先做这4项）"></a>最终落地优先级（先做这4项）</h2><ol>
-<li>ReactStrategy 不再从 query 二次 parse tool call，只接受结构化 <code>tool_call</code>。</li>
-<li>PolicyEngine 增加 <code>action</code>（<code>execute/clarify/fallback/deny</code>）与阈值配置。</li>
-<li>新增 <code>clarification_needed</code> 事件，承接缺槽位追问流程。</li>
-<li>增加 Verify 最小闭环（schema + 权限 + 空结果 三条硬规则）。</li>
+<h3 id="3-5-Clarify-专项优化（这部分单独记）"><a href="#3-5-Clarify-专项优化（这部分单独记）" class="headerlink" title="3.5) Clarify 专项优化（这部分单独记）"></a>3.5) Clarify 专项优化（这部分单独记）</h3><p>相关提交：<code>72e5e5d</code>（<code>fix(langgraph): 增强Plan解析恢复并统一CLARIFY/RESPOND收敛节点</code>）</p>
+<p>这次 Clarify 的重点不是“多问一句”，而是把 Clarify 从一个零散分支变成编排里的标准出口：</p>
+<ul>
+<li>planner 输出不稳定时，先做结构恢复，再统一落到 <code>CLARIFY</code> 或 <code>RESPOND</code>。</li>
+<li><code>react_plan</code> 事件里记录 <code>parseStatus</code>、<code>validationErrors</code>，方便线上定位“为什么进了澄清”。</li>
+<li>Clarify 文案走统一策略，避免不同节点各说各话。</li>
+</ul>
+<p>为什么这一步很值：<br>以前排障经常出现“用户看到澄清，研发不知道是缺参、解析失败还是工具不可用”。<br>现在至少从事件层就能直观看到分类，运维和研发都省掉很多猜谜时间。</p>
+<h3 id="4-HITL-关键落地：从“澄清即结束”到“澄清即挂起”"><a href="#4-HITL-关键落地：从“澄清即结束”到“澄清即挂起”" class="headerlink" title="4) HITL 关键落地：从“澄清即结束”到“澄清即挂起”"></a>4) HITL 关键落地：从“澄清即结束”到“澄清即挂起”</h3><p>相关提交：<code>796de41</code>、<code>f7bfbb0</code>、<code>934b34e</code></p>
+<p>改动点：</p>
+<ul>
+<li><code>clarify</code> 节点内统一做两件事：<ul>
+<li>发 <code>clarification_needed</code></li>
+<li>调用 <code>interrupt(payload)</code></li>
+</ul>
+</li>
+<li>恢复时由 orchestrator 走 <code>Command(resume=query)</code>，图继续跑，不重新拼“伪首轮”。</li>
+<li>抽 <code>graph_config(conversation_id)</code>，收口 thread_id 配置。</li>
+<li><code>_is_waiting_for_human</code> 仅看 snapshot task 的 <code>interrupts</code>，不再靠 <code>next_nodes</code> 宽判断。</li>
+</ul>
+<p>收益：</p>
+<ul>
+<li>HITL 语义和状态流在图内闭环。</li>
+<li>代码层减少外部补事件逻辑，维护成本下降。</li>
+<li>恢复判定更稳，不会把普通 pending 状态误判为“正在等人”。</li>
+</ul>
+<h2 id="这次改造的“Pro”总结"><a href="#这次改造的“Pro”总结" class="headerlink" title="这次改造的“Pro”总结"></a>这次改造的“Pro”总结</h2><h3 id="Pro-1：语义正确性提升"><a href="#Pro-1：语义正确性提升" class="headerlink" title="Pro 1：语义正确性提升"></a>Pro 1：语义正确性提升</h3><p><code>CLARIFY</code> 不再是假结束，而是可恢复暂停。</p>
+<p>这点很关键：复杂业务里“等用户一句话”是主流程，不是异常流程。</p>
+<h3 id="Pro-2：状态边界更清晰"><a href="#Pro-2：状态边界更清晰" class="headerlink" title="Pro 2：状态边界更清晰"></a>Pro 2：状态边界更清晰</h3><ul>
+<li>图状态（interrupt&#x2F;resume）归 LangGraph。</li>
+<li>会话事件（SSE 可见性、审计）归 store&#x2F;event_streamer。</li>
+</ul>
+<p>边界清晰后，排障时不会在“是图的问题还是事件的问题”上兜圈子。</p>
+<h3 id="Pro-3：幂等和恢复更工程化"><a href="#Pro-3：幂等和恢复更工程化" class="headerlink" title="Pro 3：幂等和恢复更工程化"></a>Pro 3：幂等和恢复更工程化</h3><ul>
+<li>事件去重策略化。</li>
+<li>中断后状态清理更明确。</li>
+<li>恢复入口统一（<code>Command(resume=...)</code>）。</li>
+</ul>
+<p>这三件事叠加，线上“偶发重复&#x2F;偶发卡住”的排查成本会明显下降。</p>
+<h3 id="Pro-4：为后续增强预留了正确接缝"><a href="#Pro-4：为后续增强预留了正确接缝" class="headerlink" title="Pro 4：为后续增强预留了正确接缝"></a>Pro 4：为后续增强预留了正确接缝</h3><p>目前已经具备继续演进的前提：</p>
+<ul>
+<li>checkpoint 持久化策略</li>
+<li>Tool schema 闭环</li>
+<li>ToolNode &#x2F; 多节点子图化</li>
+</ul>
+<p>不是“以后再重构一轮”，而是“在当前结构上可持续迭代”。</p>
+<h2 id="真实联调结果：通过主链路，也暴露了环境问题"><a href="#真实联调结果：通过主链路，也暴露了环境问题" class="headerlink" title="真实联调结果：通过主链路，也暴露了环境问题"></a>真实联调结果：通过主链路，也暴露了环境问题</h2><p>我们把典型用例扩展到中断恢复场景（Case11：create -&gt; interrupt -&gt; chat resume），联调现象：</p>
+<ul>
+<li>创建会话成功。</li>
+<li>interrupt 成功并返回 <code>interrupted=true</code>。</li>
+<li>chat 继续受理成功。</li>
+<li>事件链出现 <code>conversation_interrupted</code>，说明 HITL 路径已被触发。</li>
+</ul>
+<p>同时发现一个额外缺陷：</p>
+<ul>
+<li>恢复后出现 <code>conversation_failed</code>，错误为 <code>[Errno 2] No such file or directory</code>。</li>
+</ul>
+<p>这个错误不是 HITL 语义本身的问题，更像运行环境依赖缺失（文件&#x2F;路径配置）导致的后续节点失败。它被记录为独立环境问题处理，不和本次语义改造混在一起。</p>
+<h2 id="关键代码片段（简化示意）"><a href="#关键代码片段（简化示意）" class="headerlink" title="关键代码片段（简化示意）"></a>关键代码片段（简化示意）</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># clarify node</span><br><span class="hljs-keyword">await</span> emit_event(<span class="hljs-string">&quot;clarification_needed&quot;</span>, &#123;<span class="hljs-string">&quot;question&quot;</span>: question&#125;)<br>resume_text = interrupt(&#123;<span class="hljs-string">&quot;question&quot;</span>: question&#125;)<br><span class="hljs-keyword">return</span> &#123;<span class="hljs-string">&quot;query&quot;</span>: resume_text&#125;<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># orchestrator</span><br><span class="hljs-keyword">if</span> is_waiting_for_human(conversation_id):<br>    graph_input = Command(resume=query)<br><span class="hljs-keyword">else</span>:<br>    graph_input = &#123;<span class="hljs-string">&quot;conversation_id&quot;</span>: conversation_id, <span class="hljs-string">&quot;query&quot;</span>: query&#125;<br><br>result = <span class="hljs-keyword">await</span> graph.ainvoke(graph_input, config=graph_config(conversation_id))<br></code></pre></td></tr></table></figure>
+
+<h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="Q1：为什么不在-orchestrator-里补发澄清事件？"><a href="#Q1：为什么不在-orchestrator-里补发澄清事件？" class="headerlink" title="Q1：为什么不在 orchestrator 里补发澄清事件？"></a>Q1：为什么不在 orchestrator 里补发澄清事件？</h3><p>因为这会让语义跨层：图在暂停，控制层又补业务事件，边界变混乱。最稳妥是把“澄清+挂起”原子化放在 <code>clarify</code> 节点里。</p>
+<h3 id="Q2：为什么恢复判定不用-next-nodes？"><a href="#Q2：为什么恢复判定不用-next-nodes？" class="headerlink" title="Q2：为什么恢复判定不用 next_nodes？"></a>Q2：为什么恢复判定不用 <code>next_nodes</code>？</h3><p><code>next_nodes</code> 只代表“还有待执行节点”，不等于“在等人”。判断 HITL 等待应看任务是否带 interrupt 标记。</p>
+<h3 id="Q3：这套改造是不是只适配当前-case？"><a href="#Q3：这套改造是不是只适配当前-case？" class="headerlink" title="Q3：这套改造是不是只适配当前 case？"></a>Q3：这套改造是不是只适配当前 case？</h3><p>不是。它依赖的是 LangGraph 的通用语义（interrupt&#x2F;resume&#x2F;checkpoint），不绑定具体 query 文本或某个业务字段。</p>
+<h2 id="收尾"><a href="#收尾" class="headerlink" title="收尾"></a>收尾</h2><p>这轮改造最有价值的地方，不是“又多了几个节点”，而是把编排从“能跑”推进到“可恢复、可审计、可扩展”。</p>
+<p>如果你也在做多轮工具型 Agent，建议优先把这三件事做好：</p>
+<ol>
+<li>结构化输出契约稳定。</li>
+<li>schema 驱动参数治理。</li>
+<li>HITL 走图内 interrupt&#x2F;resume，不走外部补丁流。</li>
 </ol>
-<h2 id="建议迭代顺序"><a href="#建议迭代顺序" class="headerlink" title="建议迭代顺序"></a>建议迭代顺序</h2><ul>
-<li>Iter A：先扩结构（不改行为）</li>
-<li>Iter B：Policy 阀门化 + 澄清</li>
-<li>Iter C：React 去 query 直通</li>
-<li>Iter D：Verify 校验器</li>
-</ul>
-<p>这样可以在不打断现有可用链路的前提下，逐步逼近“可解释、可治理、可回滚”的 ReAct 编排架构。</p>
-<h2 id="复盘一句话"><a href="#复盘一句话" class="headerlink" title="复盘一句话"></a>复盘一句话</h2><p>MVP 能跑是起点，生产级 ReAct 的关键不是“让模型多想”，而是把“理解、决策、执行、校验”边界拉直，并让代码掌握最终执行权。</p>
+<p>踩坑是常态，但把坑做成公共能力，下一次就不是坑了。</p>
 
                 
               </div>
@@ -416,17 +462,17 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+      
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+        <a href="/tags/%E5%A4%8D%E7%9B%98/" class="print-no-link">#复盘</a>
       
-        <a href="/tags/Orchestrator/" class="print-no-link">#Orchestrator</a>
+        <a href="/tags/%E7%BC%96%E6%8E%92/" class="print-no-link">#编排</a>
       
-        <a href="/tags/AI%E5%B7%A5%E7%A8%8B/" class="print-no-link">#AI工程</a>
+        <a href="/tags/LangChain/" class="print-no-link">#LangChain</a>
       
-        <a href="/tags/%E6%84%8F%E5%9B%BE%E8%AF%86%E5%88%AB/" class="print-no-link">#意图识别</a>
-      
-        <a href="/tags/Tool-Calling/" class="print-no-link">#Tool Calling</a>
+        <a href="/tags/HITL/" class="print-no-link">#HITL</a>
       
     </div>
   
@@ -438,8 +484,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>ReAct Orchestrator 意图识别升级：踩坑与 QA 纪要</div>
-      <div>https://willfordzhan.github.io/2026/02/25/react-orchestrator-qa/</div>
+      <div>LangGraph HITL 重构复盘：从一次性澄清到可恢复编排</div>
+      <div>https://willfordzhan.github.io/2026/03/05/langgraph-hitl/</div>
     </div>
     <div class="license-meta">
       
@@ -451,7 +497,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月25日</div>
+          <div>2026年3月6日</div>
         </div>
       
       
@@ -483,18 +529,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/25/ai-llm-react/" title="AI控制面生产化改造：LLM意图路由与ReAct执行边界">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">AI控制面生产化改造：LLM意图路由与ReAct执行边界</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/21/java-python-mcp-401-token/" title="Java/Python MCP 401 排查里程碑：Token 对齐与方案简化">
-                        <span class="hidden-mobile">Java/Python MCP 401 排查里程碑：Token 对齐与方案简化</span>
+                      <a href="/2026/03/05/langgraph-star/" title="LangGraph 编排重构实录：拆编排不拆对外契约（STAR）">
+                        <span class="hidden-mobile">LangGraph 编排重构实录：拆编排不拆对外契约（STAR）</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
