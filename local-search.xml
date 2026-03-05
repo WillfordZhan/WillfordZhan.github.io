@@ -4,6 +4,31 @@
   
   
   <entry>
+    <title>LangGraph 编排清理复盘：一次最小增量重构（STAR）</title>
+    <link href="/2026/03/05/langgraph-star/"/>
+    <url>/2026/03/05/langgraph-star/</url>
+    
+    <content type="html"><![CDATA[<p>近期对 <code>ats_iot_ai</code> 的 LangGraph 编排层做了一轮“小步快跑”的整理。目标不是大改架构，而是把最容易反复出问题的边界先收紧。</p><h2 id="Situation"><a href="#Situation" class="headerlink" title="Situation"></a>Situation</h2><p>改造前的主要痛点集中在三处：</p><ol><li>plan 解析链路偏脆弱：对模型输出格式依赖较强，非标准结构时兜底不清晰。</li><li>节点输出不一致：不同节点返回 patch 形态不统一，状态合并逻辑分散，排查回归成本高。</li><li>tool schema 校验偏弱：unknown&#x2F;missing args 场景下行为不够显式，容易出现“调用成功但语义错误”的隐患。</li></ol><h2 id="Task"><a href="#Task" class="headerlink" title="Task"></a>Task</h2><p>约束是“最小增量重构”：</p><ol><li>不引入大规模接口破坏，优先可回滚、可验证的小提交。</li><li>同时提升三件事：简单性（代码路径更少）、健壮性（异常输入有明确 fallback）、可扩展性（后续新增工具&#x2F;节点不需要复制粘贴式改造）。</li><li>保持可观测性，确保失败原因可定位。</li></ol><h2 id="Action"><a href="#Action" class="headerlink" title="Action"></a>Action</h2><p>按提交拆分，逐步落地。</p><h3 id="1-refactor-langgraph-unify-node-state-patch-outputs"><a href="#1-refactor-langgraph-unify-node-state-patch-outputs" class="headerlink" title="1) refactor(langgraph): unify node state patch outputs"></a>1) <code>refactor(langgraph): unify node state patch outputs</code></h3><p>核心动作：统一节点 state patch 输出契约。</p><ul><li>在编排相关实现中收敛 patch 返回结构，减少“节点各自定义”的分叉行为。</li><li>将状态合并规则集中化，避免散落在节点函数里的隐式 merge。</li><li>结果是：节点职责更单一，调试时只需对照统一 patch 约定。</li></ul><h3 id="2-refactor-langgraph-adopt-structured-plan-parser-and-tool-spec-normalization"><a href="#2-refactor-langgraph-adopt-structured-plan-parser-and-tool-spec-normalization" class="headerlink" title="2) refactor(langgraph): adopt structured plan parser and tool-spec normalization"></a>2) <code>refactor(langgraph): adopt structured plan parser and tool-spec normalization</code></h3><p>核心动作：替换解析轮子并补齐参数规范化。</p><ul><li>plan parser 切换到 <code>langchain_core</code> 的 <code>PydanticOutputParser</code>。</li><li>移除自定义 <code>structured_output</code> 轮子，降低维护成本与行为分歧。</li><li>增加 tool-spec normalization：对 unknown&#x2F;missing args 给出明确 fallback 规则，避免隐式吞错。</li></ul><p>文件级变更重点（按职责）：</p><ul><li>计划解析模块：引入结构化 parser，统一解析入口与异常分支。</li><li>tool schema&#x2F;规范化模块：补充参数归一化与缺省处理逻辑。</li><li>orchestrator 相关模块：接入新的 parser 与规范化结果，统一运行时行为。</li></ul><h3 id="3-test-langgraph-cover-structured-parsing-and-tool-validation-fallbacks"><a href="#3-test-langgraph-cover-structured-parsing-and-tool-validation-fallbacks" class="headerlink" title="3) test(langgraph): cover structured parsing and tool validation fallbacks"></a>3) <code>test(langgraph): cover structured parsing and tool validation fallbacks</code></h3><p>核心动作：把关键回归点落到测试。</p><ul><li>新增&#x2F;完善 <code>test_plan_schema.py</code>：覆盖结构定义与边界校验。</li><li>新增&#x2F;完善 <code>test_plan_parser.py</code>：覆盖结构化解析成功与 fallback 分支。</li><li>新增&#x2F;完善 <code>test_orchestrator_langgraph.py</code>：覆盖 orchestrator 与 tool 校验联动行为。</li></ul><h2 id="Result"><a href="#Result" class="headerlink" title="Result"></a>Result</h2><ul><li><code>pytest</code> 结果：<code>39/39</code> 通过。</li><li>自定义解析轮子被移除，LangGraph 周边实现更贴近标准组件。</li><li>节点 patch 与 tool 参数处理更一致，后续排障与扩展成本下降。</li><li>失败路径更可解释，可观测性提升（能更快定位是解析问题还是 schema 问题）。</li></ul><h2 id="关键收益"><a href="#关键收益" class="headerlink" title="关键收益"></a>关键收益</h2><ol><li>降低认知负担：统一契约后，新增节点&#x2F;工具不必重复发明输出与校验逻辑。</li><li>降低回归风险：核心边界由测试覆盖，改动可快速验证。</li><li>降低维护成本：减少自研轮子，优先复用社区成熟能力。</li></ol><h2 id="后续可选增强"><a href="#后续可选增强" class="headerlink" title="后续可选增强"></a>后续可选增强</h2><ol><li>为 tool-spec normalization 增加结构化错误码，便于前端&#x2F;调用方做精细化提示。</li><li>在 orchestrator 增补按阶段打点指标（解析耗时、校验失败类型分布）。</li><li>为关键 fallback 增加快照型回归样例，降低未来重构时的行为漂移。</li></ol>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>LangGraph</tag>
+      
+      <tag>重构</tag>
+      
+      <tag>可维护性</tag>
+      
+      <tag>测试</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分</title>
     <link href="/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/"/>
     <url>/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/</url>
