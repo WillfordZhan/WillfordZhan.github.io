@@ -241,75 +241,6 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
-        <a href="/2026/03/05/langgraph-checkpoint/" target="_self">
-          LangGraph Checkpoint 改造复盘：从内存快照到可恢复执行
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/langgraph-checkpoint/" target="_self">
-        <div>
-          这次改造的目标很朴素：让编排流程别再“断电失忆”。 项目原来已经有 LangGraph thread_id，也已经把澄清流程做成了 interrupt&#x2F;resume 语义。但 checkpoint 用的是进程内内存 saver，服务重启后现场直接蒸发。于是用户问一句“继续”，系统看着你，内心是“我是谁我在哪”。 下面按 STAR 记录这次改造，顺便把关键 QA 和踩坑细节摊开讲清楚。 S
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-06 01:20" pubdate>
-              2026-03-06
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
-              <a href="/tags/Checkpoint/">#Checkpoint</a>
-            
-              <a href="/tags/STAR/">#STAR</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
         <a href="/2026/03/05/langgraph-hitl/" target="_self">
           LangGraph HITL 重构复盘：从一次性澄清到可恢复编排
         </a>
@@ -895,6 +826,54 @@
               <a href="/tags/Nacos/">#Nacos</a>
             
               <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91/">#本地开发</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
+        <a href="/2026/03/03/hbuilderx-uni-app/" target="_self">
+          HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/hbuilderx-uni-app/" target="_self">
+        <div>
+          这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  本机 Java 服务联调时报错：  1
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-03 10:56" pubdate>
+              2026-03-03
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/uni-app/">#uni-app</a>
+            
+              <a href="/tags/%E5%BE%AE%E4%BF%A1%E5%B0%8F%E7%A8%8B%E5%BA%8F/">#微信小程序</a>
+            
+              <a href="/tags/HBuilderX/">#HBuilderX</a>
+            
+              <a href="/tags/%E5%BE%AE%E4%BF%A1%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">#微信开发者工具</a>
+            
+              <a href="/tags/%E8%81%94%E8%B0%83/">#联调</a>
             
           </div>
         
