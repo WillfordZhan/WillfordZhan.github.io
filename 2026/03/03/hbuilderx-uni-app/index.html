@@ -27,7 +27,7 @@
 <meta property="og:description" content="这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  本机 Java 服务联调时报错：  1">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-03T02:56:55.000Z">
-<meta property="article:modified_time" content="2026-03-04T09:26:58.867Z">
+<meta property="article:modified_time" content="2026-03-05T03:48:31.752Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="uni-app">
 <meta property="article:tag" content="微信小程序">
@@ -409,7 +409,7 @@
 </ul>
 <p>因为对手机来说，<code>127.0.0.1</code> 指向的是手机自己，不是你电脑。</p>
 <p>如果要真机联调，应该改成你电脑的局域网 IP，比如：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">http://192.168.0.23:19002/mock-service<br></code></pre></td></tr></table></figure>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">http://&lt;你的局域网IP&gt;:19002/mock-service<br></code></pre></td></tr></table></figure>
 
 <p>同时保证：</p>
 <ul>

@@ -27,7 +27,7 @@
 <meta property="og:description" content="动态范式 Orchestrator 改造完成，本文记录本轮里程碑的目标、交付、兼容性与下一步计划。 1) 里程碑目标 将单路径编排升级为“按意图动态选择策略”的多范式执行框架。 在不破坏既有事件契约的前提下，引入 Plan-and-Solve &#x2F; ReAct &#x2F; Reflection 三类策略能力。 补齐可观测链路，支撑后续运行质量评估与策略演进。  2) 本次完成内容（按模块">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-02-20T16:19:23.000Z">
-<meta property="article:modified_time" content="2026-03-04T09:26:58.868Z">
+<meta property="article:modified_time" content="2026-03-05T03:48:31.753Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="MCP">
@@ -316,16 +316,16 @@
 <li>打通策略输出到 <code>tool_call/tool_result/final</code> 的统一落库路径，确保事件序列可重放、可追踪。</li>
 </ul>
 <h2 id="3-关键代码路径（带文件路径）"><a href="#3-关键代码路径（带文件路径）" class="headerlink" title="3) 关键代码路径（带文件路径）"></a>3) 关键代码路径（带文件路径）</h2><ul>
-<li><code>app/orchestration/intent_router.py</code></li>
-<li><code>app/orchestration/policy_engine.py</code></li>
-<li><code>app/orchestration/strategies.py</code></li>
-<li><code>app/orchestration/runtime_guard.py</code></li>
-<li><code>app/orchestration/eval_loop.py</code></li>
-<li><code>app/orchestration/types.py</code></li>
-<li><code>app/orchestrator.py</code></li>
-<li><code>tests/orchestrator/test_intent_policy.py</code></li>
-<li><code>tests/orchestrator/test_strategies.py</code></li>
-<li><code>tests/orchestrator/test_orchestrator_integration.py</code></li>
+<li><code>app/strategy_runtime/intent_router.py</code></li>
+<li><code>app/strategy_runtime/policy_engine.py</code></li>
+<li><code>app/strategy_runtime/strategies.py</code></li>
+<li><code>app/strategy_runtime/runtime_guard.py</code></li>
+<li><code>app/strategy_runtime/eval_loop.py</code></li>
+<li><code>app/strategy_runtime/types.py</code></li>
+<li><code>app/runtime_engine.py</code></li>
+<li><code>tests/strategy_runtime/test_intent_policy.py</code></li>
+<li><code>tests/strategy_runtime/test_strategies.py</code></li>
+<li><code>tests/strategy_runtime/test_runtime_integration.py</code></li>
 </ul>
 <h2 id="4-行为兼容性说明"><a href="#4-行为兼容性说明" class="headerlink" title="4) 行为兼容性说明"></a>4) 行为兼容性说明</h2><p>本次改造严格保留既有关键事件语义与可消费性，不破坏下游 SSE&#x2F;UI&#x2F;存储侧处理逻辑。保留事件包括：</p>
 <ul>

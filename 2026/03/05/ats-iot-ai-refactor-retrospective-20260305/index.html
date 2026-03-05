@@ -19,26 +19,26 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla">
+    <meta name="description" content="这篇文章复盘 ats_iot_ai 这一轮重构的关键路径，重点覆盖三部分：  重构记录（发生了什么、按什么顺序推进） 工程收益（稳定性、可维护性、协作成本） 风险与后续计划（哪些问题还在，下一步怎么收敛）  文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。 一、重构背景：为什么必须从“旧编排”走向节点化旧阶段的核心问题并不是“功能不工作”，而是“功">
 <meta property="og:type" content="article">
-<meta property="og:title" content="本地启动 iot-app 禁用 Kafka 配置实践">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/03/iot-app-kafka/index.html">
+<meta property="og:title" content="ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla">
+<meta property="og:description" content="这篇文章复盘 ats_iot_ai 这一轮重构的关键路径，重点覆盖三部分：  重构记录（发生了什么、按什么顺序推进） 工程收益（稳定性、可维护性、协作成本） 风险与后续计划（哪些问题还在，下一步怎么收敛）  文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。 一、重构背景：为什么必须从“旧编排”走向节点化旧阶段的核心问题并不是“功能不工作”，而是“功">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-03T09:20:27.000Z">
+<meta property="article:published_time" content="2026-03-05T02:35:00.000Z">
 <meta property="article:modified_time" content="2026-03-05T03:48:31.752Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="Java">
-<meta property="article:tag" content="Spring Boot">
-<meta property="article:tag" content="Kafka">
-<meta property="article:tag" content="Nacos">
-<meta property="article:tag" content="本地开发">
+<meta property="article:tag" content="LangGraph">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="ats_iot_ai">
+<meta property="article:tag" content="AI重构">
+<meta property="article:tag" content="复盘">
 <meta name="twitter:card" content="summary_large_image">
   
   
   
-  <title>本地启动 iot-app 禁用 Kafka 配置实践 - 味儿福德詹的小站</title>
+  <title>ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -216,7 +216,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="本地启动 iot-app 禁用 Kafka 配置实践"></span>
+            <span id="subtitle" data-typed-text="ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分"></span>
           
         </div>
 
@@ -227,8 +227,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-03 17:20" pubdate>
-          2026年3月3日 下午
+        <time datetime="2026-03-05 10:35" pubdate>
+          2026年3月5日 上午
         </time>
       </span>
     
@@ -239,7 +239,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.1k 字
+          1.5k 字
         
       </span>
     
@@ -250,7 +250,7 @@
         
         
         
-          10 分钟
+          13 分钟
         
       </span>
     
@@ -287,81 +287,153 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">本地启动 iot-app 禁用 Kafka 配置实践</h1>
+            <h1 id="seo-header">ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分</h1>
             
             
               <div class="markdown-body">
                 
-                <p>本地联调 <code>iot-app</code> 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。</p>
-<p>这次采用的做法是：保留 Nacos 配置加载，只在 <code>local</code> 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op <code>KafkaTemplate</code>，让依赖 <code>KafkaTemplate</code> 的业务 Bean 仍然可以正常注入。</p>
-<h2 id="问题背景"><a href="#问题背景" class="headerlink" title="问题背景"></a>问题背景</h2><p>一个典型的现象是：</p>
+                <p>这篇文章复盘 <code>ats_iot_ai</code> 这一轮重构的关键路径，重点覆盖三部分：</p>
+<ol>
+<li>重构记录（发生了什么、按什么顺序推进）</li>
+<li>工程收益（稳定性、可维护性、协作成本）</li>
+<li>风险与后续计划（哪些问题还在，下一步怎么收敛）</li>
+</ol>
+<p>文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。</p>
+<h2 id="一、重构背景：为什么必须从“旧编排”走向节点化"><a href="#一、重构背景：为什么必须从“旧编排”走向节点化" class="headerlink" title="一、重构背景：为什么必须从“旧编排”走向节点化"></a>一、重构背景：为什么必须从“旧编排”走向节点化</h2><p>旧阶段的核心问题并不是“功能不工作”，而是“功能能工作但工程不可持续”：</p>
 <ul>
-<li>应用本地启动时会从 Nacos 拉到 Kafka 地址</li>
-<li><code>@KafkaListener</code> 会尝试启动消费者</li>
-<li><code>KafkaTemplate</code> 相关 Bean 会按生产者配置初始化</li>
-<li>本地没有 Kafka 或不希望访问测试环境 Kafka 时，启动过程就容易卡住或报错</li>
+<li>编排主逻辑长期集中在单体 <code>orchestrator</code>，职责耦合（路由、护栏、提示词、记忆、工具调用）。</li>
+<li>兼容逻辑与新逻辑并存，随着需求增加，回归成本越来越高。</li>
+<li>会话存储早期有 Python 本地持久化路径，跨服务一致性和治理边界不够清晰。</li>
+<li>LLM 联调在不同启动方式下会出现配置路径漂移，导致“同代码、不同运行目录”行为不一致。</li>
 </ul>
-<p>如果项目里只是简单依赖了 <code>spring-kafka</code>，只关掉一个配置项往往不够，因为业务代码里通常已经直接注入了 <code>KafkaTemplate</code>，甚至还有多个消息消费者。</p>
-<h2 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h2><p>本地启动满足下面三个条件：</p>
+<p>因此目标不是“把文件拆小”，而是把边界重画清楚：</p>
 <ul>
-<li>仍然读取 Nacos 中除 Kafka 之外的配置</li>
-<li>不创建 Kafka 自动配置相关 Bean</li>
-<li>业务代码里已有的 <code>KafkaTemplate</code> 注入不报错</li>
+<li>Python 控制面负责编排与协议兼容。</li>
+<li>Java 侧收口为执行与持久化真相源（尤其是 store）。</li>
+<li>编排按节点化思路拆分，逐步向 LangGraph 化执行模型靠拢。</li>
 </ul>
-<h2 id="实现思路"><a href="#实现思路" class="headerlink" title="实现思路"></a>实现思路</h2><h3 id="1-增加应用级开关"><a href="#1-增加应用级开关" class="headerlink" title="1. 增加应用级开关"></a>1. 增加应用级开关</h3><p>先在公共配置里增加一个总开关，默认开启：</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">iot-app:</span><br>  <span class="hljs-attr">kafka:</span><br>    <span class="hljs-attr">enabled:</span> <span class="hljs-literal">true</span><br></code></pre></td></tr></table></figure>
-
-<p>然后在 <code>application-local.yml</code> 中显式关闭：</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">spring:</span><br>  <span class="hljs-attr">autoconfigure:</span><br>    <span class="hljs-attr">exclude:</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">org.springframework.boot.autoconfigure.kafka.KafkaAnnotationDrivenConfiguration</span><br><br><span class="hljs-attr">iot-app:</span><br>  <span class="hljs-attr">kafka:</span><br>    <span class="hljs-attr">enabled:</span> <span class="hljs-literal">false</span><br></code></pre></td></tr></table></figure>
-
-<p>这里的关键点有两个：</p>
+<h2 id="二、关键节点时间线（可追踪）"><a href="#二、关键节点时间线（可追踪）" class="headerlink" title="二、关键节点时间线（可追踪）"></a>二、关键节点时间线（可追踪）</h2><blockquote>
+<p>时间均为本地 Git 记录日期（UTC+8）。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>日期</th>
+<th>提交</th>
+<th>关键变化</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>2026-02-21</td>
+<td><code>1af4a0b</code></td>
+<td><code>feat(model): integrate qwen api into python orchestrator</code></td>
+<td>首次打通 Qwen 接入能力</td>
+</tr>
+<tr>
+<td>2026-02-27</td>
+<td><code>248ce25</code></td>
+<td>收敛为单一 ReAct 循环并移除策略栈</td>
+<td>从多策略堆叠走向单主循环</td>
+</tr>
+<tr>
+<td>2026-03-02</td>
+<td><code>2cfc73e</code></td>
+<td>抽取 prompt pipeline runtime</td>
+<td>节点化拆分第一步（Prompt）</td>
+</tr>
+<tr>
+<td>2026-03-02</td>
+<td><code>eb13f84</code> &#x2F; <code>2d0e86c</code></td>
+<td>抽取 guardrail pipeline</td>
+<td>护栏从主循环中剥离</td>
+</tr>
+<tr>
+<td>2026-03-03</td>
+<td><code>bb2363e</code> &#x2F; <code>d38342b</code></td>
+<td>memory facade runtime</td>
+<td>短期记忆读写从主干解耦</td>
+</tr>
+<tr>
+<td>2026-03-04</td>
+<td><code>97555b0</code></td>
+<td>抽离 ToolService，统一 call_tool 接口</td>
+<td>工具调用入口标准化</td>
+</tr>
+<tr>
+<td>2026-03-04</td>
+<td><code>84311b0</code></td>
+<td><code>remove orchestration internals and keep api-compatible orchestrator shell</code></td>
+<td>形成“API 兼容壳 + 内部节点化运行时”</td>
+</tr>
+<tr>
+<td>2026-03-04</td>
+<td><code>efa2522</code>（master）</td>
+<td>会话存储改为调用 Java 接口</td>
+<td>store 真相源迁移到 Java</td>
+</tr>
+<tr>
+<td>2026-03-04</td>
+<td><code>da9a726</code>、<code>74778bd</code></td>
+<td><code>Merge branch &#39;master&#39; into feature/langgraph-llamaindex-refactor</code></td>
+<td>将主分支 store 迁移成果并入 refactor 分支</td>
+</tr>
+</tbody></table>
+<h3 id="LLM-联调修复节点（QWEN-API-KEY-FILE）"><a href="#LLM-联调修复节点（QWEN-API-KEY-FILE）" class="headerlink" title="LLM 联调修复节点（QWEN_API_KEY_FILE）"></a>LLM 联调修复节点（QWEN_API_KEY_FILE）</h3><p>这部分主要是联调治理而非单一功能提交：</p>
 <ul>
-<li><code>exclude</code> 直接禁掉 Spring Boot 的 Kafka 自动配置</li>
-<li>本地环境把 <code>iot-app.kafka.enabled</code> 设为 <code>false</code>，让自定义条件配置生效</li>
+<li>现象：同一代码在不同启动目录下，<code>QWEN_API_KEY_FILE</code> 使用相对路径时会出现“本地可用、脚本启动不可用”。</li>
+<li>处理：启动配置改为显式传入文件路径，并在联调脚本&#x2F;环境中统一约定；缺失时走明确报错，不再隐式降级。</li>
+<li>收益：减少“偶发不可复现”的接入问题，把故障点从模型调用链收敛到配置校验阶段。</li>
 </ul>
-<h3 id="2-给-Kafka-消费者加条件开关"><a href="#2-给-Kafka-消费者加条件开关" class="headerlink" title="2. 给 Kafka 消费者加条件开关"></a>2. 给 Kafka 消费者加条件开关</h3><p>如果项目里已经有消费者类，可以直接按配置控制是否注册：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Component</span><br><span class="hljs-meta">@ConditionalOnProperty(</span><br><span class="hljs-meta">    prefix = &quot;iot-app.kafka&quot;,</span><br><span class="hljs-meta">    name = &quot;enabled&quot;,</span><br><span class="hljs-meta">    havingValue = &quot;true&quot;,</span><br><span class="hljs-meta">    matchIfMissing = true</span><br><span class="hljs-meta">)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">MsgQueueConsumer</span> &#123;<br>    <span class="hljs-meta">@KafkaListener(topics = &quot;demo-topic&quot;, groupId = &quot;$&#123;spring.application.name&#125;&quot;)</span><br>    <span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">onMessage</span><span class="hljs-params">(String payload)</span> &#123;<br>        <span class="hljs-comment">// ...</span><br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
-
-<p>这样在本地环境下，消费者 Bean 不会创建，<code>@KafkaListener</code> 也不会启动。</p>
-<h3 id="3-提供一个-no-op-KafkaTemplate"><a href="#3-提供一个-no-op-KafkaTemplate" class="headerlink" title="3. 提供一个 no-op KafkaTemplate"></a>3. 提供一个 no-op KafkaTemplate</h3><p>只禁用自动配置还不够。如果业务代码里已经有下面这种依赖：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> KafkaTemplate&lt;String, String&gt; kafkaTemplate;<br></code></pre></td></tr></table></figure>
-
-<p>那么启动时仍然可能因为缺少 <code>KafkaTemplate</code> Bean 失败。一个更稳的做法是：在 <code>iot-app.kafka.enabled=false</code> 时，注册一个空实现。</p>
-<p>示意代码如下：</p>
-<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Configuration</span><br><span class="hljs-meta">@ConditionalOnProperty(prefix = &quot;iot-app.kafka&quot;, name = &quot;enabled&quot;, havingValue = &quot;false&quot;)</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">KafkaDisabledConfig</span> &#123;<br><br>    <span class="hljs-meta">@Bean</span><br>    <span class="hljs-meta">@Primary</span><br>    <span class="hljs-meta">@ConditionalOnMissingBean(KafkaTemplate.class)</span><br>    <span class="hljs-keyword">public</span> KafkaTemplate&lt;String, String&gt; <span class="hljs-title function_">kafkaTemplate</span><span class="hljs-params">()</span> &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">NoOpKafkaTemplate</span>();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
-
-<p>这个 no-op <code>KafkaTemplate</code> 只需要覆盖当前项目实际会调用到的 <code>send(topic, data)</code> 方法，在本地环境下直接吞掉消息并返回一个已完成的 Future 即可。</p>
-<h2 id="为什么不用直接改-Nacos"><a href="#为什么不用直接改-Nacos" class="headerlink" title="为什么不用直接改 Nacos"></a>为什么不用直接改 Nacos</h2><p>原因很简单：本地不连 Kafka，不等于本地不用 Nacos。</p>
-<p>很多项目的本地运行仍然依赖远程配置中心里的：</p>
+<h2 id="三、前后对比：结构和职责怎么变了"><a href="#三、前后对比：结构和职责怎么变了" class="headerlink" title="三、前后对比：结构和职责怎么变了"></a>三、前后对比：结构和职责怎么变了</h2><h3 id="1-编排结构"><a href="#1-编排结构" class="headerlink" title="1) 编排结构"></a>1) 编排结构</h3><p><strong>重构前</strong>：</p>
 <ul>
-<li>数据源</li>
-<li>Redis</li>
-<li>多租户或工厂配置</li>
-<li>其他业务开关</li>
+<li>大量流程集中在单文件主循环，修改一个分支容易影响其他分支。</li>
+<li>Prompt&#x2F;Guardrail&#x2F;Memory&#x2F;Tool 分层边界弱，测试常依赖端到端覆盖。</li>
 </ul>
-<p>如果为了禁用 Kafka 去改共享 Nacos 配置，影响面会比本地代码开关大得多，也更容易误伤其他环境。</p>
-<h2 id="一个更实用的经验"><a href="#一个更实用的经验" class="headerlink" title="一个更实用的经验"></a>一个更实用的经验</h2><p>如果你只是为了本地调接口、调页面、调成本逻辑，通常不需要真正发送或消费 Kafka 消息。这时候：</p>
+<p><strong>重构后</strong>：</p>
 <ul>
-<li>消费者直接不注册</li>
-<li>生产者发送直接 no-op</li>
+<li>形成节点化拆分：Prompt、Guardrail、Memory、ToolService 各自独立演进。</li>
+<li><code>orchestrator</code> 逐步收敛为流程调度入口和兼容壳，内部实现可替换。</li>
+<li>为 LangGraph 风格状态流转打下可迁移结构（节点职责清晰、边界可观测）。</li>
 </ul>
-<p>比“本地也搭一套 Kafka”更省时间，问题边界也更清晰。</p>
-<p>当然，这种方案只适合本地开发和非 Kafka 联调场景。如果你要验证消息链路、重试、消费幂等、分区行为，还是应该连真实 Kafka 或独立测试环境。</p>
-<h2 id="脱敏说明"><a href="#脱敏说明" class="headerlink" title="脱敏说明"></a>脱敏说明</h2><p>为了避免把内部信息带到公开文章中，本文所有示例都做了脱敏处理：</p>
+<h3 id="2-API-与前端兼容"><a href="#2-API-与前端兼容" class="headerlink" title="2) API 与前端兼容"></a>2) API 与前端兼容</h3><p><strong>重构前</strong>：新旧实现切换风险高，常需要同步调整调用方。</p>
+<p><strong>重构后</strong>：</p>
 <ul>
-<li>内网域名、IP、端口改成示例值或占位符</li>
-<li>本地绝对路径改成通用模块路径</li>
-<li>密钥、令牌、命名空间等敏感字段不展示真实值</li>
-<li>代码片段只保留实现思路，不直接贴完整业务代码</li>
+<li>明确保留 API 兼容壳（尤其是事件流与对话接口契约）。</li>
+<li>迁移内部实现时，外部调用语义不变，降低联调冲击面。</li>
 </ul>
-<p>如果你也在写团队外可见的技术博客，这一步建议作为固定动作，而不是临发布前临时检查。</p>
-<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>本地启动 <code>iot-app</code> 又不想使用 Nacos 下发的 Kafka 配置时，比较稳妥的一套组合是：</p>
+<h3 id="3-存储边界"><a href="#3-存储边界" class="headerlink" title="3) 存储边界"></a>3) 存储边界</h3><p><strong>重构前</strong>：Python 侧承担部分本地存储语义，跨语言一致性治理成本高。</p>
+<p><strong>重构后</strong>：</p>
 <ul>
-<li><code>local</code> 环境排除 Kafka 自动配置</li>
-<li>用业务开关控制消费者是否注册</li>
-<li>提供 no-op <code>KafkaTemplate</code> 兜底注入</li>
+<li>主分支将 store 迁移到 Java 后，再合并到 refactor 分支。</li>
+<li>Python 侧更聚焦编排，Java 侧承担持久化真相源，职责边界更稳。</li>
 </ul>
-<p>这样既保住了本地开发效率，也避免为了一个中间件把整套远程配置体系拆开。</p>
+<h2 id="四、本轮收益（工程视角）"><a href="#四、本轮收益（工程视角）" class="headerlink" title="四、本轮收益（工程视角）"></a>四、本轮收益（工程视角）</h2><ol>
+<li>可维护性提升：从“单体流程修改”变为“节点级变更”，评审和回归颗粒度更细。</li>
+<li>兼容性可控：API 兼容壳使内部重构不必强绑定外部调用方升级节奏。</li>
+<li>协作效率提升：Python&#x2F;Java 边界更清楚，排障路径更短。</li>
+<li>发布风险下降：store 收口后，状态一致性问题更容易定位与治理。</li>
+<li>联调稳定性提升：LLM key 路径问题从隐式运行时失败转为显式配置校验。</li>
+</ol>
+<h2 id="五、风险与后续计划"><a href="#五、风险与后续计划" class="headerlink" title="五、风险与后续计划"></a>五、风险与后续计划</h2><h3 id="当前仍存在的风险"><a href="#当前仍存在的风险" class="headerlink" title="当前仍存在的风险"></a>当前仍存在的风险</h3><ol>
+<li>节点化不等于完全图化：目前是“按 LangGraph 思路拆分”，仍有一部分历史兼容逻辑需要继续清理。</li>
+<li>双分支并进期间，merge 冲突和行为漂移风险仍在。</li>
+<li>store 迁移后，Python 与 Java 之间的错误语义映射需要持续统一（超时、重试、业务错误码）。</li>
+</ol>
+<h3 id="后续计划"><a href="#后续计划" class="headerlink" title="后续计划"></a>后续计划</h3><ol>
+<li>把剩余兼容分支做成可观测的 feature flag，逐步下线历史路径。</li>
+<li>持续补齐“节点级”测试与回归基线，减少只能依赖全链路冒烟的情况。</li>
+<li>在 LangGraph 化阶段引入更明确的状态转移图与中断恢复策略，避免再次回到“主循环膨胀”。</li>
+<li>对 Qwen 接入补充启动期自检（key 文件可读性、超时和重试参数合法性），把问题前置到服务启动阶段。</li>
+</ol>
+<h2 id="六、结语"><a href="#六、结语" class="headerlink" title="六、结语"></a>六、结语</h2><p>这次重构的核心价值，不是“做了多少重命名”，而是把系统从“能跑”推进到“可持续演进”：</p>
+<ul>
+<li>旧编排主干被拆分为可治理的节点职责。</li>
+<li>API 兼容壳保证了迁移阶段的稳定交付。</li>
+<li>store 真相源迁移到 Java 并顺利并入 refactor 分支，跨服务边界更清晰。</li>
+<li>LLM 接入的路径类问题得到工程化治理，联调成本显著下降。</li>
+</ul>
+<p>后续工作重点会放在“彻底图化 + 历史兼容清理 + 观测与回归体系固化”。</p>
 
                 
               </div>
@@ -380,7 +452,7 @@
     
       <span class="category-chain">
         
-  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
   
   
 
@@ -395,15 +467,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/Java/" class="print-no-link">#Java</a>
+        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
       
-        <a href="/tags/Spring-Boot/" class="print-no-link">#Spring Boot</a>
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/Kafka/" class="print-no-link">#Kafka</a>
+        <a href="/tags/ats-iot-ai/" class="print-no-link">#ats_iot_ai</a>
       
-        <a href="/tags/Nacos/" class="print-no-link">#Nacos</a>
+        <a href="/tags/AI%E9%87%8D%E6%9E%84/" class="print-no-link">#AI重构</a>
       
-        <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91/" class="print-no-link">#本地开发</a>
+        <a href="/tags/%E5%A4%8D%E7%9B%98/" class="print-no-link">#复盘</a>
       
     </div>
   
@@ -415,8 +487,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>本地启动 iot-app 禁用 Kafka 配置实践</div>
-      <div>https://willfordzhan.github.io/2026/03/03/iot-app-kafka/</div>
+      <div>ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分</div>
+      <div>https://willfordzhan.github.io/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/</div>
     </div>
     <div class="license-meta">
       
@@ -428,7 +500,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月3日</div>
+          <div>2026年3月5日</div>
         </div>
       
       
@@ -460,18 +532,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/03/metadata-lock-ai-communicationsexception/" title="一次被 Metadata Lock 隐藏的 AI 聊天故障：从 CommunicationsException 到长事务排查">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">一次被 Metadata Lock 隐藏的 AI 聊天故障：从 CommunicationsException 到长事务排查</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/03/hbuilderx-uni-app/" title="HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新">
-                        <span class="hidden-mobile">HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新</span>
+                      <a href="/2026/03/04/shiftbeginat-shiftdate/" title="踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常">
+                        <span class="hidden-mobile">踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
