@@ -241,6 +241,123 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/03/iot-app-kafka/" target="_self">
+          本地启动 iot-app 禁用 Kafka 配置实践
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/iot-app-kafka/" target="_self">
+        <div>
+          本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-03 17:20" pubdate>
+              2026-03-03
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/Spring-Boot/">#Spring Boot</a>
+            
+              <a href="/tags/Kafka/">#Kafka</a>
+            
+              <a href="/tags/Nacos/">#Nacos</a>
+            
+              <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91/">#本地开发</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
+        <a href="/2026/03/03/hbuilderx-uni-app/" target="_self">
+          HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/hbuilderx-uni-app/" target="_self">
+        <div>
+          这篇整理一次最近联调 uni-app 小程序时连续踩到的几个坑：  改了 accountPage.vue 和 pages.json，微信开发者工具里就是看不到更新 HBuilderX 运行到微信开发者工具时，微信侧没有自动拿到最新项目 登录时报错：  1login:fail 系统错误，错误码：41002, appid missing [undefined]  本机 Java 服务联调时报错：  1
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-03 10:56" pubdate>
+              2026-03-03
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/uni-app/">#uni-app</a>
+            
+              <a href="/tags/%E5%BE%AE%E4%BF%A1%E5%B0%8F%E7%A8%8B%E5%BA%8F/">#微信小程序</a>
+            
+              <a href="/tags/HBuilderX/">#HBuilderX</a>
+            
+              <a href="/tags/%E5%BE%AE%E4%BF%A1%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">#微信开发者工具</a>
+            
+              <a href="/tags/%E8%81%94%E8%B0%83/">#联调</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
           单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理
         </a>
@@ -290,9 +407,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
               <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
             
               <a href="/tags/Guardrails/">#Guardrails</a>
             
@@ -628,13 +745,13 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
+              <a href="/tags/FastAPI/">#FastAPI</a>
+            
               <a href="/tags/AI%E7%BD%91%E5%85%B3/">#AI网关</a>
             
               <a href="/tags/Java/">#Java</a>
             
               <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
             
               <a href="/tags/%E9%89%B4%E6%9D%83/">#鉴权</a>
             
@@ -783,127 +900,6 @@
               <a href="/tags/%E6%9E%B6%E6%9E%84%E7%AE%80%E5%8C%96/">#架构简化</a>
             
               <a href="/tags/sample-ai-service/">#sample_ai_service</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/27/pycharm-uvicorn-fastapi/" target="_self">
-          PyCharm 调试 Uvicorn/FastAPI 与日志可见性排查
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/27/pycharm-uvicorn-fastapi/" target="_self">
-        <div>
-          最近在调试一个 FastAPI + Uvicorn 的项目时，遇到两个高频问题：  PyCharm 里到底怎么正确配 uvicorn main:app？ 代码里明明写了 LOGGER.info(...)，控制台却看不到日志？  这篇只讲可直接落地的做法。 1) PyCharm 里如何用 Uvicorn 调试新增一个 Python 类型 Run Configuration：  Run: Module
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-27 15:39" pubdate>
-              2026-02-27
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/Uvicorn/">#Uvicorn</a>
-            
-              <a href="/tags/PyCharm/">#PyCharm</a>
-            
-              <a href="/tags/%E8%B0%83%E8%AF%95/">#调试</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/" target="_self">
-          AI Chat 重构总复盘：Java MCP 收口、LLM 路由与稳定性治理
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/27/ai-chat-refactor-llm-intent-timeout-hardening-20260227/" target="_self">
-        <div>
-          目标与边界本轮重构的目标是把 AI 聊天从“Java 单体链路”收敛为“Python 控制平面 + Java MCP 执行平面”，并解决线上已暴露的问题：  普通聊天误入 ReAct MCP 工具失败导致 run 直接失败 Qwen 超时后返回 echo 联调时 Python&#x2F;Java token 不一致导致 MCP 401  边界上，Java 只保留 MCP + Tool 能力；会话编
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-27 15:01" pubdate>
-              2026-02-27
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/Qwen/">#Qwen</a>
-            
-              <a href="/tags/ReAct/">#ReAct</a>
-            
-              <a href="/tags/%E7%A8%B3%E5%AE%9A%E6%80%A7/">#稳定性</a>
-            
-              <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/">#重构复盘</a>
             
           </div>
         

@@ -4,6 +4,72 @@
   
   
   <entry>
+    <title>LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件</title>
+    <link href="/2026/03/06/langgraph-checkpoint-event-replay/"/>
+    <url>/2026/03/06/langgraph-checkpoint-event-replay/</url>
+    
+    <content type="html"><![CDATA[<p>调试 LangGraph 时，最容易踩的一个坑不是代码写错，而是脑子里把三件不同的东西混成了一件事：</p><ol><li><code>event</code></li><li><code>checkpoint</code></li><li><code>replay</code></li></ol><p>表面看它们都能回答“这轮到底发生了什么”，于是很多项目自然会冒出一个问题：</p><p>“既然 LangGraph 已经有 checkpoint 和 replay，我自己写的 event 机制是不是多余了？”</p><p>这个问题我最近在一套 AI 编排服务里来回掰扯了很多轮。结论先放前面：</p><ul><li><code>event</code> 和 <code>checkpoint</code> 有重合。</li><li>但它们记录的不是同一种东西。</li><li><code>checkpoint</code> 很适合做状态回溯和分叉执行。</li><li><code>event</code> 更像对外可读的调试投影。</li><li>如果你的 event 没有业务语义，SSE 也只是调试遗产，那么后面完全可以收缩 event，转向 checkpoint 优先。</li></ul><p>别急着删，先把机制讲清楚。</p><h2 id="先把三个词拆开"><a href="#先把三个词拆开" class="headerlink" title="先把三个词拆开"></a>先把三个词拆开</h2><h3 id="Event-是什么"><a href="#Event-是什么" class="headerlink" title="Event 是什么"></a>Event 是什么</h3><p>Event 是你自己定义的“过程日志”。</p><p>典型长这样：</p><ul><li><code>react_plan</code></li><li><code>tool_call</code></li><li><code>tool_result</code></li><li><code>final</code></li></ul><p>这种设计的优点非常朴素：</p><ol><li>人一眼能看懂。</li><li>前端做时间轴简单。</li><li>SSE 推流天然顺手。</li></ol><p>缺点也很朴素：</p><ol><li>容易越写越多。</li><li>一不小心就把内部状态和对外消息混在一起。</li><li>过几年回头看，常见情况是“事件很多，但真正有业务语义的没几个”。</li></ol><h3 id="Checkpoint-是什么"><a href="#Checkpoint-是什么" class="headerlink" title="Checkpoint 是什么"></a>Checkpoint 是什么</h3><p>Checkpoint 不是业务日志，它是 LangGraph 维护的<strong>图状态快照</strong>。</p><p>关键点：</p><ol><li>挂了 checkpointer 之后，同一个 <code>thread_id</code> 下会保存一条历史 checkpoint 链。</li><li>每个 super-step 都会保存一份 checkpoint。</li><li>checkpoint 里存的是图状态、下一步、任务信息、metadata，不是“我帮你写好的可读业务日志”。</li></ol><p>这东西更像：</p><ul><li>“这一步 graph 的 state 长什么样”</li><li>“停在了哪个 node”</li><li>“是否处于 interrupt 等待恢复”</li></ul><h3 id="Replay-是什么"><a href="#Replay-是什么" class="headerlink" title="Replay 是什么"></a>Replay 是什么</h3><p>Replay 也很容易被误解。</p><p>它不是播放器，不是录像回放，不是把当时的 Python 函数一帧一帧重演。</p><p>LangGraph 官方语义更接近：</p><ol><li>找到历史 <code>checkpoint_id</code></li><li>从这个 checkpoint 对应的状态继续执行</li><li>checkpoint 之前的步骤走 replay</li><li>之后的步骤重新执行，形成新的分叉</li></ol><p>所以 replay 的重点不是“看”，而是“从历史状态继续跑”。</p><h2 id="为什么大家老把它们混在一起"><a href="#为什么大家老把它们混在一起" class="headerlink" title="为什么大家老把它们混在一起"></a>为什么大家老把它们混在一起</h2><p>因为从开发者视角看，这三件事都能回答“发生了什么”。</p><p>举个常见问题：</p><p>“为什么这轮进了澄清？”</p><p>你可以从 event 看：</p><ul><li><code>react_plan.action=CLARIFY</code></li><li><code>validationErrors=[&quot;missing_arg:xxx&quot;]</code></li></ul><p>也可以从 checkpoint 看：</p><ul><li>这一时刻的 state 里 <code>plan_action=CLARIFY</code></li><li><code>clarification_question=...</code></li><li><code>tool_round=1</code></li></ul><p>这就造成一种错觉：</p><p>“既然 checkpoint 也能看到这些状态，那 event 不是重复建设吗？”</p><p>一半对，一半不对。</p><h2 id="两者真正重合的地方"><a href="#两者真正重合的地方" class="headerlink" title="两者真正重合的地方"></a>两者真正重合的地方</h2><p>如果只是为了调试，下面这些信息在 event 和 checkpoint 里都可以表达：</p><ol><li>走到了哪个分支</li><li>计划阶段产出了什么 action</li><li>tool 名称和参数是什么</li><li>最终为什么结束</li></ol><p>这就是重合区。</p><p>如果你的 event 只是为了 debug，而不是稳定业务契约，那它确实会越来越像“手搓版 checkpoint 投影”。</p><h2 id="两者真正不同的地方"><a href="#两者真正不同的地方" class="headerlink" title="两者真正不同的地方"></a>两者真正不同的地方</h2><h3 id="Event-是“人为命名的投影”"><a href="#Event-是“人为命名的投影”" class="headerlink" title="Event 是“人为命名的投影”"></a>Event 是“人为命名的投影”</h3><p>你可以把它做得非常好读：</p><ul><li><code>tool_call</code></li><li><code>tool_result</code></li><li><code>clarification_needed</code></li><li><code>final</code></li></ul><p>人读起来没有门槛，前端做时间轴也容易。</p><h3 id="Checkpoint-是“图运行现场”"><a href="#Checkpoint-是“图运行现场”" class="headerlink" title="Checkpoint 是“图运行现场”"></a>Checkpoint 是“图运行现场”</h3><p>它天然强在：</p><ol><li>状态恢复</li><li>interrupt &#x2F; resume</li><li>time-travel</li><li>从历史 checkpoint 分叉执行</li></ol><p>它不天然强在：</p><ol><li>对外展示</li><li>SSE 增量协议</li><li>一眼看懂的业务语义</li></ol><p>所以，<code>checkpoint</code> 更像发动机内部状态，<code>event</code> 更像仪表盘。</p><h2 id="那-checkpoint-到底有没有“完整历史链”？"><a href="#那-checkpoint-到底有没有“完整历史链”？" class="headerlink" title="那 checkpoint 到底有没有“完整历史链”？"></a>那 checkpoint 到底有没有“完整历史链”？</h2><p>有，前提是你没把它清掉。</p><p>这是很多人第一次接触时最困惑的点：</p><p>“checkpoint 不会只存最后一个状态吗？”</p><p>不是。LangGraph 的 persistence 设计就是围绕同一个 <code>thread_id</code> 的 checkpoint 历史链展开的。官方可以直接取 <code>state history</code>，也可以指定某个 <code>checkpoint_id</code> 做 replay &#x2F; time-travel。</p><p>所以它不是一次性的“存档点”，而是一串历史状态。</p><p>这也是为什么 replay 能成立：</p><p>如果只有最后一个状态，根本没法从中间某一步恢复。</p><h2 id="官方-replay-的工作方式"><a href="#官方-replay-的工作方式" class="headerlink" title="官方 replay 的工作方式"></a>官方 replay 的工作方式</h2><p>这里一定要避免脑补。</p><p>官方 replay 不是：</p><ul><li>重放日志</li><li>模拟播放</li><li>把旧执行的每个函数再真跑一遍</li></ul><p>它更接近：</p><ol><li>读取历史 checkpoint</li><li>让 graph 回到当时的状态</li><li>对历史部分执行 replay</li><li>对后续步骤重新执行</li></ol><p>这意味着 replay 的价值在于：</p><ol><li>检查“为什么那一步会走成这样”</li><li>从那个点重新试一条新分支</li><li>不中断主图语义地恢复执行</li></ol><p>如果你期待的是“像 Kibana 看日志那样从头读一遍”，checkpoint 本身不会免费送你这个体验。</p><h2 id="什么时候-event-可以收缩，甚至下线"><a href="#什么时候-event-可以收缩，甚至下线" class="headerlink" title="什么时候 event 可以收缩，甚至下线"></a>什么时候 event 可以收缩，甚至下线</h2><p>这是工程上真正值钱的问题。</p><p>如果系统满足下面三个前提：</p><ol><li>SSE 只是调试历史包袱，不再打算继续经营</li><li><code>visible_in_messages</code> 这类消息可见性控制没有业务价值</li><li>event 没有稳定业务语义，只是为了调试</li></ol><p>那答案就很直接：</p><p>可以逐步把 event 收缩到最小集合，甚至未来不再把它当主机制。</p><p>更具体一点：</p><p>适合先收缩掉的通常是：</p><ul><li><code>llm_request</code></li><li><code>react_plan</code></li><li>各种内部恢复状态事件</li></ul><p>这些完全可以转成写入 checkpoint state 里的调试字段。</p><h2 id="可读调试语义能不能直接写进-checkpoint-state"><a href="#可读调试语义能不能直接写进-checkpoint-state" class="headerlink" title="可读调试语义能不能直接写进 checkpoint state"></a>可读调试语义能不能直接写进 checkpoint state</h2><p>可以，而且这是个很靠谱的方向。</p><p>例如在 state 里专门加一块：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">DebugTrace</span>(TypedDict, total=<span class="hljs-literal">False</span>):<br>    current_node: <span class="hljs-built_in">str</span><br>    plan_action: <span class="hljs-built_in">str</span><br>    plan_reason: <span class="hljs-built_in">str</span><br>    parse_status: <span class="hljs-built_in">str</span><br>    validation_errors: <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]<br>    tool_name: <span class="hljs-built_in">str</span><br>    tool_args: <span class="hljs-built_in">dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-type">Any</span>]<br>    tool_result_preview: <span class="hljs-built_in">str</span><br>    failure_class: <span class="hljs-built_in">str</span><br>    recovery_actions: <span class="hljs-built_in">list</span>[<span class="hljs-built_in">str</span>]<br></code></pre></td></tr></table></figure><p>每个 node 执行时更新这块内容，就能把你过去依赖 event 表达的调试语义直接沉到 checkpoint history 里。</p><p>这样做的好处很明确：</p><ol><li>调试语义和图状态一致，不会再分裂成两套真相。</li><li>以后做 checkpoint 调试接口时，返回的就是结构化状态，不用再拼零散事件。</li><li>replay&#x2F;time-travel 能直接继承这些调试字段。</li></ol><h3 id="但别把所有原文都塞进去"><a href="#但别把所有原文都塞进去" class="headerlink" title="但别把所有原文都塞进去"></a>但别把所有原文都塞进去</h3><p>这是第二个常见坑。</p><p>不要把下面这些东西全量塞进 state：</p><ul><li>全量 prompt</li><li>全量 tool 原始返回</li><li>大段 observations</li><li>很重的上下文快照</li></ul><p>否则 checkpoint 会膨胀得很快，查询和恢复都变笨。</p><p>更合理的是：</p><ol><li>state 里只放摘要</li><li>大字段放外部 artifact 存储</li><li>用 <code>thread_id + checkpoint_id + step</code> 关联</li></ol><h2 id="什么时候-checkpoint-不够用"><a href="#什么时候-checkpoint-不够用" class="headerlink" title="什么时候 checkpoint 不够用"></a>什么时候 checkpoint 不够用</h2><p>如果你的需求是下面这种：</p><ol><li>前端要看一条很漂亮的时间轴</li><li>运营要看“本轮调了哪个工具、回答了什么”</li><li>你希望用非常轻量的方式查最近几轮问题</li></ol><p>那 event 仍然很有价值。</p><p>因为这类需求的本质不是“恢复图状态”，而是“做一份人类读得懂的投影”。</p><p>你当然可以强行从 checkpoint history 里生成这份投影，但那时你本质上又回到了 event 的设计，只不过换了个数据源。</p><h2 id="这件事落到工程决策上，怎么选"><a href="#这件事落到工程决策上，怎么选" class="headerlink" title="这件事落到工程决策上，怎么选"></a>这件事落到工程决策上，怎么选</h2><p>我的判断是这样的：</p><h3 id="场景-A：event-有真实业务语义"><a href="#场景-A：event-有真实业务语义" class="headerlink" title="场景 A：event 有真实业务语义"></a>场景 A：event 有真实业务语义</h3><p>比如：</p><ul><li>审计</li><li>对账</li><li>用户可见消息</li><li>对外回放协议</li></ul><p>那不要删 event。</p><h3 id="场景-B：event-只是调试遗留"><a href="#场景-B：event-只是调试遗留" class="headerlink" title="场景 B：event 只是调试遗留"></a>场景 B：event 只是调试遗留</h3><p>比如：</p><ul><li>以前为了 SSE 调试方便做的</li><li><code>visible_in_messages</code> 这类能力根本没人用</li><li>没有稳定对外契约</li></ul><p>那可以往 <code>checkpoint 优先，event 收缩</code> 的方向走。</p><h3 id="场景-C：你还没准备好做-checkpoint-查询接口"><a href="#场景-C：你还没准备好做-checkpoint-查询接口" class="headerlink" title="场景 C：你还没准备好做 checkpoint 查询接口"></a>场景 C：你还没准备好做 checkpoint 查询接口</h3><p>那也先别删。</p><p>直接删 event 而不建设 checkpoint 调试视图，只会让调试体验从“啰嗦”变成“失明”。</p><h2 id="一个务实的收敛方案"><a href="#一个务实的收敛方案" class="headerlink" title="一个务实的收敛方案"></a>一个务实的收敛方案</h2><p>如果后面真要改，我建议顺序是：</p><ol><li>先保留 checkpoint 历史</li><li>建 <code>thread_id/checkpoint_id</code> 查询接口</li><li>在 state 里补 <code>debug_trace</code></li><li>用 checkpoint 调试视图覆盖掉 <code>react_plan/llm_request</code> 这类内部 event</li><li>最后再看是否还需要保留少量 <code>tool_call/tool_result/final</code></li></ol><p>这个顺序的核心不是优雅，而是避免把系统调试能力先拆没了。</p><h2 id="一个很现实的提醒"><a href="#一个很现实的提醒" class="headerlink" title="一个很现实的提醒"></a>一个很现实的提醒</h2><p>很多团队在看到 checkpoint 很强之后，会自然产生一个冲动：</p><p>“那我是不是能把 event 全删了？”</p><p>理论上可以，工程上别急。</p><p>因为你删掉的不是一张表，而是一种阅读和排障方式。</p><p>如果新的 checkpoint 调试界面和接口还没补上，开发体验会立刻退步。</p><p>这类重构最怕的不是代码没写完，而是把现有可见性先拆掉，再慢慢补。</p><p>线上事故可不会等你的调试台二期上线。</p><h2 id="收尾"><a href="#收尾" class="headerlink" title="收尾"></a>收尾</h2><p>一句话总结这轮调研：</p><p><code>checkpoint</code> 更像状态真源，<code>event</code> 更像调试投影。</p><p>两者会重合，但不天然互相替代。</p><p>如果 event 没有业务语义、SSE 又只是历史包袱，那么未来完全可以把调试能力慢慢迁到 checkpoint 上。前提是你先接受一个事实：</p><p>LangGraph 的 replay 不是“重放日志”，而是“从历史状态继续执行”。</p><p>把这个事实想清楚，后面的架构决策就不会拧巴了。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>Checkpoint</tag>
+      
+      <tag>调试</tag>
+      
+      <tag>架构复盘</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
+    <title>LangGraph Checkpoint 改造复盘：从内存快照到可恢复执行</title>
+    <link href="/2026/03/05/langgraph-checkpoint/"/>
+    <url>/2026/03/05/langgraph-checkpoint/</url>
+    
+    <content type="html"><![CDATA[<p>这次改造的目标很朴素：让编排流程别再“断电失忆”。</p><p>项目原来已经有 LangGraph <code>thread_id</code>，也已经把澄清流程做成了 interrupt&#x2F;resume 语义。但 checkpoint 用的是进程内内存 saver，服务重启后现场直接蒸发。于是用户问一句“继续”，系统看着你，内心是“我是谁我在哪”。</p><p>下面按 STAR 记录这次改造，顺便把关键 QA 和踩坑细节摊开讲清楚。</p><h2 id="S（Situation）场景"><a href="#S（Situation）场景" class="headerlink" title="S（Situation）场景"></a>S（Situation）场景</h2><p>现网编排链路是：</p><ul><li>FastAPI API 层（会话 + SSE）</li><li>LangGraph 单轨编排（plan&#x2F;tool_call&#x2F;clarify&#x2F;chat）</li><li>Java MCP 工具执行</li><li>Python 会话事件存储（以及 Java store 适配）</li></ul><p>当时的关键问题是：</p><ol><li>checkpoint 是 <code>InMemorySaver</code>，只能活在当前 Python 进程内。</li><li><code>interrupt/final</code> 路径直接删线程 checkpoint，恢复语义全靠事件层“重来一轮”。</li><li>编排代码里同时关心“checkpoint 后端构造”和“清理策略”，职责有点缠在一起。</li></ol><h2 id="T（Task）目标"><a href="#T（Task）目标" class="headerlink" title="T（Task）目标"></a>T（Task）目标</h2><p>本轮目标拆成三件事：</p><ol><li>接入 <strong>SQLite 持久化 checkpoint</strong>，路径放项目 <code>db/</code> 下。</li><li>保留 <code>thread_id=conversation_id</code>，让恢复语义稳定可追踪。</li><li>把“后端接入”与“清理策略”分离：<ul><li>后端工厂负责给图提供 saver</li><li>policy 决定 interrupt&#x2F;final 是否清理 checkpoint</li></ul></li></ol><h2 id="A（Action）行动"><a href="#A（Action）行动" class="headerlink" title="A（Action）行动"></a>A（Action）行动</h2><h3 id="1-工厂化接入：provider-和-policy-解耦"><a href="#1-工厂化接入：provider-和-policy-解耦" class="headerlink" title="1) 工厂化接入：provider 和 policy 解耦"></a>1) 工厂化接入：provider 和 policy 解耦</h3><p>新增了 checkpoint 模块，拆成两类职责：</p><ul><li><code>CheckpointSettings</code>：只管 provider&#x2F;path</li><li><code>CheckpointPolicy</code>：只管 clear on interrupt&#x2F;final</li></ul><p>关键代码（简化版）：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-comment"># app/langgraph/checkpointing.py</span><br><span class="hljs-meta">@dataclass(<span class="hljs-params">frozen=<span class="hljs-literal">True</span></span>)</span><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">CheckpointSettings</span>:<br>    provider: <span class="hljs-built_in">str</span> = <span class="hljs-string">&quot;sqlite&quot;</span><br>    sqlite_path: <span class="hljs-built_in">str</span> = <span class="hljs-string">&quot;db/langgraph_checkpoints.sqlite3&quot;</span><br><br><span class="hljs-meta">@dataclass(<span class="hljs-params">frozen=<span class="hljs-literal">True</span></span>)</span><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">CheckpointPolicy</span>:<br>    clear_on_interrupt: <span class="hljs-built_in">bool</span> = <span class="hljs-literal">False</span><br>    clear_on_final: <span class="hljs-built_in">bool</span> = <span class="hljs-literal">True</span><br></code></pre></td></tr></table></figure><p>这样 orchestrator 不再关心 sqlite 怎么连，只消费 <code>saver + policy</code>。</p><h3 id="2-Orchestrator-侧只做“调用策略”"><a href="#2-Orchestrator-侧只做“调用策略”" class="headerlink" title="2) Orchestrator 侧只做“调用策略”"></a>2) Orchestrator 侧只做“调用策略”</h3><p>编排器只保留三件事：</p><ol><li>使用同一 <code>thread_id</code> 调 graph。</li><li>根据 policy 决定是否删 checkpoint。</li><li>在 shutdown 时关闭 checkpointer 资源。</li></ol><p>核心逻辑（简化）：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">if</span> <span class="hljs-variable language_">self</span>._checkpoint_policy.clear_on_interrupt:<br>    <span class="hljs-keyword">await</span> <span class="hljs-variable language_">self</span>._delete_checkpoint_thread(conversation_id)<br><br><span class="hljs-keyword">if</span> <span class="hljs-variable language_">self</span>._checkpoint_policy.clear_on_final:<br>    <span class="hljs-keyword">await</span> <span class="hljs-variable language_">self</span>._delete_checkpoint_thread(conversation_id)<br></code></pre></td></tr></table></figure><h3 id="3-典型-case-补齐"><a href="#3-典型-case-补齐" class="headerlink" title="3) 典型 case 补齐"></a>3) 典型 case 补齐</h3><p>新增 <code>Case 12：Checkpoint 持久化恢复（服务重启后 resume）</code>，核心验证点：</p><ol><li>首轮触发 <code>clarification_needed</code> 并进入等待态。</li><li>服务重启后，次轮输入可继续同一会话。</li><li>事件链路连续，不出现状态丢失。</li></ol><p>对应脚本也补了 <code>case12_checkpoint_persist_resume</code> 入口。</p><h3 id="4-单测与真实用例"><a href="#4-单测与真实用例" class="headerlink" title="4) 单测与真实用例"></a>4) 单测与真实用例</h3><ul><li>单测：<code>test_checkpointing.py</code> + <code>test_orchestrator_langgraph.py</code></li><li>真实脚本：<code>run_typical_cases.sh</code> 跑 <code>case11</code>、<code>case12</code></li></ul><h2 id="R（Result）结果"><a href="#R（Result）结果" class="headerlink" title="R（Result）结果"></a>R（Result）结果</h2><h3 id="成果"><a href="#成果" class="headerlink" title="成果"></a>成果</h3><ol><li>Checkpoint 从内存升级为 SQLite 持久化，落盘到 <code>db/langgraph_checkpoints.sqlite3</code>。</li><li><code>thread_id=conversation_id</code> 统一，恢复执行路径稳定。</li><li>policy 与 provider 解耦，后续要换 Postgres&#x2F;Redis 或调整清理策略都不需要改主编排流程。</li><li><code>case11</code>（interrupt-&gt;chat）与 <code>case12</code>（checkpoint resume）均可跑通核心链路。</li></ol><h3 id="残留-边界"><a href="#残留-边界" class="headerlink" title="残留&#x2F;边界"></a>残留&#x2F;边界</h3><ul><li><code>case12</code> 如果续问走外部工具，仍可能受上游 MCP 超时影响；这属于工具面 SLA，不是 checkpoint 机制问题。</li></ul><h2 id="这次踩过的坑（重点）"><a href="#这次踩过的坑（重点）" class="headerlink" title="这次踩过的坑（重点）"></a>这次踩过的坑（重点）</h2><h3 id="坑-1：同步-SqliteSaver-直接上-async-图"><a href="#坑-1：同步-SqliteSaver-直接上-async-图" class="headerlink" title="坑 1：同步 SqliteSaver 直接上 async 图"></a>坑 1：同步 SqliteSaver 直接上 async 图</h3><p>现象：</p><ul><li><code>ainvoke/aget_state</code> 直接报错：<ul><li><code>SqliteSaver does not support async methods</code></li></ul></li></ul><p>原因：</p><ul><li>图是 async 执行，必须用 async checkpointer。</li></ul><p>修复：</p><ul><li>切到 <code>AsyncSqliteSaver</code> 路径。</li></ul><h3 id="坑-2：AsyncSqliteSaver-与-aiosqlite-版本接口差异"><a href="#坑-2：AsyncSqliteSaver-与-aiosqlite-版本接口差异" class="headerlink" title="坑 2：AsyncSqliteSaver 与 aiosqlite 版本接口差异"></a>坑 2：<code>AsyncSqliteSaver</code> 与 aiosqlite 版本接口差异</h3><p>现象：</p><ul><li>报 <code>Connection has no attribute is_alive</code>。</li></ul><p>原因：</p><ul><li><code>langgraph-checkpoint-sqlite</code> 在当前组合下依赖了旧接口习惯。</li></ul><p>修复：</p><ul><li>用官方 <code>from_conn_string</code> 创建 saver，并加了兼容补丁（缺 <code>is_alive</code> 时补一个兼容方法）。</li></ul><p>副作用评估：</p><ul><li>只影响 checkpointer 初始化兼容，不影响业务 state schema。</li></ul><h3 id="坑-3：拿“工具超时”误判“checkpoint失败”"><a href="#坑-3：拿“工具超时”误判“checkpoint失败”" class="headerlink" title="坑 3：拿“工具超时”误判“checkpoint失败”"></a>坑 3：拿“工具超时”误判“checkpoint失败”</h3><p>现象：</p><ul><li>case 恢复后出现 <code>conversation_failed</code>。</li></ul><p>根因：</p><ul><li>日志显示是 <code>mcp request timed out</code>，并非 checkpoint 恢复失败。</li></ul><p>处理：</p><ul><li>将 checkpoint 验证 case 的续问改为 no-tool 路径，先保证 checkpoint 机制验收干净；</li><li>工具路径稳定性单独作为 MCP SLA 议题处理。</li></ul><h2 id="讨论-QA（这次对话里最常见的追问）"><a href="#讨论-QA（这次对话里最常见的追问）" class="headerlink" title="讨论 QA（这次对话里最常见的追问）"></a>讨论 QA（这次对话里最常见的追问）</h2><h3 id="Q1：checkpoint-到底有什么用？"><a href="#Q1：checkpoint-到底有什么用？" class="headerlink" title="Q1：checkpoint 到底有什么用？"></a>Q1：checkpoint 到底有什么用？</h3><p>A：保存的是“图执行现场”，不是业务数据库。它让你在中断、重启、故障后能继续执行，而不是重跑整轮。</p><h3 id="Q2：checkpoint-和-memory-是一回事吗？"><a href="#Q2：checkpoint-和-memory-是一回事吗？" class="headerlink" title="Q2：checkpoint 和 memory 是一回事吗？"></a>Q2：checkpoint 和 memory 是一回事吗？</h3><p>A：不是。</p><ul><li>checkpoint：流程状态（做到哪一步）</li><li>memory：语义上下文（知道什么）</li></ul><p>最佳实践是两者并存。</p><h3 id="Q3：引入-checkpoint-后是不是全自动，不用管了？"><a href="#Q3：引入-checkpoint-后是不是全自动，不用管了？" class="headerlink" title="Q3：引入 checkpoint 后是不是全自动，不用管了？"></a>Q3：引入 checkpoint 后是不是全自动，不用管了？</h3><p>A：执行恢复是框架自动；但你仍要做策略治理：</p><ol><li>thread_id 规范</li><li>清理策略（interrupt&#x2F;final）</li><li>state 可序列化约束</li><li>敏感信息边界</li></ol><h3 id="Q4：支持-MySQL-吗？"><a href="#Q4：支持-MySQL-吗？" class="headerlink" title="Q4：支持 MySQL 吗？"></a>Q4：支持 MySQL 吗？</h3><p>A：官方 Python 主路径优先 SQLite&#x2F;Postgres。MySQL 有社区实现，但生产建议优先官方维护链路。</p><h2 id="代码改造清单（核心文件）"><a href="#代码改造清单（核心文件）" class="headerlink" title="代码改造清单（核心文件）"></a>代码改造清单（核心文件）</h2><ul><li><code>app/langgraph/checkpointing.py</code></li><li><code>app/orchestrator.py</code></li><li><code>app/api.py</code>（shutdown 资源关闭）</li><li><code>scripts/run_typical_cases.sh</code></li><li><code>典型case.md</code>（新增 Case 12）</li><li><code>tests/test_checkpointing.py</code></li></ul><h2 id="后续建议"><a href="#后续建议" class="headerlink" title="后续建议"></a>后续建议</h2><ol><li>把 checkpoint 后端再抽象成可观测组件（写入耗时、恢复命中率、清理统计）。</li><li>给 MCP timeout 增加路由策略（retry &#x2F; degrade &#x2F; clarify），避免工具面抖动直接打断会话体验。</li><li>把 <code>Case12</code> 的“服务重启动作”做成可插拔 hook（脚本已预留 <code>RESTART_HOOK</code>），接入 CI 夜间回归。</li></ol><p>这轮改造最大的价值不是“换了个存储”，而是把“能跑”推进到了“能恢复、能解释、能扩展”。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>复盘</tag>
+      
+      <tag>Checkpoint</tag>
+      
+      <tag>STAR</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>LangGraph HITL 重构复盘：从一次性澄清到可恢复编排</title>
     <link href="/2026/03/05/langgraph-hitl/"/>
     <url>/2026/03/05/langgraph-hitl/</url>
@@ -338,9 +404,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>Guardrails</tag>
       
@@ -511,13 +577,13 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>AI网关</tag>
       
       <tag>Java</tag>
       
       <tag>Python</tag>
-      
-      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -612,15 +678,15 @@
     
     <tags>
       
+      <tag>FastAPI</tag>
+      
       <tag>Python</tag>
       
-      <tag>FastAPI</tag>
+      <tag>调试</tag>
       
       <tag>Uvicorn</tag>
       
       <tag>PyCharm</tag>
-      
-      <tag>调试</tag>
       
     </tags>
     
@@ -647,11 +713,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
       
       <tag>Qwen</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>ReAct</tag>
       
@@ -756,11 +822,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>MCP</tag>
+      
       <tag>Java</tag>
       
       <tag>Python</tag>
-      
-      <tag>MCP</tag>
       
       <tag>里程碑</tag>
       
@@ -793,11 +859,11 @@
       
       <tag>RAG</tag>
       
+      <tag>STAR</tag>
+      
       <tag>OpenSearch</tag>
       
       <tag>工程复盘</tag>
-      
-      <tag>STAR</tag>
       
     </tags>
     
@@ -933,9 +999,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Java</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>Java</tag>
       
       <tag>AI工程</tag>
       
@@ -1009,11 +1075,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>MCP</tag>
+      
       <tag>Java</tag>
       
       <tag>Python</tag>
-      
-      <tag>MCP</tag>
       
       <tag>AI工程</tag>
       
