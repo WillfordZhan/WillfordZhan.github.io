@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</title>
+    <link href="/2026/03/06/langgraph-schema-driven-retrospective-20260306/"/>
+    <url>/2026/03/06/langgraph-schema-driven-retrospective-20260306/</url>
+    
+    <content type="html"><![CDATA[<p>这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：</p><blockquote><p>到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。</p></blockquote><p>答案很明确：后者。</p><p>下面按真实时间线复盘，尽量给可复现证据，不讲玄学。</p><h2 id="1-讨论分歧：要不要用-fallback-快速过-case"><a href="#1-讨论分歧：要不要用-fallback-快速过-case" class="headerlink" title="1. 讨论分歧：要不要用 fallback 快速过 case"></a>1. 讨论分歧：要不要用 fallback 快速过 case</h2><p>中途一度出现典型诱惑：</p><ol><li>用户说“1号炉”，那就直接从 query 里正则提 <code>fnCode</code>。</li><li>schema 还没升级就先兼容参数名，保证联调先绿灯。</li></ol><p>这类方案短期很爽，长期很贵。因为它会快速演变成“编排层半个业务解析器”。</p><p>最终我们把原则钉死：</p><ol><li><strong>禁止 case 特判</strong>。</li><li><strong>禁止 query 文本硬编码补参</strong>。</li><li>参数补全和澄清必须由 <strong>tool schema 语义字段</strong>驱动。</li></ol><p>换句话说：补参逻辑是协议能力，不是对话技巧。</p><h2 id="2-改造目标：保外部资产，重写内部编排"><a href="#2-改造目标：保外部资产，重写内部编排" class="headerlink" title="2. 改造目标：保外部资产，重写内部编排"></a>2. 改造目标：保外部资产，重写内部编排</h2><p>目标是“重写编排侧”，不是“把所有层都改烂”。</p><p>保留不动的资产：</p><ol><li>Infra（鉴权、存储、事件）</li><li>MCP 对接与工具执行平面</li><li>HTTP API 对外契约</li></ol><p>改造聚焦在编排层：</p><ol><li>LangGraph 单轨流程</li><li>节点拆文件</li><li>schema-driven 的 tool 参数 resolve 与澄清</li></ol><h2 id="3-Java-侧改造：把工具参数从“文档”变成“可执行语义”"><a href="#3-Java-侧改造：把工具参数从“文档”变成“可执行语义”" class="headerlink" title="3. Java 侧改造：把工具参数从“文档”变成“可执行语义”"></a>3. Java 侧改造：把工具参数从“文档”变成“可执行语义”</h2><p>核心动作是让 <code>tools/list</code> 返回的 schema 可直接驱动编排。</p><h3 id="3-1-参数注解扩展语义字段"><a href="#3-1-参数注解扩展语义字段" class="headerlink" title="3.1 参数注解扩展语义字段"></a>3.1 参数注解扩展语义字段</h3><p>新增并透传：</p><ol><li><code>x-normalizationRule</code></li><li><code>x-clarifyTemplate</code></li><li><code>x-aliasExamples</code></li><li><code>x-acceptedExamples</code></li><li><code>x-requiredWhen</code></li></ol><h3 id="3-2-Tool-schema-输出升级"><a href="#3-2-Tool-schema-输出升级" class="headerlink" title="3.2 Tool schema 输出升级"></a>3.2 Tool schema 输出升级</h3><p><code>tools/list</code> 返回 <code>inputSchema</code>（兼容保留 <code>parameters</code>），并带参数级 <code>x-*</code> 字段。</p><h3 id="3-3-工具定义补全语义"><a href="#3-3-工具定义补全语义" class="headerlink" title="3.3 工具定义补全语义"></a>3.3 工具定义补全语义</h3><p>例如：</p><ol><li><code>fnCode</code> 标注 <code>extract_furnace_code_number</code></li><li><code>date</code> 标注 <code>relative_date_to_yyyy_mm_dd</code></li><li>每个关键参数给出 <code>x-clarifyTemplate</code></li></ol><h3 id="3-4-Java-侧提交"><a href="#3-4-Java-侧提交" class="headerlink" title="3.4 Java 侧提交"></a>3.4 Java 侧提交</h3><p>提交信息：<code>feat: 增加工具参数语义 schema 并打通补参与澄清</code></p><h2 id="4-Python-侧改造：严格-schema-驱动，不做参数名猜测"><a href="#4-Python-侧改造：严格-schema-驱动，不做参数名猜测" class="headerlink" title="4. Python 侧改造：严格 schema 驱动，不做参数名猜测"></a>4. Python 侧改造：严格 schema 驱动，不做参数名猜测</h2><p>核心函数是 <code>normalize_plan_with_tools</code>，行为约束如下：</p><ol><li>只读取 <code>inputSchema</code>&#x2F;<code>parameters</code> 中显式声明的规则。</li><li>按 <code>x-normalizationRule</code> 做归一化与缺参补全。</li><li>缺参时优先拼 <code>x-clarifyTemplate</code> 作为澄清问题。</li></ol><p>实现后我们做过一次“反向修正”：</p><ol><li>先临时加了向前兼容 fallback（按参数名补）。</li><li>被明确要求撤回（理由：这是硬编码捷径）。</li><li>立即删除 fallback，回到纯 schema-driven。</li></ol><p>这次回滚非常关键，它保证了后续治理边界不再漂移。</p><h3 id="Python-侧提交"><a href="#Python-侧提交" class="headerlink" title="Python 侧提交"></a>Python 侧提交</h3><p>提交信息：<code>feat: 按 schema 驱动工具参数归一化与澄清流程</code></p><h2 id="5-联调排障：先判协议，再判流程，最后判数据"><a href="#5-联调排障：先判协议，再判流程，最后判数据" class="headerlink" title="5. 联调排障：先判协议，再判流程，最后判数据"></a>5. 联调排障：先判协议，再判流程，最后判数据</h2><p>这次联调如果只看“最终回答”，很容易误判。</p><p>正确排障顺序是：</p><ol><li>Java MCP <code>tools/list</code> 是否真的返回了 <code>inputSchema + x-*</code>。</li><li><code>react_plan</code> 是否从 <code>missing_arg</code> 转为真实 <code>tool_call</code>。</li><li><code>tool_result</code> 失败到底是参数问题还是业务数据未命中。</li></ol><h3 id="5-1-第一轮现象（协议未生效）"><a href="#5-1-第一轮现象（协议未生效）" class="headerlink" title="5.1 第一轮现象（协议未生效）"></a>5.1 第一轮现象（协议未生效）</h3><p>当在线 Java 仍返回旧 schema 时，Case2 会持续停在“缺少 fnCode”的澄清。</p><p>这是协议问题，不是 LangGraph 节点逻辑问题。</p><h3 id="5-2-服务重启后验证（协议生效）"><a href="#5-2-服务重启后验证（协议生效）" class="headerlink" title="5.2 服务重启后验证（协议生效）"></a>5.2 服务重启后验证（协议生效）</h3><p>确认 <code>tools/list</code> 已含 <code>inputSchema</code> 和 <code>x-normalizationRule/x-clarifyTemplate</code>。</p><p>之后再跑 case，链路变化为：</p><ol><li>Case2 第二轮出现真实 <code>tool_call(arguments=&#123;&quot;fnCode&quot;:&quot;1&quot;&#125;)</code>。</li><li>Case3 出现 <code>tool_call -&gt; tool_result</code>，并携带归一化后的参数。</li></ol><h3 id="5-3-最终阻塞点"><a href="#5-3-最终阻塞点" class="headerlink" title="5.3 最终阻塞点"></a>5.3 最终阻塞点</h3><p><code>tool_result</code> 返回“未找到匹配炉体，fnCode&#x3D;1”。</p><p>这说明：</p><ol><li>编排链路已通。</li><li>参数解析已通。</li><li>业务数据不命中。</li></ol><p>这个结论比“没跑通”更有价值，因为可执行动作变得明确：补业务数据或提供真实可命中炉号。</p><h2 id="6-典型用例结果（真实联调）"><a href="#6-典型用例结果（真实联调）" class="headerlink" title="6. 典型用例结果（真实联调）"></a>6. 典型用例结果（真实联调）</h2><h3 id="Case1：问候语"><a href="#Case1：问候语" class="headerlink" title="Case1：问候语"></a>Case1：问候语</h3><p>链路：<code>user_message -&gt; conversation_started -&gt; llm_request -&gt; react_plan -&gt; final</code></p><p>结果：通过。</p><h3 id="Case2：缺参澄清-补参"><a href="#Case2：缺参澄清-补参" class="headerlink" title="Case2：缺参澄清 -&gt; 补参"></a>Case2：缺参澄清 -&gt; 补参</h3><ol><li>首轮按 schema 提示补 <code>fnCode</code>。</li><li>次轮输入“1号炉”后触发 <code>tool_call</code>。</li><li>由于数据未命中进入标准编码澄清。</li></ol><p>结果：编排通过，数据未命中。</p><h3 id="Case3：今天-vs-昨天"><a href="#Case3：今天-vs-昨天" class="headerlink" title="Case3：今天 vs 昨天"></a>Case3：今天 vs 昨天</h3><ol><li>触发 <code>tool_call</code> 与 <code>tool_result</code>。</li><li>参数归一化生效。</li><li>数据未命中后进入澄清。</li></ol><p>结果：编排通过，数据未命中。</p><h2 id="7-这次改造的工程收益"><a href="#7-这次改造的工程收益" class="headerlink" title="7. 这次改造的工程收益"></a>7. 这次改造的工程收益</h2><h3 id="7-1-可维护性提升"><a href="#7-1-可维护性提升" class="headerlink" title="7.1 可维护性提升"></a>7.1 可维护性提升</h3><p>新增工具参数时，路径稳定：</p><ol><li>Java 注解声明语义</li><li>MCP schema 透出</li><li>Python resolve 执行规则</li><li>测试覆盖</li></ol><p>不再需要在编排里堆 if&#x2F;else。</p><h3 id="7-2-可观测性提升"><a href="#7-2-可观测性提升" class="headerlink" title="7.2 可观测性提升"></a>7.2 可观测性提升</h3><p>现在可以基于事件链定位：</p><ol><li><code>react_plan.validationErrors</code></li><li><code>tool_call</code></li><li><code>tool_result</code></li></ol><p>故障定位从“猜测式”变成“证据式”。</p><h3 id="7-3-治理边界稳定"><a href="#7-3-治理边界稳定" class="headerlink" title="7.3 治理边界稳定"></a>7.3 治理边界稳定</h3><p>最重要的一点：这次明确拒绝了“tricky pass”。</p><p>这让系统从“能跑一次”转向“能持续演进”。</p><h2 id="8-给做-Agent-编排的同学三条建议"><a href="#8-给做-Agent-编排的同学三条建议" class="headerlink" title="8. 给做 Agent 编排的同学三条建议"></a>8. 给做 Agent 编排的同学三条建议</h2><ol><li>先把 tool schema 语义化，再谈 prompt 技巧。</li><li>把“失败可解释”当成首要验收标准。</li><li>真实联调必须分层看证据：协议 -&gt; 编排 -&gt; 数据。</li></ol><h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>这次改造的最终形态并不炫技：</p><ol><li>LangGraph 单轨。</li><li>schema 驱动补参与澄清。</li><li>事件链可验证。</li></ol><p>但它解决了一个更难的问题：</p><blockquote><p>当需求变化时，系统还能不能继续被清晰地改下去。</p></blockquote><p>这件事，比一次“看起来很聪明”的临时绿灯值钱得多。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>重构复盘</tag>
+      
+      <tag>Tool Schema</tag>
+      
+      <tag>联调实战</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</title>
     <link href="/2026/03/06/langgraph-messagesstate/"/>
     <url>/2026/03/06/langgraph-messagesstate/</url>
@@ -997,15 +1030,15 @@
       
       <tag>MCP</tag>
       
+      <tag>Dify</tag>
+      
+      <tag>知识库</tag>
+      
       <tag>AI工程</tag>
       
       <tag>RAG</tag>
       
-      <tag>Dify</tag>
-      
       <tag>架构设计</tag>
-      
-      <tag>知识库</tag>
       
     </tags>
     

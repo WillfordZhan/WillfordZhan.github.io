@@ -19,28 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q">
+    <meta name="description" content="这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：  到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。  答案很明确：后者。 下面按真实时间线复盘，尽量给可复现证据，不讲玄学。 1. 讨论分歧：要不要用 fallback 快速过 case中途一度出现典型诱惑：  用户说“1号炉”，那就直接从 query 里正则提">
 <meta property="og:type" content="article">
-<meta property="og:title" content="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/06/langgraph-messagesstate/index.html">
+<meta property="og:title" content="LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/06/langgraph-schema-driven-retrospective-20260306/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q">
+<meta property="og:description" content="这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：  到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。  答案很明确：后者。 下面按真实时间线复盘，尽量给可复现证据，不讲玄学。 1. 讨论分歧：要不要用 fallback 快速过 case中途一度出现典型诱惑：  用户说“1号炉”，那就直接从 query 里正则提">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-06T09:16:30.000Z">
-<meta property="article:modified_time" content="2026-03-06T09:46:15.632Z">
+<meta property="article:published_time" content="2026-03-06T10:01:00.000Z">
+<meta property="article:modified_time" content="2026-03-06T09:46:15.633Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="LangGraph">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="FastAPI">
-<meta property="article:tag" content="架构重构">
-<meta property="article:tag" content="工程复盘">
+<meta property="article:tag" content="重构复盘">
+<meta property="article:tag" content="Tool Schema">
+<meta property="article:tag" content="联调实战">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口 - 味儿福德詹的小站</title>
+  <title>LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口"></span>
+            <span id="subtitle" data-typed-text="LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战"></span>
           
         </div>
 
@@ -229,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-06 17:16" pubdate>
-          2026年3月6日 下午
+        <time datetime="2026-03-06 18:01" pubdate>
+          2026年3月6日 晚上
         </time>
       </span>
     
@@ -298,132 +298,144 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</h1>
+            <h1 id="seo-header">LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇记录复盘最近两次连续提交：</p>
-<ul>
-<li><code>76539e9</code>：<code>refactor(langgraph): 全量收口到MessagesState单一状态源</code></li>
-<li><code>2138513</code>：<code>refactor(langgraph): 删除未激活respond节点并清理导出</code></li>
-</ul>
-<p>一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。</p>
-<h2 id="先说改造前的问题"><a href="#先说改造前的问题" class="headerlink" title="先说改造前的问题"></a>先说改造前的问题</h2><p>在这次重构前，编排链路同时维护几套上下文来源：</p>
-<ul>
-<li><code>query</code></li>
-<li><code>tool_result_preview</code></li>
-<li><code>tool_result_payload</code></li>
-<li><code>validated_tool_calls</code></li>
-<li>以及事件流里的 <code>user_message/tool_result/final</code></li>
-</ul>
-<p>问题不在于字段多，问题在于这些字段会在不同节点被分别读写，久而久之出现两个经典现象：</p>
+                <p>这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：</p>
+<blockquote>
+<p>到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。</p>
+</blockquote>
+<p>答案很明确：后者。</p>
+<p>下面按真实时间线复盘，尽量给可复现证据，不讲玄学。</p>
+<h2 id="1-讨论分歧：要不要用-fallback-快速过-case"><a href="#1-讨论分歧：要不要用-fallback-快速过-case" class="headerlink" title="1. 讨论分歧：要不要用 fallback 快速过 case"></a>1. 讨论分歧：要不要用 fallback 快速过 case</h2><p>中途一度出现典型诱惑：</p>
 <ol>
-<li>同一轮对话，状态里能找到三份“都像真相”的数据。</li>
-<li>想复盘一次问题，要在多个字段之间来回对照，像在车间里找同一把 14 号扳手。</li>
+<li>用户说“1号炉”，那就直接从 query 里正则提 <code>fnCode</code>。</li>
+<li>schema 还没升级就先兼容参数名，保证联调先绿灯。</li>
 </ol>
-<h2 id="Commit-1：76539e9-做了什么"><a href="#Commit-1：76539e9-做了什么" class="headerlink" title="Commit 1：76539e9 做了什么"></a>Commit 1：<code>76539e9</code> 做了什么</h2><h3 id="1-状态基类切到-MessagesState"><a href="#1-状态基类切到-MessagesState" class="headerlink" title="1) 状态基类切到 MessagesState"></a>1) 状态基类切到 <code>MessagesState</code></h3><p><code>app/langgraph/state.py</code> 从普通 <code>TypedDict</code> 改为继承 LangGraph 原生 <code>MessagesState</code>，把 <code>messages</code> 作为主上下文容器。</p>
-<p>收益：</p>
-<ul>
-<li>与 LangGraph reducer 机制对齐，后续扩展更顺滑。</li>
-<li>消息历史有统一载体，不再靠散落字段拼接“近似上下文”。</li>
-</ul>
-<h3 id="2-编排入口统一注入-HumanMessage"><a href="#2-编排入口统一注入-HumanMessage" class="headerlink" title="2) 编排入口统一注入 HumanMessage"></a>2) 编排入口统一注入 <code>HumanMessage</code></h3><p><code>app/orchestrator.py</code> 在每轮输入 graph 前写入：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-string">&quot;messages&quot;</span>: [HumanMessage(content=query)]<br></code></pre></td></tr></table></figure>
-
-<p>收益：</p>
-<ul>
-<li>进入图时上下文结构统一。</li>
-<li><code>plan</code> 不必依赖“这个 query 是不是刚好被某节点回填过”。</li>
-</ul>
-<h3 id="3-新增消息工具层-app-langgraph-messages-py"><a href="#3-新增消息工具层-app-langgraph-messages-py" class="headerlink" title="3) 新增消息工具层 app/langgraph/messages.py"></a>3) 新增消息工具层 <code>app/langgraph/messages.py</code></h3><p>抽出通用函数：</p>
-<ul>
-<li><code>latest_human_query(...)</code></li>
-<li><code>serialize_history(...)</code></li>
-<li><code>tool_observations(...)</code></li>
-<li><code>latest_tool_fallback_answer(...)</code></li>
-</ul>
-<p>收益：</p>
-<ul>
-<li>消息提取规则集中，避免在 <code>plan/chat/prompting</code> 重复写解析逻辑。</li>
-<li>这是可复用抽象，不是为了“抽象而抽象”。</li>
-</ul>
-<h3 id="4-plan-节点改为消息驱动"><a href="#4-plan-节点改为消息驱动" class="headerlink" title="4) plan 节点改为消息驱动"></a>4) <code>plan</code> 节点改为消息驱动</h3><p><code>plan</code> 现在优先从 <code>messages</code> 中提取最后一条用户输入，再把历史与工具观察一起喂给 planner。</p>
-<p>收益：</p>
-<ul>
-<li>多轮澄清&#x2F;恢复时，plan 看到的是“对话事实”，不是残留字段。</li>
-</ul>
-<h3 id="5-tool-call-写入标准-ToolMessage"><a href="#5-tool-call-写入标准-ToolMessage" class="headerlink" title="5) tool_call 写入标准 ToolMessage"></a>5) <code>tool_call</code> 写入标准 <code>ToolMessage</code></h3><p>工具调用结果被写成 <code>ToolMessage</code>，内容是结构化 JSON（<code>ok/preview/result/error</code>）。</p>
-<p>收益：</p>
-<ul>
-<li>工具观察自然进入消息主链。</li>
-<li>后续做 “只靠 messages 驱动 answer 汇总”有基础。</li>
-</ul>
-<h3 id="6-clarify-和-chat-也并入消息链"><a href="#6-clarify-和-chat-也并入消息链" class="headerlink" title="6) clarify 和 chat 也并入消息链"></a>6) <code>clarify</code> 和 <code>chat</code> 也并入消息链</h3><ul>
-<li><code>clarify</code> 写入澄清 <code>AIMessage</code>，resume 后写回 <code>HumanMessage</code></li>
-<li><code>chat</code> 产出 final 时写入 <code>AIMessage</code></li>
-</ul>
-<p>收益：</p>
-<ul>
-<li>澄清中断恢复形成闭环，不再是“事件有记录，状态没历史”。</li>
-</ul>
-<h3 id="7-同步清理-schema-与测试"><a href="#7-同步清理-schema-与测试" class="headerlink" title="7) 同步清理 schema 与测试"></a>7) 同步清理 schema 与测试</h3><p><code>state_patch/tool_runtime/test_plan_node/test_prompting</code> 一并调整，保证字段迁移后行为不回退。</p>
-<h2 id="Commit-2：2138513-做了什么"><a href="#Commit-2：2138513-做了什么" class="headerlink" title="Commit 2：2138513 做了什么"></a>Commit 2：<code>2138513</code> 做了什么</h2><p>这次提交非常短，但很值钱：</p>
-<ul>
-<li>删除 <code>app/langgraph/nodes/respond.py</code></li>
-<li>清理 <code>nodes/__init__.py</code> 导出</li>
-</ul>
-<p>背景：图路由已经走 <code>chat</code>，<code>respond</code> 节点处于未激活状态。</p>
-<p>收益：</p>
-<ul>
-<li>去掉“看起来能跑、实际不会跑”的伪路径。</li>
-<li>新同学读代码不会被“幽灵节点”误导。</li>
-</ul>
-<h2 id="两次提交带来的直接收益"><a href="#两次提交带来的直接收益" class="headerlink" title="两次提交带来的直接收益"></a>两次提交带来的直接收益</h2><h3 id="可维护性"><a href="#可维护性" class="headerlink" title="可维护性"></a>可维护性</h3><ul>
-<li>状态收口后，节点职责更清晰：<ul>
-<li><code>plan</code> 看消息决定行动</li>
-<li><code>tool_call</code> 产出工具消息</li>
-<li><code>chat</code> 汇总输出</li>
-</ul>
-</li>
-<li>读链路时不再需要先猜“这轮到底读了哪个旧字段”。</li>
-</ul>
-<h3 id="可追溯性"><a href="#可追溯性" class="headerlink" title="可追溯性"></a>可追溯性</h3><ul>
-<li>一条完整轨迹可直接在消息序列中复盘：<ul>
-<li><code>HumanMessage -&gt; AI(计划/澄清) -&gt; ToolMessage -&gt; AI(final)</code></li>
-</ul>
-</li>
-<li>这对排查“为什么走了 CLARIFY 而不是 CALL_TOOL”非常实用。</li>
-</ul>
-<h3 id="可扩展性"><a href="#可扩展性" class="headerlink" title="可扩展性"></a>可扩展性</h3><ul>
-<li>与 LangGraph 原生生态更贴近，后续接 checkpoint&#x2F;human-in-the-loop&#x2F;更复杂 reducer 成本更低。</li>
-</ul>
-<h3 id="代码冗余"><a href="#代码冗余" class="headerlink" title="代码冗余"></a>代码冗余</h3><ul>
-<li>删除未激活节点，减少维护噪音。</li>
-<li>部分旧字段依赖被移除，状态面变窄。</li>
-</ul>
-<h2 id="这次改造没有解决什么"><a href="#这次改造没有解决什么" class="headerlink" title="这次改造没有解决什么"></a>这次改造没有解决什么</h2><p>客观讲，这两次提交是“主干收口”，不是“全量终局”。仍有几个后续项值得继续做：</p>
+<p>这类方案短期很爽，长期很贵。因为它会快速演变成“编排层半个业务解析器”。</p>
+<p>最终我们把原则钉死：</p>
 <ol>
-<li>把剩余兼容字段继续下沉或删除，彻底做到 messages 为唯一事实源。</li>
-<li>统一参数校验入口，避免 normalize 与 validate 双逻辑长期漂移。</li>
-<li>给消息链增加结构化观测（如每轮关键消息摘要），提升线上排障速度。</li>
+<li><strong>禁止 case 特判</strong>。</li>
+<li><strong>禁止 query 文本硬编码补参</strong>。</li>
+<li>参数补全和澄清必须由 <strong>tool schema 语义字段</strong>驱动。</li>
 </ol>
-<h2 id="一个典型的因果链（这次改造为什么有效）"><a href="#一个典型的因果链（这次改造为什么有效）" class="headerlink" title="一个典型的因果链（这次改造为什么有效）"></a>一个典型的因果链（这次改造为什么有效）</h2><ul>
-<li>现象：多轮恢复时，plan 可能读到旧字段而不是最新用户补充。</li>
-<li>机制：状态事实分散在多个字段，更新边界不一致。</li>
-<li>修复：统一改为 MessagesState 主链，resume 明确写回 <code>HumanMessage</code>。</li>
-<li>结果：plan 读取路径固定为“最后用户消息 + 历史消息”。</li>
-</ul>
-<p>这就是本次改造的核心：不是追求“看起来高级”，是把上下文事实源从“多处拼接”变成“一处主链”。</p>
-<h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="Q1：为什么不是直接上一个超大-BaseModel-状态类？"><a href="#Q1：为什么不是直接上一个超大-BaseModel-状态类？" class="headerlink" title="Q1：为什么不是直接上一个超大 BaseModel 状态类？"></a>Q1：为什么不是直接上一个超大 <code>BaseModel</code> 状态类？</h3><p>因为 LangGraph 的强项是增量 patch + reducer。先用 <code>MessagesState</code> 收口主链，再按节点加 typed patch，风险更低。</p>
-<h3 id="Q2：删除-respond-会不会影响行为？"><a href="#Q2：删除-respond-会不会影响行为？" class="headerlink" title="Q2：删除 respond 会不会影响行为？"></a>Q2：删除 <code>respond</code> 会不会影响行为？</h3><p>不会。路由已经走 <code>chat</code>，<code>respond</code> 仅是未激活冗余实现。</p>
-<h3 id="Q3：这次改造最值的一点是什么？"><a href="#Q3：这次改造最值的一点是什么？" class="headerlink" title="Q3：这次改造最值的一点是什么？"></a>Q3：这次改造最值的一点是什么？</h3><p>“单一事实源”落地。调试、复盘、继续迭代都更便宜。</p>
-<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这两次提交做的是一类看起来不炫、但长期收益很高的工程活：</p>
-<ul>
-<li>用 <code>MessagesState</code> 把主链收口</li>
-<li>用删除冗余节点减少认知噪音</li>
-</ul>
-<p>短期你会感觉“代码没多出什么新功能”；长期你会发现“同类 bug 明显更难长出来”。EOF</p>
+<p>换句话说：补参逻辑是协议能力，不是对话技巧。</p>
+<h2 id="2-改造目标：保外部资产，重写内部编排"><a href="#2-改造目标：保外部资产，重写内部编排" class="headerlink" title="2. 改造目标：保外部资产，重写内部编排"></a>2. 改造目标：保外部资产，重写内部编排</h2><p>目标是“重写编排侧”，不是“把所有层都改烂”。</p>
+<p>保留不动的资产：</p>
+<ol>
+<li>Infra（鉴权、存储、事件）</li>
+<li>MCP 对接与工具执行平面</li>
+<li>HTTP API 对外契约</li>
+</ol>
+<p>改造聚焦在编排层：</p>
+<ol>
+<li>LangGraph 单轨流程</li>
+<li>节点拆文件</li>
+<li>schema-driven 的 tool 参数 resolve 与澄清</li>
+</ol>
+<h2 id="3-Java-侧改造：把工具参数从“文档”变成“可执行语义”"><a href="#3-Java-侧改造：把工具参数从“文档”变成“可执行语义”" class="headerlink" title="3. Java 侧改造：把工具参数从“文档”变成“可执行语义”"></a>3. Java 侧改造：把工具参数从“文档”变成“可执行语义”</h2><p>核心动作是让 <code>tools/list</code> 返回的 schema 可直接驱动编排。</p>
+<h3 id="3-1-参数注解扩展语义字段"><a href="#3-1-参数注解扩展语义字段" class="headerlink" title="3.1 参数注解扩展语义字段"></a>3.1 参数注解扩展语义字段</h3><p>新增并透传：</p>
+<ol>
+<li><code>x-normalizationRule</code></li>
+<li><code>x-clarifyTemplate</code></li>
+<li><code>x-aliasExamples</code></li>
+<li><code>x-acceptedExamples</code></li>
+<li><code>x-requiredWhen</code></li>
+</ol>
+<h3 id="3-2-Tool-schema-输出升级"><a href="#3-2-Tool-schema-输出升级" class="headerlink" title="3.2 Tool schema 输出升级"></a>3.2 Tool schema 输出升级</h3><p><code>tools/list</code> 返回 <code>inputSchema</code>（兼容保留 <code>parameters</code>），并带参数级 <code>x-*</code> 字段。</p>
+<h3 id="3-3-工具定义补全语义"><a href="#3-3-工具定义补全语义" class="headerlink" title="3.3 工具定义补全语义"></a>3.3 工具定义补全语义</h3><p>例如：</p>
+<ol>
+<li><code>fnCode</code> 标注 <code>extract_furnace_code_number</code></li>
+<li><code>date</code> 标注 <code>relative_date_to_yyyy_mm_dd</code></li>
+<li>每个关键参数给出 <code>x-clarifyTemplate</code></li>
+</ol>
+<h3 id="3-4-Java-侧提交"><a href="#3-4-Java-侧提交" class="headerlink" title="3.4 Java 侧提交"></a>3.4 Java 侧提交</h3><p>提交信息：<code>feat: 增加工具参数语义 schema 并打通补参与澄清</code></p>
+<h2 id="4-Python-侧改造：严格-schema-驱动，不做参数名猜测"><a href="#4-Python-侧改造：严格-schema-驱动，不做参数名猜测" class="headerlink" title="4. Python 侧改造：严格 schema 驱动，不做参数名猜测"></a>4. Python 侧改造：严格 schema 驱动，不做参数名猜测</h2><p>核心函数是 <code>normalize_plan_with_tools</code>，行为约束如下：</p>
+<ol>
+<li>只读取 <code>inputSchema</code>&#x2F;<code>parameters</code> 中显式声明的规则。</li>
+<li>按 <code>x-normalizationRule</code> 做归一化与缺参补全。</li>
+<li>缺参时优先拼 <code>x-clarifyTemplate</code> 作为澄清问题。</li>
+</ol>
+<p>实现后我们做过一次“反向修正”：</p>
+<ol>
+<li>先临时加了向前兼容 fallback（按参数名补）。</li>
+<li>被明确要求撤回（理由：这是硬编码捷径）。</li>
+<li>立即删除 fallback，回到纯 schema-driven。</li>
+</ol>
+<p>这次回滚非常关键，它保证了后续治理边界不再漂移。</p>
+<h3 id="Python-侧提交"><a href="#Python-侧提交" class="headerlink" title="Python 侧提交"></a>Python 侧提交</h3><p>提交信息：<code>feat: 按 schema 驱动工具参数归一化与澄清流程</code></p>
+<h2 id="5-联调排障：先判协议，再判流程，最后判数据"><a href="#5-联调排障：先判协议，再判流程，最后判数据" class="headerlink" title="5. 联调排障：先判协议，再判流程，最后判数据"></a>5. 联调排障：先判协议，再判流程，最后判数据</h2><p>这次联调如果只看“最终回答”，很容易误判。</p>
+<p>正确排障顺序是：</p>
+<ol>
+<li>Java MCP <code>tools/list</code> 是否真的返回了 <code>inputSchema + x-*</code>。</li>
+<li><code>react_plan</code> 是否从 <code>missing_arg</code> 转为真实 <code>tool_call</code>。</li>
+<li><code>tool_result</code> 失败到底是参数问题还是业务数据未命中。</li>
+</ol>
+<h3 id="5-1-第一轮现象（协议未生效）"><a href="#5-1-第一轮现象（协议未生效）" class="headerlink" title="5.1 第一轮现象（协议未生效）"></a>5.1 第一轮现象（协议未生效）</h3><p>当在线 Java 仍返回旧 schema 时，Case2 会持续停在“缺少 fnCode”的澄清。</p>
+<p>这是协议问题，不是 LangGraph 节点逻辑问题。</p>
+<h3 id="5-2-服务重启后验证（协议生效）"><a href="#5-2-服务重启后验证（协议生效）" class="headerlink" title="5.2 服务重启后验证（协议生效）"></a>5.2 服务重启后验证（协议生效）</h3><p>确认 <code>tools/list</code> 已含 <code>inputSchema</code> 和 <code>x-normalizationRule/x-clarifyTemplate</code>。</p>
+<p>之后再跑 case，链路变化为：</p>
+<ol>
+<li>Case2 第二轮出现真实 <code>tool_call(arguments=&#123;&quot;fnCode&quot;:&quot;1&quot;&#125;)</code>。</li>
+<li>Case3 出现 <code>tool_call -&gt; tool_result</code>，并携带归一化后的参数。</li>
+</ol>
+<h3 id="5-3-最终阻塞点"><a href="#5-3-最终阻塞点" class="headerlink" title="5.3 最终阻塞点"></a>5.3 最终阻塞点</h3><p><code>tool_result</code> 返回“未找到匹配炉体，fnCode&#x3D;1”。</p>
+<p>这说明：</p>
+<ol>
+<li>编排链路已通。</li>
+<li>参数解析已通。</li>
+<li>业务数据不命中。</li>
+</ol>
+<p>这个结论比“没跑通”更有价值，因为可执行动作变得明确：补业务数据或提供真实可命中炉号。</p>
+<h2 id="6-典型用例结果（真实联调）"><a href="#6-典型用例结果（真实联调）" class="headerlink" title="6. 典型用例结果（真实联调）"></a>6. 典型用例结果（真实联调）</h2><h3 id="Case1：问候语"><a href="#Case1：问候语" class="headerlink" title="Case1：问候语"></a>Case1：问候语</h3><p>链路：<code>user_message -&gt; conversation_started -&gt; llm_request -&gt; react_plan -&gt; final</code></p>
+<p>结果：通过。</p>
+<h3 id="Case2：缺参澄清-补参"><a href="#Case2：缺参澄清-补参" class="headerlink" title="Case2：缺参澄清 -&gt; 补参"></a>Case2：缺参澄清 -&gt; 补参</h3><ol>
+<li>首轮按 schema 提示补 <code>fnCode</code>。</li>
+<li>次轮输入“1号炉”后触发 <code>tool_call</code>。</li>
+<li>由于数据未命中进入标准编码澄清。</li>
+</ol>
+<p>结果：编排通过，数据未命中。</p>
+<h3 id="Case3：今天-vs-昨天"><a href="#Case3：今天-vs-昨天" class="headerlink" title="Case3：今天 vs 昨天"></a>Case3：今天 vs 昨天</h3><ol>
+<li>触发 <code>tool_call</code> 与 <code>tool_result</code>。</li>
+<li>参数归一化生效。</li>
+<li>数据未命中后进入澄清。</li>
+</ol>
+<p>结果：编排通过，数据未命中。</p>
+<h2 id="7-这次改造的工程收益"><a href="#7-这次改造的工程收益" class="headerlink" title="7. 这次改造的工程收益"></a>7. 这次改造的工程收益</h2><h3 id="7-1-可维护性提升"><a href="#7-1-可维护性提升" class="headerlink" title="7.1 可维护性提升"></a>7.1 可维护性提升</h3><p>新增工具参数时，路径稳定：</p>
+<ol>
+<li>Java 注解声明语义</li>
+<li>MCP schema 透出</li>
+<li>Python resolve 执行规则</li>
+<li>测试覆盖</li>
+</ol>
+<p>不再需要在编排里堆 if&#x2F;else。</p>
+<h3 id="7-2-可观测性提升"><a href="#7-2-可观测性提升" class="headerlink" title="7.2 可观测性提升"></a>7.2 可观测性提升</h3><p>现在可以基于事件链定位：</p>
+<ol>
+<li><code>react_plan.validationErrors</code></li>
+<li><code>tool_call</code></li>
+<li><code>tool_result</code></li>
+</ol>
+<p>故障定位从“猜测式”变成“证据式”。</p>
+<h3 id="7-3-治理边界稳定"><a href="#7-3-治理边界稳定" class="headerlink" title="7.3 治理边界稳定"></a>7.3 治理边界稳定</h3><p>最重要的一点：这次明确拒绝了“tricky pass”。</p>
+<p>这让系统从“能跑一次”转向“能持续演进”。</p>
+<h2 id="8-给做-Agent-编排的同学三条建议"><a href="#8-给做-Agent-编排的同学三条建议" class="headerlink" title="8. 给做 Agent 编排的同学三条建议"></a>8. 给做 Agent 编排的同学三条建议</h2><ol>
+<li>先把 tool schema 语义化，再谈 prompt 技巧。</li>
+<li>把“失败可解释”当成首要验收标准。</li>
+<li>真实联调必须分层看证据：协议 -&gt; 编排 -&gt; 数据。</li>
+</ol>
+<h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>这次改造的最终形态并不炫技：</p>
+<ol>
+<li>LangGraph 单轨。</li>
+<li>schema 驱动补参与澄清。</li>
+<li>事件链可验证。</li>
+</ol>
+<p>但它解决了一个更难的问题：</p>
+<blockquote>
+<p>当需求变化时，系统还能不能继续被清晰地改下去。</p>
+</blockquote>
+<p>这件事，比一次“看起来很聪明”的临时绿灯值钱得多。</p>
 
                 
               </div>
@@ -461,11 +473,11 @@
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+        <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/" class="print-no-link">#重构复盘</a>
       
-        <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/" class="print-no-link">#架构重构</a>
+        <a href="/tags/Tool-Schema/" class="print-no-link">#Tool Schema</a>
       
-        <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/" class="print-no-link">#工程复盘</a>
+        <a href="/tags/%E8%81%94%E8%B0%83%E5%AE%9E%E6%88%98/" class="print-no-link">#联调实战</a>
       
     </div>
   
@@ -477,8 +489,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</div>
-      <div>https://willfordzhan.github.io/2026/03/06/langgraph-messagesstate/</div>
+      <div>LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</div>
+      <div>https://willfordzhan.github.io/2026/03/06/langgraph-schema-driven-retrospective-20260306/</div>
     </div>
     <div class="license-meta">
       
@@ -522,18 +534,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/06/langgraph-schema-driven-retrospective-20260306/" title="LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/06/langgraph-checkpoint-event-replay/" title="LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件">
-                        <span class="hidden-mobile">LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件</span>
+                      <a href="/2026/03/06/langgraph-messagesstate/" title="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口">
+                        <span class="hidden-mobile">LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
