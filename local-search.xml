@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</title>
+    <link href="/2026/03/06/langgraph-messagesstate/"/>
+    <url>/2026/03/06/langgraph-messagesstate/</url>
+    
+    <content type="html"><![CDATA[<p>这篇记录复盘最近两次连续提交：</p><ul><li><code>76539e9</code>：<code>refactor(langgraph): 全量收口到MessagesState单一状态源</code></li><li><code>2138513</code>：<code>refactor(langgraph): 删除未激活respond节点并清理导出</code></li></ul><p>一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。</p><h2 id="先说改造前的问题"><a href="#先说改造前的问题" class="headerlink" title="先说改造前的问题"></a>先说改造前的问题</h2><p>在这次重构前，编排链路同时维护几套上下文来源：</p><ul><li><code>query</code></li><li><code>tool_result_preview</code></li><li><code>tool_result_payload</code></li><li><code>validated_tool_calls</code></li><li>以及事件流里的 <code>user_message/tool_result/final</code></li></ul><p>问题不在于字段多，问题在于这些字段会在不同节点被分别读写，久而久之出现两个经典现象：</p><ol><li>同一轮对话，状态里能找到三份“都像真相”的数据。</li><li>想复盘一次问题，要在多个字段之间来回对照，像在车间里找同一把 14 号扳手。</li></ol><h2 id="Commit-1：76539e9-做了什么"><a href="#Commit-1：76539e9-做了什么" class="headerlink" title="Commit 1：76539e9 做了什么"></a>Commit 1：<code>76539e9</code> 做了什么</h2><h3 id="1-状态基类切到-MessagesState"><a href="#1-状态基类切到-MessagesState" class="headerlink" title="1) 状态基类切到 MessagesState"></a>1) 状态基类切到 <code>MessagesState</code></h3><p><code>app/langgraph/state.py</code> 从普通 <code>TypedDict</code> 改为继承 LangGraph 原生 <code>MessagesState</code>，把 <code>messages</code> 作为主上下文容器。</p><p>收益：</p><ul><li>与 LangGraph reducer 机制对齐，后续扩展更顺滑。</li><li>消息历史有统一载体，不再靠散落字段拼接“近似上下文”。</li></ul><h3 id="2-编排入口统一注入-HumanMessage"><a href="#2-编排入口统一注入-HumanMessage" class="headerlink" title="2) 编排入口统一注入 HumanMessage"></a>2) 编排入口统一注入 <code>HumanMessage</code></h3><p><code>app/orchestrator.py</code> 在每轮输入 graph 前写入：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-string">&quot;messages&quot;</span>: [HumanMessage(content=query)]<br></code></pre></td></tr></table></figure><p>收益：</p><ul><li>进入图时上下文结构统一。</li><li><code>plan</code> 不必依赖“这个 query 是不是刚好被某节点回填过”。</li></ul><h3 id="3-新增消息工具层-app-langgraph-messages-py"><a href="#3-新增消息工具层-app-langgraph-messages-py" class="headerlink" title="3) 新增消息工具层 app/langgraph/messages.py"></a>3) 新增消息工具层 <code>app/langgraph/messages.py</code></h3><p>抽出通用函数：</p><ul><li><code>latest_human_query(...)</code></li><li><code>serialize_history(...)</code></li><li><code>tool_observations(...)</code></li><li><code>latest_tool_fallback_answer(...)</code></li></ul><p>收益：</p><ul><li>消息提取规则集中，避免在 <code>plan/chat/prompting</code> 重复写解析逻辑。</li><li>这是可复用抽象，不是为了“抽象而抽象”。</li></ul><h3 id="4-plan-节点改为消息驱动"><a href="#4-plan-节点改为消息驱动" class="headerlink" title="4) plan 节点改为消息驱动"></a>4) <code>plan</code> 节点改为消息驱动</h3><p><code>plan</code> 现在优先从 <code>messages</code> 中提取最后一条用户输入，再把历史与工具观察一起喂给 planner。</p><p>收益：</p><ul><li>多轮澄清&#x2F;恢复时，plan 看到的是“对话事实”，不是残留字段。</li></ul><h3 id="5-tool-call-写入标准-ToolMessage"><a href="#5-tool-call-写入标准-ToolMessage" class="headerlink" title="5) tool_call 写入标准 ToolMessage"></a>5) <code>tool_call</code> 写入标准 <code>ToolMessage</code></h3><p>工具调用结果被写成 <code>ToolMessage</code>，内容是结构化 JSON（<code>ok/preview/result/error</code>）。</p><p>收益：</p><ul><li>工具观察自然进入消息主链。</li><li>后续做 “只靠 messages 驱动 answer 汇总”有基础。</li></ul><h3 id="6-clarify-和-chat-也并入消息链"><a href="#6-clarify-和-chat-也并入消息链" class="headerlink" title="6) clarify 和 chat 也并入消息链"></a>6) <code>clarify</code> 和 <code>chat</code> 也并入消息链</h3><ul><li><code>clarify</code> 写入澄清 <code>AIMessage</code>，resume 后写回 <code>HumanMessage</code></li><li><code>chat</code> 产出 final 时写入 <code>AIMessage</code></li></ul><p>收益：</p><ul><li>澄清中断恢复形成闭环，不再是“事件有记录，状态没历史”。</li></ul><h3 id="7-同步清理-schema-与测试"><a href="#7-同步清理-schema-与测试" class="headerlink" title="7) 同步清理 schema 与测试"></a>7) 同步清理 schema 与测试</h3><p><code>state_patch/tool_runtime/test_plan_node/test_prompting</code> 一并调整，保证字段迁移后行为不回退。</p><h2 id="Commit-2：2138513-做了什么"><a href="#Commit-2：2138513-做了什么" class="headerlink" title="Commit 2：2138513 做了什么"></a>Commit 2：<code>2138513</code> 做了什么</h2><p>这次提交非常短，但很值钱：</p><ul><li>删除 <code>app/langgraph/nodes/respond.py</code></li><li>清理 <code>nodes/__init__.py</code> 导出</li></ul><p>背景：图路由已经走 <code>chat</code>，<code>respond</code> 节点处于未激活状态。</p><p>收益：</p><ul><li>去掉“看起来能跑、实际不会跑”的伪路径。</li><li>新同学读代码不会被“幽灵节点”误导。</li></ul><h2 id="两次提交带来的直接收益"><a href="#两次提交带来的直接收益" class="headerlink" title="两次提交带来的直接收益"></a>两次提交带来的直接收益</h2><h3 id="可维护性"><a href="#可维护性" class="headerlink" title="可维护性"></a>可维护性</h3><ul><li>状态收口后，节点职责更清晰：<ul><li><code>plan</code> 看消息决定行动</li><li><code>tool_call</code> 产出工具消息</li><li><code>chat</code> 汇总输出</li></ul></li><li>读链路时不再需要先猜“这轮到底读了哪个旧字段”。</li></ul><h3 id="可追溯性"><a href="#可追溯性" class="headerlink" title="可追溯性"></a>可追溯性</h3><ul><li>一条完整轨迹可直接在消息序列中复盘：<ul><li><code>HumanMessage -&gt; AI(计划/澄清) -&gt; ToolMessage -&gt; AI(final)</code></li></ul></li><li>这对排查“为什么走了 CLARIFY 而不是 CALL_TOOL”非常实用。</li></ul><h3 id="可扩展性"><a href="#可扩展性" class="headerlink" title="可扩展性"></a>可扩展性</h3><ul><li>与 LangGraph 原生生态更贴近，后续接 checkpoint&#x2F;human-in-the-loop&#x2F;更复杂 reducer 成本更低。</li></ul><h3 id="代码冗余"><a href="#代码冗余" class="headerlink" title="代码冗余"></a>代码冗余</h3><ul><li>删除未激活节点，减少维护噪音。</li><li>部分旧字段依赖被移除，状态面变窄。</li></ul><h2 id="这次改造没有解决什么"><a href="#这次改造没有解决什么" class="headerlink" title="这次改造没有解决什么"></a>这次改造没有解决什么</h2><p>客观讲，这两次提交是“主干收口”，不是“全量终局”。仍有几个后续项值得继续做：</p><ol><li>把剩余兼容字段继续下沉或删除，彻底做到 messages 为唯一事实源。</li><li>统一参数校验入口，避免 normalize 与 validate 双逻辑长期漂移。</li><li>给消息链增加结构化观测（如每轮关键消息摘要），提升线上排障速度。</li></ol><h2 id="一个典型的因果链（这次改造为什么有效）"><a href="#一个典型的因果链（这次改造为什么有效）" class="headerlink" title="一个典型的因果链（这次改造为什么有效）"></a>一个典型的因果链（这次改造为什么有效）</h2><ul><li>现象：多轮恢复时，plan 可能读到旧字段而不是最新用户补充。</li><li>机制：状态事实分散在多个字段，更新边界不一致。</li><li>修复：统一改为 MessagesState 主链，resume 明确写回 <code>HumanMessage</code>。</li><li>结果：plan 读取路径固定为“最后用户消息 + 历史消息”。</li></ul><p>这就是本次改造的核心：不是追求“看起来高级”，是把上下文事实源从“多处拼接”变成“一处主链”。</p><h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="Q1：为什么不是直接上一个超大-BaseModel-状态类？"><a href="#Q1：为什么不是直接上一个超大-BaseModel-状态类？" class="headerlink" title="Q1：为什么不是直接上一个超大 BaseModel 状态类？"></a>Q1：为什么不是直接上一个超大 <code>BaseModel</code> 状态类？</h3><p>因为 LangGraph 的强项是增量 patch + reducer。先用 <code>MessagesState</code> 收口主链，再按节点加 typed patch，风险更低。</p><h3 id="Q2：删除-respond-会不会影响行为？"><a href="#Q2：删除-respond-会不会影响行为？" class="headerlink" title="Q2：删除 respond 会不会影响行为？"></a>Q2：删除 <code>respond</code> 会不会影响行为？</h3><p>不会。路由已经走 <code>chat</code>，<code>respond</code> 仅是未激活冗余实现。</p><h3 id="Q3：这次改造最值的一点是什么？"><a href="#Q3：这次改造最值的一点是什么？" class="headerlink" title="Q3：这次改造最值的一点是什么？"></a>Q3：这次改造最值的一点是什么？</h3><p>“单一事实源”落地。调试、复盘、继续迭代都更便宜。</p><h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这两次提交做的是一类看起来不炫、但长期收益很高的工程活：</p><ul><li>用 <code>MessagesState</code> 把主链收口</li><li>用删除冗余节点减少认知噪音</li></ul><p>短期你会感觉“代码没多出什么新功能”；长期你会发现“同类 bug 明显更难长出来”。EOF</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>FastAPI</tag>
+      
+      <tag>架构重构</tag>
+      
+      <tag>工程复盘</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件</title>
     <link href="/2026/03/06/langgraph-checkpoint-event-replay/"/>
     <url>/2026/03/06/langgraph-checkpoint-event-replay/</url>
@@ -404,15 +437,15 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>MCP</tag>
       
-      <tag>FastAPI</tag>
+      <tag>工程复盘</tag>
       
       <tag>Guardrails</tag>
       
       <tag>Memory</tag>
-      
-      <tag>工程复盘</tag>
       
       <tag>AI编排</tag>
       
@@ -577,13 +610,13 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>AI网关</tag>
       
       <tag>Java</tag>
       
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -678,9 +711,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>调试</tag>
       
@@ -713,11 +746,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>MCP</tag>
       
       <tag>Qwen</tag>
-      
-      <tag>FastAPI</tag>
       
       <tag>ReAct</tag>
       
@@ -822,11 +855,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>MCP</tag>
-      
       <tag>Java</tag>
       
       <tag>Python</tag>
+      
+      <tag>MCP</tag>
       
       <tag>里程碑</tag>
       
@@ -861,9 +894,9 @@
       
       <tag>STAR</tag>
       
-      <tag>OpenSearch</tag>
-      
       <tag>工程复盘</tag>
+      
+      <tag>OpenSearch</tag>
       
     </tags>
     
@@ -999,9 +1032,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>MCP</tag>
-      
       <tag>Java</tag>
+      
+      <tag>MCP</tag>
       
       <tag>AI工程</tag>
       
@@ -1075,11 +1108,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>MCP</tag>
-      
       <tag>Java</tag>
       
       <tag>Python</tag>
+      
+      <tag>MCP</tag>
       
       <tag>AI工程</tag>
       

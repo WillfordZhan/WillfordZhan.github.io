@@ -19,28 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇写给后端同学：不懂前端也能把 uni-app 项目跑到微信开发者工具里预览页面。 核心结论先说：  uni-app 源码目录不能直接当小程序目录导入微信开发者工具。 必须先用 HBuilderX 编译，拿到 unpackage&#x2F;dist&#x2F;build&#x2F;mp-weixin 产物。 再让微信开发者工具打开这个产物目录（或通过 project.config.json 的 miniprogramRoot">
+    <meta name="description" content="这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q">
 <meta property="og:type" content="article">
-<meta property="og:title" content="从零把 uni-app 接到微信开发者工具：HBuilderX 全流程与踩坑复盘">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/02/uni-app-hbuilderx/index.html">
+<meta property="og:title" content="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/06/langgraph-messagesstate/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇写给后端同学：不懂前端也能把 uni-app 项目跑到微信开发者工具里预览页面。 核心结论先说：  uni-app 源码目录不能直接当小程序目录导入微信开发者工具。 必须先用 HBuilderX 编译，拿到 unpackage&#x2F;dist&#x2F;build&#x2F;mp-weixin 产物。 再让微信开发者工具打开这个产物目录（或通过 project.config.json 的 miniprogramRoot">
+<meta property="og:description" content="这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-02T06:43:11.000Z">
-<meta property="article:modified_time" content="2026-03-06T09:19:38.461Z">
+<meta property="article:published_time" content="2026-03-06T09:16:30.000Z">
+<meta property="article:modified_time" content="2026-03-06T09:19:38.459Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="uni-app">
-<meta property="article:tag" content="微信小程序">
-<meta property="article:tag" content="HBuilderX">
-<meta property="article:tag" content="工程化">
-<meta property="article:tag" content="踩坑">
+<meta property="article:tag" content="LangGraph">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="架构重构">
+<meta property="article:tag" content="工程复盘">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>从零把 uni-app 接到微信开发者工具：HBuilderX 全流程与踩坑复盘 - 味儿福德詹的小站</title>
+  <title>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="从零把 uni-app 接到微信开发者工具：HBuilderX 全流程与踩坑复盘"></span>
+            <span id="subtitle" data-typed-text="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口"></span>
           
         </div>
 
@@ -229,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-02 14:43" pubdate>
-          2026年3月2日 下午
+        <time datetime="2026-03-06 17:16" pubdate>
+          2026年3月6日 下午
         </time>
       </span>
     
@@ -241,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          952 字
+          1.3k 字
         
       </span>
     
@@ -252,7 +252,7 @@
         
         
         
-          8 分钟
+          11 分钟
         
       </span>
     
@@ -298,112 +298,132 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">从零把 uni-app 接到微信开发者工具：HBuilderX 全流程与踩坑复盘</h1>
+            <h1 id="seo-header">LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇写给后端同学：不懂前端也能把 <code>uni-app</code> 项目跑到微信开发者工具里预览页面。</p>
-<p>核心结论先说：</p>
+                <p>这篇记录复盘最近两次连续提交：</p>
 <ul>
-<li><code>uni-app</code> 源码目录不能直接当小程序目录导入微信开发者工具。</li>
-<li>必须先用 HBuilderX 编译，拿到 <code>unpackage/dist/build/mp-weixin</code> 产物。</li>
-<li>再让微信开发者工具打开这个产物目录（或通过 <code>project.config.json</code> 的 <code>miniprogramRoot</code> 指过去）。</li>
+<li><code>76539e9</code>：<code>refactor(langgraph): 全量收口到MessagesState单一状态源</code></li>
+<li><code>2138513</code>：<code>refactor(langgraph): 删除未激活respond节点并清理导出</code></li>
 </ul>
-<h2 id="先分清-3-个-appid（这是第一大坑）"><a href="#先分清-3-个-appid（这是第一大坑）" class="headerlink" title="先分清 3 个 appid（这是第一大坑）"></a>先分清 3 个 appid（这是第一大坑）</h2><ol>
-<li>微信小程序 appid（<code>wxa...</code>）<ul>
-<li>用于微信开发者工具和小程序平台。</li>
-</ul>
-</li>
-<li>DCloud appid（<code>__UNI__...</code>）<ul>
-<li>在 <code>manifest.json</code> 里，HBuilderX 编译&#x2F;发行会校验它。</li>
-</ul>
-</li>
-<li>项目目录里的 <code>project.config.json</code> <code>appid</code><ul>
-<li>微信开发者工具读取的配置。</li>
-</ul>
-</li>
-</ol>
-<p>很多报错看起来像“编译问题”，本质是 appid 权限问题。</p>
-<h2 id="最短可跑通流程（推荐）"><a href="#最短可跑通流程（推荐）" class="headerlink" title="最短可跑通流程（推荐）"></a>最短可跑通流程（推荐）</h2><h3 id="1-安装-HBuilderX"><a href="#1-安装-HBuilderX" class="headerlink" title="1) 安装 HBuilderX"></a>1) 安装 HBuilderX</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">brew install --cask hbuilderx<br></code></pre></td></tr></table></figure>
-
-<h3 id="2-在-HBuilderX-导入项目"><a href="#2-在-HBuilderX-导入项目" class="headerlink" title="2) 在 HBuilderX 导入项目"></a>2) 在 HBuilderX 导入项目</h3><p>打开 HBuilderX，导入 <code>factory-miniprogram</code> 项目根目录。</p>
-<h3 id="3-登录-DCloud-账号，并完成手机号绑定"><a href="#3-登录-DCloud-账号，并完成手机号绑定" class="headerlink" title="3) 登录 DCloud 账号，并完成手机号绑定"></a>3) 登录 DCloud 账号，并完成手机号绑定</h3><p>否则会出现：</p>
+<p>一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。</p>
+<h2 id="先说改造前的问题"><a href="#先说改造前的问题" class="headerlink" title="先说改造前的问题"></a>先说改造前的问题</h2><p>在这次重构前，编排链路同时维护几套上下文来源：</p>
 <ul>
-<li><code>此功能需要先登录</code></li>
-<li><code>当前账号尚未绑定手机号</code></li>
+<li><code>query</code></li>
+<li><code>tool_result_preview</code></li>
+<li><code>tool_result_payload</code></li>
+<li><code>validated_tool_calls</code></li>
+<li>以及事件流里的 <code>user_message/tool_result/final</code></li>
 </ul>
-<h3 id="4-在-manifest-json-里确认-DCloud-appid-可用"><a href="#4-在-manifest-json-里确认-DCloud-appid-可用" class="headerlink" title="4) 在 manifest.json 里确认 DCloud appid 可用"></a>4) 在 <code>manifest.json</code> 里确认 DCloud appid 可用</h3><p>如果看到：</p>
-<ul>
-<li><code>您不是这个应用的项目成员</code></li>
-</ul>
-<p>需要在 HBuilderX 的 <code>manifest.json</code> 可视化界面点击“重新获取”，拿到你账号下可用的 <code>__UNI__...</code>。</p>
-<h3 id="5-本地编译到微信小程序（不上传）"><a href="#5-本地编译到微信小程序（不上传）" class="headerlink" title="5) 本地编译到微信小程序（不上传）"></a>5) 本地编译到微信小程序（不上传）</h3><p>可以用 HBuilderX 菜单操作，也可以用 CLI：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">/Applications/HBuilderX.app/Contents/MacOS/cli publish mp-weixin \<br>  --project /你的项目绝对路径/factory-miniprogram \<br>  --name factory-miniprogram \<br>  --appid 你的微信appid \<br>  --upload <span class="hljs-literal">false</span><br></code></pre></td></tr></table></figure>
-
-<p>成功后会看到类似输出：</p>
-<ul>
-<li><code>导出微信小程序成功，路径为：.../unpackage/dist/build/mp-weixin</code></li>
-</ul>
-<h2 id="在微信开发者工具里预览"><a href="#在微信开发者工具里预览" class="headerlink" title="在微信开发者工具里预览"></a>在微信开发者工具里预览</h2><p>目标目录：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">/Users/.../factory-miniprogram/unpackage/dist/build/mp-weixin<br></code></pre></td></tr></table></figure>
-
-<p>两种方式都行：</p>
+<p>问题不在于字段多，问题在于这些字段会在不同节点被分别读写，久而久之出现两个经典现象：</p>
 <ol>
-<li>直接在微信开发者工具导入这个目录。</li>
-<li>导入项目根目录，并在 <code>project.config.json</code> 设置：</li>
+<li>同一轮对话，状态里能找到三份“都像真相”的数据。</li>
+<li>想复盘一次问题，要在多个字段之间来回对照，像在车间里找同一把 14 号扳手。</li>
 </ol>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-attr">&quot;miniprogramRoot&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;unpackage/dist/build/mp-weixin&quot;</span><span class="hljs-punctuation">,</span><br><span class="hljs-attr">&quot;srcMiniprogramRoot&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;unpackage/dist/build/mp-weixin&quot;</span><br></code></pre></td></tr></table></figure>
+<h2 id="Commit-1：76539e9-做了什么"><a href="#Commit-1：76539e9-做了什么" class="headerlink" title="Commit 1：76539e9 做了什么"></a>Commit 1：<code>76539e9</code> 做了什么</h2><h3 id="1-状态基类切到-MessagesState"><a href="#1-状态基类切到-MessagesState" class="headerlink" title="1) 状态基类切到 MessagesState"></a>1) 状态基类切到 <code>MessagesState</code></h3><p><code>app/langgraph/state.py</code> 从普通 <code>TypedDict</code> 改为继承 LangGraph 原生 <code>MessagesState</code>，把 <code>messages</code> 作为主上下文容器。</p>
+<p>收益：</p>
+<ul>
+<li>与 LangGraph reducer 机制对齐，后续扩展更顺滑。</li>
+<li>消息历史有统一载体，不再靠散落字段拼接“近似上下文”。</li>
+</ul>
+<h3 id="2-编排入口统一注入-HumanMessage"><a href="#2-编排入口统一注入-HumanMessage" class="headerlink" title="2) 编排入口统一注入 HumanMessage"></a>2) 编排入口统一注入 <code>HumanMessage</code></h3><p><code>app/orchestrator.py</code> 在每轮输入 graph 前写入：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-string">&quot;messages&quot;</span>: [HumanMessage(content=query)]<br></code></pre></td></tr></table></figure>
 
-<h2 id="这次真实踩坑清单（报错-原因-处理）"><a href="#这次真实踩坑清单（报错-原因-处理）" class="headerlink" title="这次真实踩坑清单（报错 -&gt; 原因 -&gt; 处理）"></a>这次真实踩坑清单（报错 -&gt; 原因 -&gt; 处理）</h2><h3 id="坑-1：app-json-在项目根目录未找到-app-json"><a href="#坑-1：app-json-在项目根目录未找到-app-json" class="headerlink" title="坑 1：app.json: 在项目根目录未找到 app.json"></a>坑 1：<code>app.json: 在项目根目录未找到 app.json</code></h3><ul>
-<li>原因：把 uni-app 源码目录直接当小程序目录导入。</li>
-<li>处理：先编译，导入 <code>unpackage/dist/build/mp-weixin</code>。</li>
+<p>收益：</p>
+<ul>
+<li>进入图时上下文结构统一。</li>
+<li><code>plan</code> 不必依赖“这个 query 是不是刚好被某节点回填过”。</li>
 </ul>
-<h3 id="坑-2：component-not-found-u-input"><a href="#坑-2：component-not-found-u-input" class="headerlink" title="坑 2：component not found ... u-input"></a>坑 2：<code>component not found ... u-input</code></h3><ul>
-<li>原因：之前编译不完整&#x2F;失败，<code>uni_modules</code> 没有正确产出。</li>
-<li>处理：修复编译阻塞后重新导出，确认存在：<ul>
-<li><code>unpackage/dist/build/mp-weixin/uni_modules/uview-ui/components/u-input/*</code></li>
+<h3 id="3-新增消息工具层-app-langgraph-messages-py"><a href="#3-新增消息工具层-app-langgraph-messages-py" class="headerlink" title="3) 新增消息工具层 app/langgraph/messages.py"></a>3) 新增消息工具层 <code>app/langgraph/messages.py</code></h3><p>抽出通用函数：</p>
+<ul>
+<li><code>latest_human_query(...)</code></li>
+<li><code>serialize_history(...)</code></li>
+<li><code>tool_observations(...)</code></li>
+<li><code>latest_tool_fallback_answer(...)</code></li>
+</ul>
+<p>收益：</p>
+<ul>
+<li>消息提取规则集中，避免在 <code>plan/chat/prompting</code> 重复写解析逻辑。</li>
+<li>这是可复用抽象，不是为了“抽象而抽象”。</li>
+</ul>
+<h3 id="4-plan-节点改为消息驱动"><a href="#4-plan-节点改为消息驱动" class="headerlink" title="4) plan 节点改为消息驱动"></a>4) <code>plan</code> 节点改为消息驱动</h3><p><code>plan</code> 现在优先从 <code>messages</code> 中提取最后一条用户输入，再把历史与工具观察一起喂给 planner。</p>
+<p>收益：</p>
+<ul>
+<li>多轮澄清&#x2F;恢复时，plan 看到的是“对话事实”，不是残留字段。</li>
+</ul>
+<h3 id="5-tool-call-写入标准-ToolMessage"><a href="#5-tool-call-写入标准-ToolMessage" class="headerlink" title="5) tool_call 写入标准 ToolMessage"></a>5) <code>tool_call</code> 写入标准 <code>ToolMessage</code></h3><p>工具调用结果被写成 <code>ToolMessage</code>，内容是结构化 JSON（<code>ok/preview/result/error</code>）。</p>
+<p>收益：</p>
+<ul>
+<li>工具观察自然进入消息主链。</li>
+<li>后续做 “只靠 messages 驱动 answer 汇总”有基础。</li>
+</ul>
+<h3 id="6-clarify-和-chat-也并入消息链"><a href="#6-clarify-和-chat-也并入消息链" class="headerlink" title="6) clarify 和 chat 也并入消息链"></a>6) <code>clarify</code> 和 <code>chat</code> 也并入消息链</h3><ul>
+<li><code>clarify</code> 写入澄清 <code>AIMessage</code>，resume 后写回 <code>HumanMessage</code></li>
+<li><code>chat</code> 产出 final 时写入 <code>AIMessage</code></li>
+</ul>
+<p>收益：</p>
+<ul>
+<li>澄清中断恢复形成闭环，不再是“事件有记录，状态没历史”。</li>
+</ul>
+<h3 id="7-同步清理-schema-与测试"><a href="#7-同步清理-schema-与测试" class="headerlink" title="7) 同步清理 schema 与测试"></a>7) 同步清理 schema 与测试</h3><p><code>state_patch/tool_runtime/test_plan_node/test_prompting</code> 一并调整，保证字段迁移后行为不回退。</p>
+<h2 id="Commit-2：2138513-做了什么"><a href="#Commit-2：2138513-做了什么" class="headerlink" title="Commit 2：2138513 做了什么"></a>Commit 2：<code>2138513</code> 做了什么</h2><p>这次提交非常短，但很值钱：</p>
+<ul>
+<li>删除 <code>app/langgraph/nodes/respond.py</code></li>
+<li>清理 <code>nodes/__init__.py</code> 导出</li>
+</ul>
+<p>背景：图路由已经走 <code>chat</code>，<code>respond</code> 节点处于未激活状态。</p>
+<p>收益：</p>
+<ul>
+<li>去掉“看起来能跑、实际不会跑”的伪路径。</li>
+<li>新同学读代码不会被“幽灵节点”误导。</li>
+</ul>
+<h2 id="两次提交带来的直接收益"><a href="#两次提交带来的直接收益" class="headerlink" title="两次提交带来的直接收益"></a>两次提交带来的直接收益</h2><h3 id="可维护性"><a href="#可维护性" class="headerlink" title="可维护性"></a>可维护性</h3><ul>
+<li>状态收口后，节点职责更清晰：<ul>
+<li><code>plan</code> 看消息决定行动</li>
+<li><code>tool_call</code> 产出工具消息</li>
+<li><code>chat</code> 汇总输出</li>
 </ul>
 </li>
+<li>读链路时不再需要先猜“这轮到底读了哪个旧字段”。</li>
 </ul>
-<h3 id="坑-3：此功能需要先登录"><a href="#坑-3：此功能需要先登录" class="headerlink" title="坑 3：此功能需要先登录"></a>坑 3：<code>此功能需要先登录</code></h3><ul>
-<li>原因：HBuilderX CLI 的发布能力依赖 DCloud 登录态。</li>
-<li>处理：登录 DCloud 账号。</li>
+<h3 id="可追溯性"><a href="#可追溯性" class="headerlink" title="可追溯性"></a>可追溯性</h3><ul>
+<li>一条完整轨迹可直接在消息序列中复盘：<ul>
+<li><code>HumanMessage -&gt; AI(计划/澄清) -&gt; ToolMessage -&gt; AI(final)</code></li>
 </ul>
-<h3 id="坑-4：尚未绑定手机号"><a href="#坑-4：尚未绑定手机号" class="headerlink" title="坑 4：尚未绑定手机号"></a>坑 4：<code>尚未绑定手机号</code></h3><ul>
-<li>原因：账号安全策略限制。</li>
-<li>处理：在 DCloud 用户中心绑定手机号。</li>
+</li>
+<li>这对排查“为什么走了 CLARIFY 而不是 CALL_TOOL”非常实用。</li>
 </ul>
-<h3 id="坑-5：您不是这个应用的项目成员"><a href="#坑-5：您不是这个应用的项目成员" class="headerlink" title="坑 5：您不是这个应用的项目成员"></a>坑 5：<code>您不是这个应用的项目成员</code></h3><ul>
-<li>原因：<code>manifest.json</code> 中 <code>__UNI__...</code> 不属于当前账号。</li>
-<li>处理：在 <code>manifest.json</code> 中“重新获取” DCloud appid。</li>
+<h3 id="可扩展性"><a href="#可扩展性" class="headerlink" title="可扩展性"></a>可扩展性</h3><ul>
+<li>与 LangGraph 原生生态更贴近，后续接 checkpoint&#x2F;human-in-the-loop&#x2F;更复杂 reducer 成本更低。</li>
 </ul>
-<h3 id="坑-6：代码使用了-scss-sass-语言，但未安装相应编译器插件"><a href="#坑-6：代码使用了-scss-sass-语言，但未安装相应编译器插件" class="headerlink" title="坑 6：代码使用了 scss/sass 语言，但未安装相应编译器插件"></a>坑 6：<code>代码使用了 scss/sass 语言，但未安装相应编译器插件</code></h3><ul>
-<li>原因：缺少 <code>compile-dart-sass</code> 编译插件。</li>
-<li>处理：安装后重新编译。</li>
+<h3 id="代码冗余"><a href="#代码冗余" class="headerlink" title="代码冗余"></a>代码冗余</h3><ul>
+<li>删除未激活节点，减少维护噪音。</li>
+<li>部分旧字段依赖被移除，状态面变窄。</li>
 </ul>
-<h3 id="坑-7：微信开发者工具自动拉起失败（IDE-Service-Port）"><a href="#坑-7：微信开发者工具自动拉起失败（IDE-Service-Port）" class="headerlink" title="坑 7：微信开发者工具自动拉起失败（IDE Service Port）"></a>坑 7：微信开发者工具自动拉起失败（IDE Service Port）</h3><ul>
-<li>原因：微信开发者工具 CLI 服务端口未就绪。</li>
-<li>处理：这不影响手动导入预览，直接在微信开发者工具里手动打开产物目录即可。</li>
-</ul>
-<h2 id="给后端同学的“最小心智模型”"><a href="#给后端同学的“最小心智模型”" class="headerlink" title="给后端同学的“最小心智模型”"></a>给后端同学的“最小心智模型”</h2><p>把链路记成 3 步就够了：</p>
+<h2 id="这次改造没有解决什么"><a href="#这次改造没有解决什么" class="headerlink" title="这次改造没有解决什么"></a>这次改造没有解决什么</h2><p>客观讲，这两次提交是“主干收口”，不是“全量终局”。仍有几个后续项值得继续做：</p>
 <ol>
-<li><code>uni-app 源码</code>（不能直接预览）</li>
-<li><code>HBuilderX 编译</code>（生成小程序产物）</li>
-<li><code>微信开发者工具打开产物</code></li>
+<li>把剩余兼容字段继续下沉或删除，彻底做到 messages 为唯一事实源。</li>
+<li>统一参数校验入口，避免 normalize 与 validate 双逻辑长期漂移。</li>
+<li>给消息链增加结构化观测（如每轮关键消息摘要），提升线上排障速度。</li>
 </ol>
-<p>只要第 2 步成功，前后端联调就能开始。</p>
-<h2 id="建议固定成团队-SOP"><a href="#建议固定成团队-SOP" class="headerlink" title="建议固定成团队 SOP"></a>建议固定成团队 SOP</h2><ol>
-<li>新同学先登录并绑定 DCloud 账号。</li>
-<li>项目初始化第一天就重新获取可用 <code>__UNI__...</code>。</li>
-<li><code>project.config.json</code> 固化 <code>miniprogramRoot</code> 到 <code>unpackage/dist/build/mp-weixin</code>。</li>
-<li>联调前先检查导出目录下是否有：<ul>
-<li><code>app.json</code></li>
-<li><code>uni_modules/uview-ui/components/u-input/*</code></li>
+<h2 id="一个典型的因果链（这次改造为什么有效）"><a href="#一个典型的因果链（这次改造为什么有效）" class="headerlink" title="一个典型的因果链（这次改造为什么有效）"></a>一个典型的因果链（这次改造为什么有效）</h2><ul>
+<li>现象：多轮恢复时，plan 可能读到旧字段而不是最新用户补充。</li>
+<li>机制：状态事实分散在多个字段，更新边界不一致。</li>
+<li>修复：统一改为 MessagesState 主链，resume 明确写回 <code>HumanMessage</code>。</li>
+<li>结果：plan 读取路径固定为“最后用户消息 + 历史消息”。</li>
 </ul>
-</li>
-</ol>
-<p>这四条能省掉 80% 的环境问题排查时间。</p>
+<p>这就是本次改造的核心：不是追求“看起来高级”，是把上下文事实源从“多处拼接”变成“一处主链”。</p>
+<h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="Q1：为什么不是直接上一个超大-BaseModel-状态类？"><a href="#Q1：为什么不是直接上一个超大-BaseModel-状态类？" class="headerlink" title="Q1：为什么不是直接上一个超大 BaseModel 状态类？"></a>Q1：为什么不是直接上一个超大 <code>BaseModel</code> 状态类？</h3><p>因为 LangGraph 的强项是增量 patch + reducer。先用 <code>MessagesState</code> 收口主链，再按节点加 typed patch，风险更低。</p>
+<h3 id="Q2：删除-respond-会不会影响行为？"><a href="#Q2：删除-respond-会不会影响行为？" class="headerlink" title="Q2：删除 respond 会不会影响行为？"></a>Q2：删除 <code>respond</code> 会不会影响行为？</h3><p>不会。路由已经走 <code>chat</code>，<code>respond</code> 仅是未激活冗余实现。</p>
+<h3 id="Q3：这次改造最值的一点是什么？"><a href="#Q3：这次改造最值的一点是什么？" class="headerlink" title="Q3：这次改造最值的一点是什么？"></a>Q3：这次改造最值的一点是什么？</h3><p>“单一事实源”落地。调试、复盘、继续迭代都更便宜。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这两次提交做的是一类看起来不炫、但长期收益很高的工程活：</p>
+<ul>
+<li>用 <code>MessagesState</code> 把主链收口</li>
+<li>用删除冗余节点减少认知噪音</li>
+</ul>
+<p>短期你会感觉“代码没多出什么新功能”；长期你会发现“同类 bug 明显更难长出来”。EOF</p>
 
                 
               </div>
@@ -412,19 +432,40 @@
             <div>
               <div class="post-metas my-3">
   
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
   
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/uni-app/" class="print-no-link">#uni-app</a>
+        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
       
-        <a href="/tags/%E5%BE%AE%E4%BF%A1%E5%B0%8F%E7%A8%8B%E5%BA%8F/" class="print-no-link">#微信小程序</a>
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/HBuilderX/" class="print-no-link">#HBuilderX</a>
+        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
       
-        <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/" class="print-no-link">#工程化</a>
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/" class="print-no-link">#架构重构</a>
       
-        <a href="/tags/%E8%B8%A9%E5%9D%91/" class="print-no-link">#踩坑</a>
+        <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/" class="print-no-link">#工程复盘</a>
       
     </div>
   
@@ -436,8 +477,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>从零把 uni-app 接到微信开发者工具：HBuilderX 全流程与踩坑复盘</div>
-      <div>https://willfordzhan.github.io/2026/03/02/uni-app-hbuilderx/</div>
+      <div>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</div>
+      <div>https://willfordzhan.github.io/2026/03/06/langgraph-messagesstate/</div>
     </div>
     <div class="license-meta">
       
@@ -449,7 +490,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月2日</div>
+          <div>2026年3月6日</div>
         </div>
       
       
@@ -481,18 +522,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/02/llm-openclaw/" title="从双层意图到单 LLM 自决：OpenClaw 范式与护栏工程化落地">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">从双层意图到单 LLM 自决：OpenClaw 范式与护栏工程化落地</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/28/ai-chat-java-ai-gateway-python/" title="AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地">
-                        <span class="hidden-mobile">AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地</span>
+                      <a href="/2026/03/06/langgraph-checkpoint-event-replay/" title="LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件">
+                        <span class="hidden-mobile">LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
