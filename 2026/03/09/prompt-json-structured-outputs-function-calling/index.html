@@ -1,0 +1,941 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前言很多团队第一次做结构化输出，都会写出一句极其熟悉的咒语： 1请严格输出 JSON，不要解释  然后几轮之后，程序收到的内容往往是：  一坨长得像 JSON 但少了逗号的文本 一个合法 JSON，但字段缺了一半 一个字段结构没问题，但值一本正经地胡说八道  这不是模型跟你作对，这是你把三件不同的事混在了一起：  Prompt 约束 Structured Outputs &#x2F; JSON mode F">
+<meta property="og:type" content="article">
+<meta property="og:title" content="别再靠 Prompt 硬劝模型吐 JSON：Structured Outputs、Function Calling 与国产模型能力盘点">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/09/prompt-json-structured-outputs-function-calling/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="前言很多团队第一次做结构化输出，都会写出一句极其熟悉的咒语： 1请严格输出 JSON，不要解释  然后几轮之后，程序收到的内容往往是：  一坨长得像 JSON 但少了逗号的文本 一个合法 JSON，但字段缺了一半 一个字段结构没问题，但值一本正经地胡说八道  这不是模型跟你作对，这是你把三件不同的事混在了一起：  Prompt 约束 Structured Outputs &#x2F; JSON mode F">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-09T01:52:00.000Z">
+<meta property="article:modified_time" content="2026-03-09T01:54:14.944Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Qwen">
+<meta property="article:tag" content="Function Calling">
+<meta property="article:tag" content="Structured Outputs">
+<meta property="article:tag" content="JSON Schema">
+<meta property="article:tag" content="Prompt Engineering">
+<meta property="article:tag" content="Kimi">
+<meta property="article:tag" content="GLM">
+<meta property="article:tag" content="DeepSeek">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>别再靠 Prompt 硬劝模型吐 JSON：Structured Outputs、Function Calling 与国产模型能力盘点 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="别再靠 Prompt 硬劝模型吐 JSON：Structured Outputs、Function Calling 与国产模型能力盘点"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-09 09:52" pubdate>
+          2026年3月9日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          20 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">别再靠 Prompt 硬劝模型吐 JSON：Structured Outputs、Function Calling 与国产模型能力盘点</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>很多团队第一次做结构化输出，都会写出一句极其熟悉的咒语：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">请严格输出 JSON，不要解释<br></code></pre></td></tr></table></figure>
+
+<p>然后几轮之后，程序收到的内容往往是：</p>
+<ul>
+<li>一坨长得像 JSON 但少了逗号的文本</li>
+<li>一个合法 JSON，但字段缺了一半</li>
+<li>一个字段结构没问题，但值一本正经地胡说八道</li>
+</ul>
+<p>这不是模型跟你作对，这是你把三件不同的事混在了一起：</p>
+<ol>
+<li><code>Prompt 约束</code></li>
+<li><code>Structured Outputs / JSON mode</code></li>
+<li><code>Function calling / tool calling</code></li>
+</ol>
+<p>这篇文章就是把这次对话里最有价值的部分整理成一版工程化说明：它们到底有什么区别，<code>Structured Outputs</code> 为什么能“强制”模型按 schema 出参，为什么生产上必须显式开协议参数，以及国产模型这一圈大致支持到什么程度。</p>
+<h2 id="一、先把概念摆平：这四层不是一个东西"><a href="#一、先把概念摆平：这四层不是一个东西" class="headerlink" title="一、先把概念摆平：这四层不是一个东西"></a>一、先把概念摆平：这四层不是一个东西</h2><p>很多讨论一上来就把“输出 JSON”“结构化输出”“工具调用”混着说，最后越说越像玄学。实际上可以把它们分成四层：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>保证什么</th>
+<th>保证强度</th>
+<th>本质</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>纯 Prompt 约束</td>
+<td>最多是“尽量按你说的来”</td>
+<td>低</td>
+<td>靠模型自觉</td>
+</tr>
+<tr>
+<td>JSON Mode</td>
+<td>输出是 JSON</td>
+<td>中</td>
+<td>只约束格式</td>
+</tr>
+<tr>
+<td>Structured Outputs</td>
+<td>输出符合指定 JSON Schema</td>
+<td>高</td>
+<td>解码阶段受约束</td>
+</tr>
+<tr>
+<td>Function Calling</td>
+<td>输出符合工具参数 schema，并进入工具调用协议</td>
+<td>高</td>
+<td>结构化输出的“可执行版”</td>
+</tr>
+</tbody></table>
+<p>一句话记忆：</p>
+<ul>
+<li><code>Prompt</code> 是劝人</li>
+<li><code>JSON Mode</code> 是要求穿工服</li>
+<li><code>Structured Outputs</code> 是把轨道焊死</li>
+<li><code>Function Calling</code> 是不仅焊轨道，还规定必须开去哪个车站</li>
+</ul>
+<h2 id="二、Structured-Outputs-到底怎么“强制”模型吐合法-JSON"><a href="#二、Structured-Outputs-到底怎么“强制”模型吐合法-JSON" class="headerlink" title="二、Structured Outputs 到底怎么“强制”模型吐合法 JSON"></a>二、Structured Outputs 到底怎么“强制”模型吐合法 JSON</h2><p>这个问题最容易被误解成“是不是 prompt 工程更强了”。答案很直接：<strong>不是。</strong></p>
+<p>真正起作用的是两层能力叠加：</p>
+<ol>
+<li>模型训练层<br>模型被训练得更理解 schema、字段名、类型、枚举、<code>required</code>、嵌套对象这些结构约束。</li>
+<li>解码约束层<br>运行时把 schema 转成 grammar，在每一步生成 token 时，屏蔽所有会导致结构非法的候选 token。</li>
+</ol>
+<p>工程视角下，可以把它理解成这样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">用户输入 + JSON Schema<br>        ↓<br>系统把 Schema 编译成 Grammar<br>        ↓<br>模型逐 token 生成<br>        ↓<br>每一步只允许“仍可能导向合法 JSON”的 token<br>        ↓<br>非法路径直接被剪掉<br></code></pre></td></tr></table></figure>
+
+<p>这和“先生成一坨文本，再拿 Pydantic &#x2F; JSON Schema 校验，不行就 retry”有本质区别。</p>
+<p>后者是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">先自由生成<br>再发现不对<br>再补锅<br></code></pre></td></tr></table></figure>
+
+<p>前者是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">从第一个 token 开始就不让它跑偏<br></code></pre></td></tr></table></figure>
+
+<p>差别看一个最小例子就够了：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;object&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;properties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;enum&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;ok&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;error&quot;</span><span class="hljs-punctuation">]</span><br>    <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;integer&quot;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;status&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;code&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;additionalProperties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>如果模型已经输出到：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span><br></code></pre></td></tr></table></figure>
+
+<p>那下一步就不应该还能随手冒出 <code>&quot;message&quot;</code>、<code>&#125;</code>、或者 <code>&quot;success&quot;</code> 这种不在 <code>enum</code> 里的值。受限解码做的就是这件事：把这些非法路径当场掐掉。</p>
+<p>所以 <code>Structured Outputs</code> 的“强制”，不是“模型更听话”，而是“服务端根本不让它走非法路径”。</p>
+<h2 id="三、为什么-JSON-Mode-还不够"><a href="#三、为什么-JSON-Mode-还不够" class="headerlink" title="三、为什么 JSON Mode 还不够"></a>三、为什么 JSON Mode 还不够</h2><p><code>JSON Mode</code> 的价值当然有，但它解决的是“长得像 JSON”，不是“符合你的业务结构”。</p>
+<p>例如你希望模型返回：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;code&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">200</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>在 <code>JSON Mode</code> 下，这种结果也是合法的：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;ok&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>没报错，能 parse，括号也对，但它仍然是错的，因为：</p>
+<ul>
+<li>缺了必填字段 <code>code</code></li>
+<li>可能多出未定义字段</li>
+<li>类型可能不对</li>
+<li>枚举值可能漂移</li>
+</ul>
+<p>所以老套路通常是：</p>
+<ol>
+<li>prompt 强约束</li>
+<li>模型输出后再校验</li>
+<li>校验失败就重试</li>
+</ol>
+<p>而 <code>Structured Outputs</code> 把校验这件事前移到了生成阶段，重试次数和脏数据量都会明显下降。</p>
+<h2 id="四、为什么不能只靠-Prompt-暗示，必须显式开启"><a href="#四、为什么不能只靠-Prompt-暗示，必须显式开启" class="headerlink" title="四、为什么不能只靠 Prompt 暗示，必须显式开启"></a>四、为什么不能只靠 Prompt 暗示，必须显式开启</h2><p>这也是这次对话里最值得拿出来单独强调的一点：<strong>结构化输出和 function calling 在工程上都应该显式开启，不能只靠 prompt 暗示。</strong></p>
+<p>原因很简单。</p>
+<p>如果你不传任何额外 API 参数，只在 prompt 里写：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">请输出 JSON<br>请调用 weather 函数<br></code></pre></td></tr></table></figure>
+
+<p>服务端其实并不知道你要启用哪条协议路径。它只知道你写了一段自然语言要求。</p>
+<p>而显式开启的方式通常是：</p>
+<p>结构化输出：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;response_format&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;json_schema&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;json_schema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;weather_result&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;strict&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;schema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>        <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;object&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;properties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>          <span class="hljs-attr">&quot;city&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span> <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>          <span class="hljs-attr">&quot;temperature&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;number&quot;</span> <span class="hljs-punctuation">&#125;</span><br>        <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;city&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;temperature&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;additionalProperties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">false</span></span><br>      <span class="hljs-punctuation">&#125;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>Function calling：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;tools&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;function&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;function&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>        <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;get_weather&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Query weather by city&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;parameters&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>          <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;object&quot;</span><span class="hljs-punctuation">,</span><br>          <span class="hljs-attr">&quot;properties&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>            <span class="hljs-attr">&quot;city&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;string&quot;</span> <span class="hljs-punctuation">&#125;</span><br>          <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>          <span class="hljs-attr">&quot;required&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;city&quot;</span><span class="hljs-punctuation">]</span><br>        <span class="hljs-punctuation">&#125;</span><br>      <span class="hljs-punctuation">&#125;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>可以把它理解成：</p>
+<ul>
+<li><code>prompt = 意图说明</code></li>
+<li><code>response_format / tools = 真正开启协议</code></li>
+</ul>
+<p>Prompt 当然还有用，但它是辅助稳定输出，不是协议开关。</p>
+<h2 id="五、它也不是魔法：保证边界要讲清楚"><a href="#五、它也不是魔法：保证边界要讲清楚" class="headerlink" title="五、它也不是魔法：保证边界要讲清楚"></a>五、它也不是魔法：保证边界要讲清楚</h2><p><code>Structured Outputs</code> 很强，但别把它吹成“从此不需要兜底”。</p>
+<p>它能强保证的是：</p>
+<ul>
+<li>JSON 语法合法</li>
+<li>结构符合 schema</li>
+<li>必填字段、类型、<code>enum</code>、层级关系受控</li>
+</ul>
+<p>它不能天然保证的是：</p>
+<ul>
+<li>值一定真实</li>
+<li>业务规则一定正确</li>
+<li>外部世界状态一定没变</li>
+</ul>
+<p>此外还有几个边界要单独处理：</p>
+<ol>
+<li>schema 支持范围有限<br>很多厂商只支持 JSON Schema 的子集，不是所有特性都能无损表达。</li>
+<li>refusal<br>触发安全策略时，模型可能拒答，而不是继续给你业务 JSON。</li>
+<li>truncation<br><code>max_output_tokens</code> 太小，输出可能还没结束就被截断。</li>
+<li>tool interruption<br>tool call 链路是多阶段协议，不是“参数合法”就等于业务闭环已经成功。</li>
+</ol>
+<p>所以真正的生产范式通常是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Structured Outputs / Function Calling<br>    + 本地 schema 校验<br>    + refusal / 截断分支处理<br>    + 外部数据源校验<br>    + 业务规则校验<br></code></pre></td></tr></table></figure>
+
+<p>别让 schema 替你背业务正确性的锅。它背不起。</p>
+<h2 id="六、国产模型大致支持到什么程度"><a href="#六、国产模型大致支持到什么程度" class="headerlink" title="六、国产模型大致支持到什么程度"></a>六、国产模型大致支持到什么程度</h2><p>这次对话顺手把几家常见模型的公开能力也梳理了一遍。按 2026-03-09 能从官方公开文档确认到的信息，大致可以这样记：</p>
+<table>
+<thead>
+<tr>
+<th>厂商 &#x2F; 模型</th>
+<th>Structured output</th>
+<th>Function calling &#x2F; tool calling</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Qwen</td>
+<td>支持 <code>json_object</code>，也支持 <code>json_schema</code>，且有 <code>strict: true</code></td>
+<td>支持</td>
+<td>公开文档里最接近 OpenAI <code>Structured Outputs</code> 语义的一档</td>
+</tr>
+<tr>
+<td>Kimi &#x2F; Moonshot</td>
+<td>可确认 <code>JSON Mode</code></td>
+<td>支持 <code>tools / tool_calls</code></td>
+<td>官方文档强调 <code>tool_calls</code>，不是旧 <code>functions</code></td>
+</tr>
+<tr>
+<td>GLM &#x2F; 智谱</td>
+<td>可确认 JSON 输出与结构化输出能力</td>
+<td>支持</td>
+<td>从公开文档能确认支持，但具体严格 schema 能力要按模型页细看</td>
+</tr>
+<tr>
+<td>DeepSeek</td>
+<td>可确认 <code>JSON Output</code></td>
+<td>支持，且 function calling 有 <code>strict mode</code></td>
+<td>严格约束更多体现在函数参数 schema 上</td>
+</tr>
+<tr>
+<td>MiniMax</td>
+<td>公开文档可确认 function calling</td>
+<td>本轮未查到足够明确的 <code>json_schema</code> 类公开说明</td>
+<td>谨慎起见，不建议默认当成强 schema 输出来设计</td>
+</tr>
+</tbody></table>
+<p>如果你只想记结论：</p>
+<ul>
+<li>最看重强 schema 结构化输出：优先看 <code>Qwen</code></li>
+<li>最看重工具调用：<code>Qwen / Kimi / GLM / DeepSeek</code> 都可以进入候选</li>
+<li>想把函数参数约束得更严：重点看 <code>Qwen</code> 和 <code>DeepSeek strict mode</code></li>
+<li><code>MiniMax</code> 至少先按“工具调用可用”来接，结构化强保证不要脑补</li>
+</ul>
+<h2 id="七、落地建议：别写成“看起来高级，实际全靠重试”"><a href="#七、落地建议：别写成“看起来高级，实际全靠重试”" class="headerlink" title="七、落地建议：别写成“看起来高级，实际全靠重试”"></a>七、落地建议：别写成“看起来高级，实际全靠重试”</h2><p>如果你在做 Agent、工作流编排、SaaS 查询助手，下面这套做法最稳：</p>
+<ol>
+<li>需要结构化数据时，显式传 <code>response_format</code></li>
+<li>有明确字段约束时，优先传 <code>json_schema</code></li>
+<li>要调工具时，显式传 <code>tools</code></li>
+<li>给工具参数写清楚 <code>description + parameters schema</code></li>
+<li>Prompt 里补充字段说明、示例和工具使用规则</li>
+<li>业务侧保留本地 schema 校验和异常分支处理</li>
+</ol>
+<p>不要把下面这种写法当生产方案：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">请你务必严格输出 JSON，不许废话，如果格式错了你自己修复<br></code></pre></td></tr></table></figure>
+
+<p>这不是协议设计，这是把程序正确性寄托在模型当天心情上。</p>
+<h2 id="八、一句话总结"><a href="#八、一句话总结" class="headerlink" title="八、一句话总结"></a>八、一句话总结</h2><p>最准确的结论其实很朴素：</p>
+<p><code>Structured Outputs</code> 能强制模型按 schema 输出，不是因为 prompt 更凶，而是因为系统在解码阶段就把非法 token 路径剪掉了；<code>Function Calling</code> 则是在这套结构化能力上，再叠加了一层工具调用协议。</p>
+<p>工程上真正可靠的范式从来不是“靠 prompt 暗示”，而是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">显式开启协议参数<br>    + 合理设计 schema<br>    + 用 prompt 做辅助约束<br>    + 业务层继续兜底<br></code></pre></td></tr></table></figure>
+
+<p>这套组合拳看起来不浪漫，但很适合线上系统。毕竟线上故障从来不会因为你写了“请严格输出 JSON”就心软。</p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li>对话原始整理：<a target="_blank" rel="noopener" href="https://chatgpt.com/share/69ae273c-5fb0-8013-8ff9-c94347f4d466">https://chatgpt.com/share/69ae273c-5fb0-8013-8ff9-c94347f4d466</a></li>
+<li>OpenAI Structured Outputs：<a target="_blank" rel="noopener" href="https://platform.openai.com/docs/guides/structured-outputs">https://platform.openai.com/docs/guides/structured-outputs</a></li>
+<li>OpenAI Introducing Structured Outputs：<a target="_blank" rel="noopener" href="https://openai.com/index/introducing-structured-outputs-in-the-api/">https://openai.com/index/introducing-structured-outputs-in-the-api/</a></li>
+<li>Qwen 结构化输出：<a target="_blank" rel="noopener" href="https://help.aliyun.com/zh/model-studio/qwen-structured-output">https://help.aliyun.com/zh/model-studio/qwen-structured-output</a></li>
+<li>Kimi JSON Mode：<a target="_blank" rel="noopener" href="https://platform.moonshot.cn/docs/guide/use-json-mode-feature-of-kimi-api">https://platform.moonshot.cn/docs/guide/use-json-mode-feature-of-kimi-api</a></li>
+<li>Kimi Tool Calls：<a target="_blank" rel="noopener" href="https://platform.moonshot.cn/docs/guide/use-kimi-api-to-complete-tool-calls">https://platform.moonshot.cn/docs/guide/use-kimi-api-to-complete-tool-calls</a></li>
+<li>DeepSeek JSON Output：<a target="_blank" rel="noopener" href="https://api-docs.deepseek.com/guides/json_mode">https://api-docs.deepseek.com/guides/json_mode</a></li>
+<li>DeepSeek Function Calling：<a target="_blank" rel="noopener" href="https://api-docs.deepseek.com/guides/function_calling">https://api-docs.deepseek.com/guides/function_calling</a></li>
+<li>GLM 开放文档首页：<a target="_blank" rel="noopener" href="https://docs.bigmodel.cn/">https://docs.bigmodel.cn/</a></li>
+<li>MiniMax 开放平台文档首页：<a target="_blank" rel="noopener" href="https://platform.minimax.io/">https://platform.minimax.io/</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Qwen/" class="print-no-link">#Qwen</a>
+      
+        <a href="/tags/Function-Calling/" class="print-no-link">#Function Calling</a>
+      
+        <a href="/tags/Structured-Outputs/" class="print-no-link">#Structured Outputs</a>
+      
+        <a href="/tags/JSON-Schema/" class="print-no-link">#JSON Schema</a>
+      
+        <a href="/tags/Prompt-Engineering/" class="print-no-link">#Prompt Engineering</a>
+      
+        <a href="/tags/Kimi/" class="print-no-link">#Kimi</a>
+      
+        <a href="/tags/GLM/" class="print-no-link">#GLM</a>
+      
+        <a href="/tags/DeepSeek/" class="print-no-link">#DeepSeek</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>别再靠 Prompt 硬劝模型吐 JSON：Structured Outputs、Function Calling 与国产模型能力盘点</div>
+      <div>https://willfordzhan.github.io/2026/03/09/prompt-json-structured-outputs-function-calling/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月9日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/09/ai-agent-security/" title="AI Agent Security 实现实践：对话阶段防泄露、防工具暴露与审计">
+                        <span class="hidden-mobile">AI Agent Security 实现实践：对话阶段防泄露、防工具暴露与审计</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
