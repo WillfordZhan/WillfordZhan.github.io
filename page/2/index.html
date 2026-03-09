@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/" target="_self">
+          ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/" target="_self">
+        <div>
+          这篇文章复盘 ats_iot_ai 这一轮重构的关键路径，重点覆盖三部分：  重构记录（发生了什么、按什么顺序推进） 工程收益（稳定性、可维护性、协作成本） 风险与后续计划（哪些问题还在，下一步怎么收敛）  文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。 一、重构背景：为什么必须从“旧编排”走向节点化旧阶段的核心问题并不是“功能不工作”，而是“功
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-05 10:35" pubdate>
+              2026-03-05
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/ats-iot-ai/">#ats_iot_ai</a>
+            
+              <a href="/tags/AI%E9%87%8D%E6%9E%84/">#AI重构</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/04/shiftbeginat-shiftdate/" target="_self">
           踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常
         </a>
@@ -676,9 +745,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/ReAct/">#ReAct</a>
-            
               <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
+            
+              <a href="/tags/ReAct/">#ReAct</a>
             
               <a href="/tags/Guardrails/">#Guardrails</a>
             
@@ -802,81 +871,6 @@
               <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">#工程化</a>
             
               <a href="/tags/%E8%B8%A9%E5%9D%91/">#踩坑</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/28/ai-chat-java-ai-gateway-python/" target="_self">
-          AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/28/ai-chat-java-ai-gateway-python/" target="_self">
-        <div>
-          本篇记录本次 AI Chat 网关化重构的落地结果，重点是把请求入口、认证与业务上下文注入统一收口到 Java 网关，再由 Python 控制平面执行编排。 改造摘要 Java 成为 AI Gateway 统一入口：   前端不再直连 Python，而是走 /api/mock-ai/*。 Java 在转发到 Python 前注入两类内部头： X-INTERNAL-GW-TOKEN X-INTERN
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-28 18:00" pubdate>
-              2026-02-28
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI%E7%BD%91%E5%85%B3/">#AI网关</a>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/%E9%89%B4%E6%9D%83/">#鉴权</a>
-            
-              <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/">#联调复盘</a>
-            
-              <a href="/tags/SSE/">#SSE</a>
             
           </div>
         
