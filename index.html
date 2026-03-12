@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/12/agent-react/" target="_self">
+          把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/12/agent-react/" target="_self">
+        <div>
+          前段时间我把一条原本还算“规矩”的 Agent 编排链路，硬生生压成了单节点。 原始版本大概是这种气质：  bootstrap plan tool_validate tool_call clarify chat  看起来层次分明，像一张写给评审看的 UML 图。真跑起来以后，感受更像在组装机关枪，每多一个节点，代码体积、状态字段、测试断言和联调排查成本就跟着长。 这篇文章记录的就是一次比较彻底的收
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-12 10:52" pubdate>
+              2026-03-12
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/ReAct/">#ReAct</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">#架构重构</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/10/pip-python-remotedisconnected-venv/" target="_self">
           一场被 pip 镜像污染带偏的 Python 升级故障：从 RemoteDisconnected 到干净 venv
         </a>
@@ -580,9 +651,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
               <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">#架构重构</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
             
               <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
             
@@ -861,75 +932,6 @@
               <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/">#重构复盘</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E6%B2%BB%E7%90%86/">#架构治理</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/05/dify-tool-java-mcp-python/" target="_self">
-          Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/dify-tool-java-mcp-python/" target="_self">
-        <div>
-          背景在 iot-framework 的 AI 链路里，我们已经有一条稳定的工具调用架构：  Java AI Gateway 对外暴露 /api/ai/* Python ats_iot_ai 负责编排与执行（LangGraph + SSE） Java MCP 负责 /ai/mcp/tools/list 与 /ai/mcp/tools/call  这次目标是把 Dify 知识库检索接成一个 tool，
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-05 19:30" pubdate>
-              2026-03-05
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84/">#架构</a>
-            
-              <a href="/tags/Dify/">#Dify</a>
-            
-              <a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/">#知识库</a>
             
           </div>
         

@@ -1,0 +1,995 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="前段时间我把一条原本还算“规矩”的 Agent 编排链路，硬生生压成了单节点。 原始版本大概是这种气质：  bootstrap plan tool_validate tool_call clarify chat  看起来层次分明，像一张写给评审看的 UML 图。真跑起来以后，感受更像在组装机关枪，每多一个节点，代码体积、状态字段、测试断言和联调排查成本就跟着长。 这篇文章记录的就是一次比较彻底的收">
+<meta property="og:type" content="article">
+<meta property="og:title" content="把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/12/agent-react/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="前段时间我把一条原本还算“规矩”的 Agent 编排链路，硬生生压成了单节点。 原始版本大概是这种气质：  bootstrap plan tool_validate tool_call clarify chat  看起来层次分明，像一张写给评审看的 UML 图。真跑起来以后，感受更像在组装机关枪，每多一个节点，代码体积、状态字段、测试断言和联调排查成本就跟着长。 这篇文章记录的就是一次比较彻底的收">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-12T02:52:12.000Z">
+<meta property="article:modified_time" content="2026-03-12T03:08:16.322Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="LangGraph">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="架构重构">
+<meta property="article:tag" content="复盘">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-12 10:52" pubdate>
+          2026年3月12日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.1k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          26 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>前段时间我把一条原本还算“规矩”的 Agent 编排链路，硬生生压成了单节点。</p>
+<p>原始版本大概是这种气质：</p>
+<ul>
+<li><code>bootstrap</code></li>
+<li><code>plan</code></li>
+<li><code>tool_validate</code></li>
+<li><code>tool_call</code></li>
+<li><code>clarify</code></li>
+<li><code>chat</code></li>
+</ul>
+<p>看起来层次分明，像一张写给评审看的 UML 图。真跑起来以后，感受更像在组装机关枪，每多一个节点，代码体积、状态字段、测试断言和联调排查成本就跟着长。</p>
+<p>这篇文章记录的就是一次比较彻底的收口过程：</p>
+<ul>
+<li>为什么决定从多节点编排改成单节点 Agent loop</li>
+<li>为什么单 Agent 之后又继续收口成结构化 ReAct</li>
+<li>为什么很多所谓“工程抽象层”最后都应该删掉</li>
+<li>以及真实联调里，哪些 case 跑通了，哪些 case 看起来 PASS，实际还藏着坑</li>
+</ul>
+<p>文章里的路径、端口、环境名都已经做过公开化处理，重点放在机制和取舍，不放内部实现细节。</p>
+<h2 id="背景：多节点编排为什么越写越沉"><a href="#背景：多节点编排为什么越写越沉" class="headerlink" title="背景：多节点编排为什么越写越沉"></a>背景：多节点编排为什么越写越沉</h2><p>最初的思路很自然：把每个动作拆成节点，流程就会清楚。</p>
+<p>比如一轮问答：</p>
+<ol>
+<li>先做计划</li>
+<li>计划里决定要不要调工具</li>
+<li>调工具前再做参数校验</li>
+<li>缺参就进澄清</li>
+<li>否则回最终答案</li>
+</ol>
+<p>问题不在“能不能跑”，问题在于这种结构很容易长成下面这个样子：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">query<br>  -&gt; bootstrap<br>  -&gt; plan<br>  -&gt; tool_validate<br>  -&gt; tool_call<br>  -&gt; clarify<br>  -&gt; respond/chat<br></code></pre></td></tr></table></figure>
+
+<p>刚开始每层都觉得自己很有道理：</p>
+<ul>
+<li><code>bootstrap</code> 说自己负责初始化</li>
+<li><code>plan</code> 说自己负责决策</li>
+<li><code>tool_validate</code> 说自己负责安全</li>
+<li><code>clarify</code> 说自己负责 HITL</li>
+<li><code>chat</code> 说自己负责最终回答</li>
+</ul>
+<p>代码越来越多以后，问题就不是“职责清不清楚”，而是“同一件事到底在哪层改”。</p>
+<p>最典型的几个症状：</p>
+<h3 id="1-prompt-语义被切碎"><a href="#1-prompt-语义被切碎" class="headerlink" title="1. prompt 语义被切碎"></a>1. prompt 语义被切碎</h3><p>模型的思考过程本来是一段连续的认知链：</p>
+<ul>
+<li>我先判断要不要查工具</li>
+<li>查了之后我再决定下一步</li>
+<li>工具结果不够我就追问</li>
+<li>工具结果足够我就回答</li>
+</ul>
+<p>拆成多个节点以后，模型的这段认知链被切成了几段模板化动作。代码一多，整个系统会逐渐从“Agent”退化成“带一点模型调用的状态机”。</p>
+<h3 id="2-状态字段爆炸"><a href="#2-状态字段爆炸" class="headerlink" title="2. 状态字段爆炸"></a>2. 状态字段爆炸</h3><p>节点一多，就会冒出很多典型字段：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs python">plan_action<br>plan_reason<br>plan_answer<br>plan_tool_calls<br>tool_validation_error<br>clarification_question<br>clarification_context<br>final_answer<br></code></pre></td></tr></table></figure>
+
+<p>字段本身不一定错，问题是很多字段只是为了跨节点传递中间态才存在。一旦节点被删除，这些字段就变成了历史包袱。</p>
+<h3 id="3-联调-trace-看起来热闹，实际上噪音很多"><a href="#3-联调-trace-看起来热闹，实际上噪音很多" class="headerlink" title="3. 联调 trace 看起来热闹，实际上噪音很多"></a>3. 联调 trace 看起来热闹，实际上噪音很多</h3><p>一开始很喜欢把每一步都发成事件：</p>
+<ul>
+<li><code>llm_request</code></li>
+<li><code>agent_step</code></li>
+<li><code>react_plan</code></li>
+<li><code>tool_call</code></li>
+<li><code>tool_result</code></li>
+</ul>
+<p>这类事件在测试阶段很爽，因为你能看到系统“很忙”。<br>但对真实前端和真实联调来说，很多内部事件并不产生用户价值，只会让协议越来越重。</p>
+<h3 id="4-一层层-service-dto-叠上去以后，真正的业务逻辑反而找不到了"><a href="#4-一层层-service-dto-叠上去以后，真正的业务逻辑反而找不到了" class="headerlink" title="4. 一层层 service &#x2F; dto 叠上去以后，真正的业务逻辑反而找不到了"></a>4. 一层层 service &#x2F; dto 叠上去以后，真正的业务逻辑反而找不到了</h3><p>后来最明显的一个信号是：想改单次工具调用的策略，需要同时看这些地方：</p>
+<ul>
+<li>节点代码</li>
+<li>DTO</li>
+<li>tool service</li>
+<li>adapter</li>
+<li>parser</li>
+<li>state patch</li>
+<li>测试辅助类</li>
+</ul>
+<p>到这个阶段，继续抽象已经没有意义了。最应该做的是删。</p>
+<h2 id="第一轮收口：先把图压成单节点"><a href="#第一轮收口：先把图压成单节点" class="headerlink" title="第一轮收口：先把图压成单节点"></a>第一轮收口：先把图压成单节点</h2><p>最后做的第一步非常朴素：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">START -&gt; agent -&gt; END<br></code></pre></td></tr></table></figure>
+
+<p>LangGraph 只保留 checkpoint 能力，图本身不再承担“业务分层”的责任。</p>
+<p>这样做之后，外层保留的东西很少：</p>
+<ul>
+<li>checkpoint &#x2F; resume</li>
+<li>conversation store</li>
+<li>最终事件写入</li>
+<li>中断恢复</li>
+</ul>
+<p>真正的业务决策都收进 <code>agent.py</code>。</p>
+<h3 id="为什么不是完全抛弃-LangGraph"><a href="#为什么不是完全抛弃-LangGraph" class="headerlink" title="为什么不是完全抛弃 LangGraph"></a>为什么不是完全抛弃 LangGraph</h3><p>因为我需要的不是“图编排能力”，而是：</p>
+<ul>
+<li>checkpoint</li>
+<li>interrupt&#x2F;resume</li>
+<li>状态恢复</li>
+</ul>
+<p>这些能力 LangGraph 现成就有，而且已经接进现有会话体系里。<br>保留它作为最薄外壳是合理的，再往上叠很多节点就不合理了。</p>
+<h2 id="第二轮收口：把单-Agent-再收成结构化-ReAct"><a href="#第二轮收口：把单-Agent-再收成结构化-ReAct" class="headerlink" title="第二轮收口：把单 Agent 再收成结构化 ReAct"></a>第二轮收口：把单 Agent 再收成结构化 ReAct</h2><p>单节点之后，一开始仍然存在一个问题：</p>
+<p>虽然已经是 loop 了，但语义上还是偏“单步判决”：</p>
+<ul>
+<li>这一步是 <code>CALL_TOOL</code></li>
+<li>或者 <code>CLARIFY</code></li>
+<li>或者 <code>RESPOND</code></li>
+</ul>
+<p>这种写法能跑，但它对多步工具调用不够友好。<br>尤其是遇到“先查今天，再查昨天，再比较”这种问题时，模型很容易在第一步就选择澄清，根本不给自己收集 observation 的机会。</p>
+<p>所以后面又做了一步升级：从单步决策改成<strong>结构化 ReAct</strong>。</p>
+<h3 id="这里的关键不是-ReAct-这个词"><a href="#这里的关键不是-ReAct-这个词" class="headerlink" title="这里的关键不是 ReAct 这个词"></a>这里的关键不是 ReAct 这个词</h3><p>关键是这四个角色被明确了：</p>
+<ul>
+<li><code>Thought</code></li>
+<li><code>Action</code></li>
+<li><code>Observation</code></li>
+<li><code>Respond</code></li>
+</ul>
+<p>但这里没有走经典的文本 ReAct：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">Thought: ...<br>Action: ...<br>Observation: ...<br></code></pre></td></tr></table></figure>
+
+<p>这种格式在生产里有两个问题：</p>
+<ol>
+<li>解析脆弱</li>
+<li>容易变成“请输出完整思维链”</li>
+</ol>
+<p>所以我最后采用的是<strong>结构化 ReAct</strong>：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;thought&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;summary&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;需要先获取今天和昨天的数据再比较&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;need_more_evidence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;confidence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;high&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CALL_TOOL&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;需要先取证&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;tool_calls&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>      <span class="hljs-punctuation">&#123;</span><br>        <span class="hljs-attr">&quot;tool_name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;today_furnace_batches&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;arguments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>          <span class="hljs-attr">&quot;fnCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1&quot;</span><span class="hljs-punctuation">,</span><br>          <span class="hljs-attr">&quot;date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-03-12&quot;</span><br>        <span class="hljs-punctuation">&#125;</span><br>      <span class="hljs-punctuation">&#125;</span><br>    <span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>这套格式有几个好处：</p>
+<ul>
+<li><code>thought.summary</code> 可以写日志，但不进 SSE</li>
+<li><code>action.type</code> 仍然强约束</li>
+<li><code>tool_calls</code> 支持多调用</li>
+<li>可以兼容旧的平铺 JSON 输出</li>
+</ul>
+<h3 id="为什么不让-Thought-进入事件流"><a href="#为什么不让-Thought-进入事件流" class="headerlink" title="为什么不让 Thought 进入事件流"></a>为什么不让 Thought 进入事件流</h3><p>因为我想要的是“调试信息”，不是“对外暴露的推理过程”。</p>
+<p>最终保留的原则是：</p>
+<ul>
+<li>内部有 <code>thought</code></li>
+<li>只记日志</li>
+<li>不作为前端协议的一部分</li>
+</ul>
+<p>这件事非常重要。不然系统最后会一边说自己安全，一边把推理摘要作为事件往外吐，多少有点精神分裂。</p>
+<h2 id="删掉了哪些其实没必要的层"><a href="#删掉了哪些其实没必要的层" class="headerlink" title="删掉了哪些其实没必要的层"></a>删掉了哪些其实没必要的层</h2><p>这次收口里，删得最痛快的一层是工具调用链路上的重复包装。</p>
+<p>原先大概有这种结构：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">Orchestrator<br>  -&gt; ToolService<br>    -&gt; HttpToolAdapter<br>      -&gt; MCPClient<br></code></pre></td></tr></table></figure>
+
+<p>看起来很规范，实际上 <code>ToolService</code> 在单 Agent 版本里已经没什么存在意义了。</p>
+<p>原因很简单：</p>
+<ul>
+<li>工具名匹配在 agent 里做了</li>
+<li>参数归一化和 schema 校验也在 agent 里做了</li>
+<li>进入工具执行阶段以后，本质只剩一次传输代理</li>
+</ul>
+<p>所以后来直接收成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">Orchestrator<br>  -&gt; HttpToolAdapter<br>    -&gt; MCPClient<br></code></pre></td></tr></table></figure>
+
+<p><code>HttpToolAdapter</code> 也只保留两件事：</p>
+<ul>
+<li>拉工具描述</li>
+<li>发工具调用</li>
+</ul>
+<p>其余那套给 LangChain StructuredTool 准备的动态模型、二次校验、工具索引，都删了。</p>
+<p>这类层如果当前主链路不用，留着就是噪音。</p>
+<h2 id="一个容易踩坑的点：别把-unknown-args-都当错"><a href="#一个容易踩坑的点：别把-unknown-args-都当错" class="headerlink" title="一个容易踩坑的点：别把 unknown args 都当错"></a>一个容易踩坑的点：别把 unknown args 都当错</h2><p>这次工具参数校验还顺手修了一个很烦的问题。</p>
+<p>早期有一种过严逻辑：</p>
+<ul>
+<li>只要模型多带了 schema 里没写的字段</li>
+<li>就直接判成 <code>unknown_arg</code></li>
+<li>然后强制澄清</li>
+</ul>
+<p>这在一些 case 里表现得很蠢。模型只是多传了一个无害字段，系统就一脸严肃地要求用户补充信息。</p>
+<p>后面改成按 JSON Schema 语义走：</p>
+<ul>
+<li>如果 <code>additionalProperties: false</code><ul>
+<li>未知字段算错误</li>
+</ul>
+</li>
+<li>否则<ul>
+<li>保留宽松透传</li>
+</ul>
+</li>
+</ul>
+<p>这个改动非常值钱，因为它把“严格”从拍脑袋变成了遵循 schema 的通用能力。</p>
+<h2 id="真实联调里，哪些-case-过了，哪些还没完全对"><a href="#真实联调里，哪些-case-过了，哪些还没完全对" class="headerlink" title="真实联调里，哪些 case 过了，哪些还没完全对"></a>真实联调里，哪些 case 过了，哪些还没完全对</h2><p>这次不是只跑单测，真实联调也一起做了。</p>
+<p>本地验收过程包括：</p>
+<ul>
+<li>Python 服务起在独立端口</li>
+<li>使用真实工具清单</li>
+<li>跑完整 <code>典型case</code></li>
+<li>看 SSE 终态事件</li>
+</ul>
+<h3 id="跑通的部分"><a href="#跑通的部分" class="headerlink" title="跑通的部分"></a>跑通的部分</h3><p>以下类型是稳定的：</p>
+<ul>
+<li>简单问候直接 <code>final</code></li>
+<li>明确缺参时走 <code>clarification_needed</code></li>
+<li>知识库 miss 时直接 <code>final</code></li>
+<li>interrupt &#x2F; resume 能继续走</li>
+<li>checkpoint 恢复后还能产生终态事件</li>
+</ul>
+<h3 id="仍然暴露问题的两个-case"><a href="#仍然暴露问题的两个-case" class="headerlink" title="仍然暴露问题的两个 case"></a>仍然暴露问题的两个 case</h3><h4 id="case3：比较类问题仍然过早澄清"><a href="#case3：比较类问题仍然过早澄清" class="headerlink" title="case3：比较类问题仍然过早澄清"></a>case3：比较类问题仍然过早澄清</h4><p>问题是：</p>
+<blockquote>
+<p>今天 1 号炉生产情况怎么样，和昨天比炉次数量有什么变化</p>
+</blockquote>
+<p>这类问题理论上应该：</p>
+<ol>
+<li>先取今天数据</li>
+<li>再取昨天数据</li>
+<li>再比较</li>
+</ol>
+<p>但当前版本仍然倾向在第一步先问更多上下文。<br>这说明“先取 observation 再澄清”的优先级还不够高。</p>
+<h4 id="case4：知识库主题已明确，但仍然先问“哪个知识库”"><a href="#case4：知识库主题已明确，但仍然先问“哪个知识库”" class="headerlink" title="case4：知识库主题已明确，但仍然先问“哪个知识库”"></a>case4：知识库主题已明确，但仍然先问“哪个知识库”</h4><p>用户已经给出：</p>
+<blockquote>
+<p>铸造工艺优化</p>
+</blockquote>
+<p>这种情况下，如果系统里存在知识检索工具，第一步更合理的动作是先试检索，而不是先追问“你说的是哪个知识库”。</p>
+<p>这反映的是<strong>工具优先级策略</strong>还偏保守，不是 loop 能力不够。</p>
+<h2 id="为什么这些问题不是靠“再加节点”解决"><a href="#为什么这些问题不是靠“再加节点”解决" class="headerlink" title="为什么这些问题不是靠“再加节点”解决"></a>为什么这些问题不是靠“再加节点”解决</h2><p>很容易有人看到 case3&#x2F;case4 失败，就开始想：</p>
+<ul>
+<li>要不要加一个 compare node</li>
+<li>要不要加一个 retrieval planner</li>
+<li>要不要加一个 kb_router</li>
+</ul>
+<p>我的结论很明确：先别。</p>
+<p>因为这两个问题本质上都还是单 Agent 策略问题：</p>
+<ul>
+<li>什么时候先取证</li>
+<li>什么时候允许一问多调用</li>
+<li>什么时候 observation 足够终止</li>
+</ul>
+<p>这些都属于同一个决策域。</p>
+<p>如果为了修 case3&#x2F;case4 再拆回多个节点，本质就是把刚删掉的复杂度又请回来。</p>
+<h2 id="当前最值得继续优化的两个方向"><a href="#当前最值得继续优化的两个方向" class="headerlink" title="当前最值得继续优化的两个方向"></a>当前最值得继续优化的两个方向</h2><p>这也是我在后续 review 里最认同的两个增强点。</p>
+<h3 id="1-提高“先取-observation-再澄清”的优先级"><a href="#1-提高“先取-observation-再澄清”的优先级" class="headerlink" title="1. 提高“先取 observation 再澄清”的优先级"></a>1. 提高“先取 observation 再澄清”的优先级</h3><p>做法不是硬编码匹配某个问题文本，而是把规则写进当前单节点 ReAct contract：</p>
+<ul>
+<li>只要工具所需参数已经满足，就优先 <code>CALL_TOOL</code></li>
+<li>如果用户已经给出明确主题&#x2F;对象，不要因为潜在歧义先澄清</li>
+<li>observation 不足时先补 observation</li>
+</ul>
+<h3 id="2-提高“一问多调用”的容忍度"><a href="#2-提高“一问多调用”的容忍度" class="headerlink" title="2. 提高“一问多调用”的容忍度"></a>2. 提高“一问多调用”的容忍度</h3><p>对比、趋势、跨日期问题本来就应该允许多次调用。</p>
+<p>比如一个动作里直接返回：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;action&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;CALL_TOOL&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;tool_calls&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>      <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;tool_name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;today_furnace_batches&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;arguments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;fnCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-03-12&quot;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;tool_name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;today_furnace_batches&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;arguments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;fnCode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;date&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-03-11&quot;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">&#125;</span><br>    <span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>然后把两个 tool result 都喂回 observation，让下一轮回答。</p>
+<p>这件事不需要加节点，只需要：</p>
+<ul>
+<li>prompt contract 允许</li>
+<li>validator 接受</li>
+<li>executor 顺序执行</li>
+</ul>
+<h2 id="这次重构我最后留下的原则"><a href="#这次重构我最后留下的原则" class="headerlink" title="这次重构我最后留下的原则"></a>这次重构我最后留下的原则</h2><p>整理下来，最后保留的原则非常少：</p>
+<h3 id="1-LangGraph-只保留-checkpoint-壳"><a href="#1-LangGraph-只保留-checkpoint-壳" class="headerlink" title="1. LangGraph 只保留 checkpoint 壳"></a>1. LangGraph 只保留 checkpoint 壳</h3><p>不要让图承担业务抽象层的责任。</p>
+<h3 id="2-Agent-决策域尽量内聚"><a href="#2-Agent-决策域尽量内聚" class="headerlink" title="2. Agent 决策域尽量内聚"></a>2. Agent 决策域尽量内聚</h3><p>prompt、解析、工具调用、回合控制尽量在一个地方闭合。</p>
+<h3 id="3-工具策略优先于-prompt-花活"><a href="#3-工具策略优先于-prompt-花活" class="headerlink" title="3. 工具策略优先于 prompt 花活"></a>3. 工具策略优先于 prompt 花活</h3><p>清晰的工具描述、清晰的 schema、清晰的边界，通常比一大段提示词更有用。</p>
+<h3 id="4-删除不用的层，比再抽一个新层更重要"><a href="#4-删除不用的层，比再抽一个新层更重要" class="headerlink" title="4. 删除不用的层，比再抽一个新层更重要"></a>4. 删除不用的层，比再抽一个新层更重要</h3><p>尤其是在已经进入“service &#x2F; dto &#x2F; adapter &#x2F; patch model 到处飞”的阶段。</p>
+<h3 id="5-真正的验收永远不是-pytest-绿了"><a href="#5-真正的验收永远不是-pytest-绿了" class="headerlink" title="5. 真正的验收永远不是 pytest 绿了"></a>5. 真正的验收永远不是 pytest 绿了</h3><p>单测能证明：</p>
+<ul>
+<li>结构没炸</li>
+<li>兼容没丢</li>
+</ul>
+<p>真实联调才能证明：</p>
+<ul>
+<li>case 到底怎么走</li>
+<li>observation 有没有真的接上</li>
+<li>checkpoint &#x2F; resume 有没有活</li>
+<li>工具链是不是只是在 mock 世界里成立</li>
+</ul>
+<h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="单-Agent-之后-trace-会不会更差"><a href="#单-Agent-之后-trace-会不会更差" class="headerlink" title="单 Agent 之后 trace 会不会更差"></a>单 Agent 之后 trace 会不会更差</h3><p>不会消失，但不会像多节点那样“天然清楚”。</p>
+<p>如果内部 Thought 和 Action 都变成结构化日志，其实可追踪性仍然是够的。<br>只是它不再是节点事件，而是 agent loop 的 step log。</p>
+<h3 id="单-Agent-会不会让系统不受控"><a href="#单-Agent-会不会让系统不受控" class="headerlink" title="单 Agent 会不会让系统不受控"></a>单 Agent 会不会让系统不受控</h3><p>不会，只要你把“自由”限制在决策层，把边界放在代码层：</p>
+<ul>
+<li>schema 校验</li>
+<li>最大 step 数</li>
+<li>最大 tool round</li>
+<li>checkpoint &#x2F; interrupt</li>
+<li>安全护栏</li>
+</ul>
+<p>这样系统还是受控的，只是不再被多节点状态机切碎。</p>
+<h3 id="要不要直接上更重的-Agent-框架"><a href="#要不要直接上更重的-Agent-框架" class="headerlink" title="要不要直接上更重的 Agent 框架"></a>要不要直接上更重的 Agent 框架</h3><p>当前这套场景里没必要。</p>
+<p>如果现有系统已经有：</p>
+<ul>
+<li>checkpoint</li>
+<li>store</li>
+<li>工具桥接</li>
+<li>安全护栏</li>
+</ul>
+<p>再上一个更重的 agent runtime，通常只会把层级重新堆回来。</p>
+<h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>这次重构最有意思的地方，不是把系统改成了单 Agent，而是终于承认了一件事：</p>
+<p>很多“看起来规范”的层，在单 Agent 场景下其实只是历史遗留的安慰剂。</p>
+<p>删掉它们以后，代码并没有失控，反而更容易看明白：</p>
+<ul>
+<li>这一轮要不要取证</li>
+<li>取什么证</li>
+<li>证据回来了怎么继续</li>
+<li>什么时候停</li>
+</ul>
+<p>对 Agent 系统来说，这种清晰度比多几个节点名字重要得多。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/" class="print-no-link">#架构重构</a>
+      
+        <a href="/tags/%E5%A4%8D%E7%9B%98/" class="print-no-link">#复盘</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘</div>
+      <div>https://willfordzhan.github.io/2026/03/12/agent-react/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月12日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/10/pip-python-remotedisconnected-venv/" title="一场被 pip 镜像污染带偏的 Python 升级故障：从 RemoteDisconnected 到干净 venv">
+                        <span class="hidden-mobile">一场被 pip 镜像污染带偏的 Python 升级故障：从 RemoteDisconnected 到干净 venv</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
