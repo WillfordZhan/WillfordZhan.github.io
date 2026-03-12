@@ -4,6 +4,43 @@
   
   
   <entry>
+    <title>给 AI 调用链单独开一本日志：用 MDC 给入口打标，再让 Logback 分流</title>
+    <link href="/2026/03/12/ai-mdc-logback/"/>
+    <url>/2026/03/12/ai-mdc-logback/</url>
+    
+    <content type="html"><![CDATA[<p>有些系统的日志看起来很热闹，真正出事时却像在翻一本错页的电话簿。</p><p>我这次碰到的是 AI tool call 链路。需求说起来不复杂：希望 AI 触发的一整条调用链，包含内部 service、support、mapper 打出来的 <code>info</code> 和 <code>error</code>，都能在一个单独文件里找到。麻烦在后半句。那些组件并不专门服务 AI，平时还有普通业务流量在调它们。按包名单独切文件当然省事，代价是非 AI 请求也会一头扎进去，日志很快就搅成一锅粥。</p><p>现场先看了一眼现状，系统已经有一个单独文件，名字类似 <code>ai-tool-invoke.log</code>。这份日志只记了审计摘要，内容大概是 <code>conversationId</code>、<code>toolCallId</code>、<code>toolName</code>、耗时、参数预览、结果预览。排障时它当然有用，至少知道这次工具被谁调了、跑了多久、成没成功。问题也很明显：这不是“全链路日志”，更像工具调用流水账。业务日志和异常栈还散在原来的 <code>sys-info.log</code>、<code>sys-error.log</code> 里。你要追一个失败 case，还是得两边来回翻。</p><p>那天我脑子里蹦出来的第一个念头很朴素：既然 AI 相关类都在一组包下面，给它们单独配一个 logger 不就完了。这个想法没活过五分钟。AI 入口只是开头，后面会一路穿过普通 service、repo、support、甚至线程池。你不能要求这些共享组件为了 AI 再养一套 logger 名字，更不能因为它们偶尔服务 AI，就把所有非 AI 调用也打进专属文件。这个路子走下去，维护成本会非常丑。</p><p>后来收敛到一个更像工程解法的思路：别给组件打标签，给调用打标签。</p><h2 id="从入口开始打标"><a href="#从入口开始打标" class="headerlink" title="从入口开始打标"></a>从入口开始打标</h2><p>要单独收集某一类流量的日志，最省事的办法是让入口先声明：“接下来这条链路属于 AI。”<br>这个声明不需要改业务方法签名，也不需要给每个 <code>log.info()</code> 手动塞参数，放在 <code>MDC</code> 里就行。</p><p><code>MDC</code> 全名是 <code>Mapped Diagnostic Context</code>。可以把它理解成一张挂在线程上的小纸条，里面写着这次调用的上下文：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">try</span> &#123;<br>    MDC.put(<span class="hljs-string">&quot;aiChain&quot;</span>, <span class="hljs-string">&quot;true&quot;</span>);<br>    MDC.put(<span class="hljs-string">&quot;aiConversationId&quot;</span>, conversationId);<br>    MDC.put(<span class="hljs-string">&quot;aiToolCallId&quot;</span>, toolCallId);<br>    MDC.put(<span class="hljs-string">&quot;aiToolName&quot;</span>, toolName);<br>    MDC.put(<span class="hljs-string">&quot;aiTenantId&quot;</span>, tenantId);<br>    MDC.put(<span class="hljs-string">&quot;aiUserId&quot;</span>, userId);<br><br>    <span class="hljs-keyword">return</span> toolDispatcher.dispatch(req);<br>&#125; <span class="hljs-keyword">finally</span> &#123;<br>    MDC.clear();<br>&#125;<br></code></pre></td></tr></table></figure><p>入口一般放在 <code>tools/call</code> 的接入层。那里最早拿得到 <code>conversationId</code>、<code>toolCallId</code>、<code>toolName</code>、租户和用户信息，也最适合做 <code>try/finally</code> 清理。线程池会复用线程，这个 <code>finally</code> 不能省。漏掉清理以后，后面某个普通请求复用了这条线程，日志里就会凭空多出一串 AI 字段，现场排查会非常魔幻。</p><p>做到这一步，后面那些共享组件其实什么都不知道。它们还是原来的写法：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs java">log.info(<span class="hljs-string">&quot;start query batch&quot;</span>);<br>log.error(<span class="hljs-string">&quot;query failed&quot;</span>, e);<br></code></pre></td></tr></table></figure><p>区别在于这条日志事件发出来时，当前线程已经带着 <code>aiChain=true</code> 和一堆 AI 上下文字段。日志框架识别到这个标签，就能把同一条日志额外复制到 AI 专属文件。</p><h2 id="为什么-logger-名字不够用"><a href="#为什么-logger-名字不够用" class="headerlink" title="为什么 logger 名字不够用"></a>为什么 logger 名字不够用</h2><p>很多人第一次做日志隔离时会先想到 logger 名字。比如：</p><ul><li><code>com.example.ai.*</code> 全打到 <code>ai.log</code></li><li><code>ai.tool.invoke</code> 专门打一份文件</li></ul><p>这个思路拿来做“入口审计”没问题，拿来做“共享组件全链路收集”就不够了。</p><p>因为调用链通常长这样：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">HTTP 入口<br>  -&gt; Tool Dispatcher<br>  -&gt; Tool Service<br>  -&gt; 普通业务 Service<br>  -&gt; Support / Mapper / DAO<br></code></pre></td></tr></table></figure><p>共享组件的 logger 名字并不会因为“这次是 AI 来调我”而发生变化。<br>它还是那个老 logger。你如果按包名单独切，只能抓到最外层的 AI 类，抓不住链路里实际干活的那些日志。共享组件为了这件事再换一套 logger 名字，代码会被可观测性反向挟持，最后连谁负责判断调用来源都说不清。</p><p>所以问题不在 logger name，而在调用上下文。</p><h2 id="Logback-负责分流，不负责猜"><a href="#Logback-负责分流，不负责猜" class="headerlink" title="Logback 负责分流，不负责猜"></a>Logback 负责分流，不负责猜</h2><p>入口打完标，后面的事就该交给 logback 了。<br>我的建议是保留现有的系统日志文件不动，再额外加一份 <code>ai-chain.log</code>。AI 调用时日志会落两份：</p><ul><li>原来的系统日志照常保留</li><li><code>ai-chain.log</code> 额外收一份 AI 流量</li></ul><p>这比直接把 AI 日志从原文件里剔出去稳得多。排障时你有专属视角，原来的值班习惯也不用推倒重来。</p><p>logback 这边不要靠包名过滤，直接按 MDC 过滤。思路类似下面这样：</p><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">appender</span> <span class="hljs-attr">name</span>=<span class="hljs-string">&quot;file_ai_chain&quot;</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;ch.qos.logback.core.rolling.RollingFileAppender&quot;</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">file</span>&gt;</span>./logs/ai-chain.log<span class="hljs-tag">&lt;/<span class="hljs-name">file</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">filter</span> <span class="hljs-attr">class</span>=<span class="hljs-string">&quot;com.example.logging.AiChainMdcFilter&quot;</span>/&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">encoder</span>&gt;</span><br>        <span class="hljs-tag">&lt;<span class="hljs-name">pattern</span>&gt;</span><br>            %d&#123;yyyy-MM-dd HH:mm:ss&#125; [%thread] %-5level %logger<br>            aiConv=%X&#123;aiConversationId&#125;<br>            aiCall=%X&#123;aiToolCallId&#125;<br>            aiTool=%X&#123;aiToolName&#125;<br>            tenant=%X&#123;aiTenantId&#125;<br>            user=%X&#123;aiUserId&#125;<br>            - %msg%n<br>        <span class="hljs-tag">&lt;/<span class="hljs-name">pattern</span>&gt;</span><br>    <span class="hljs-tag">&lt;/<span class="hljs-name">encoder</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">appender</span>&gt;</span><br></code></pre></td></tr></table></figure><p>对应的 filter 很小：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">AiChainMdcFilter</span> <span class="hljs-keyword">extends</span> <span class="hljs-title class_">Filter</span>&lt;ILoggingEvent&gt; &#123;<br>    <span class="hljs-meta">@Override</span><br>    <span class="hljs-keyword">public</span> FilterReply <span class="hljs-title function_">decide</span><span class="hljs-params">(ILoggingEvent event)</span> &#123;<br>        <span class="hljs-type">String</span> <span class="hljs-variable">flag</span> <span class="hljs-operator">=</span> event.getMDCPropertyMap().get(<span class="hljs-string">&quot;aiChain&quot;</span>);<br>        <span class="hljs-keyword">return</span> <span class="hljs-string">&quot;true&quot;</span>.equals(flag) ? FilterReply.ACCEPT : FilterReply.DENY;<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure><p>这段代码很直接。<br>logback 不需要推理“这是不是 AI 类”，它读取 <code>MDC.aiChain</code> 就能决定收不收这条日志。</p><h2 id="这套做法为什么对共享组件侵入低"><a href="#这套做法为什么对共享组件侵入低" class="headerlink" title="这套做法为什么对共享组件侵入低"></a>这套做法为什么对共享组件侵入低</h2><p>聊到这里时，一个追问很自然：共享组件同时服务 AI 和非 AI，会不会被侵入得很难看。</p><p>按这次拆法，侵入几乎都在外围：</p><ul><li>AI 入口补 <code>MDC.put</code></li><li>dispatcher 补齐 <code>toolCallId/toolName</code> 等字段</li><li>logback 新增一个 appender</li><li>加一个小 filter</li></ul><p>共享 service、mapper、support 理论上可以一行不改。<br>它们照常用 <code>@Slf4j</code>，照常打普通日志。只有当这次调用从 AI 入口进来时，日志事件才会被专属文件额外收走。平时的非 AI 请求没有 <code>aiChain=true</code>，日志还是去原来的地方。</p><p>这种方式少了一个很烦的维护动作：你不需要挨个判断“这个类算不算 AI 组件”。它在这次链路里被执行了，日志自然会带上 AI 标签。</p><h2 id="真正会把事情弄乱的地方"><a href="#真正会把事情弄乱的地方" class="headerlink" title="真正会把事情弄乱的地方"></a>真正会把事情弄乱的地方</h2><p>方案本身不复杂，坑主要有三个。</p><h3 id="1-只有摘要，没有异常栈"><a href="#1-只有摘要，没有异常栈" class="headerlink" title="1. 只有摘要，没有异常栈"></a>1. 只有摘要，没有异常栈</h3><p>系统里经常已经有一份审计日志，记录了工具名、参数预览、结果预览。<br>这类日志适合做调用看板，不适合做现场排障。</p><p>异常分支只是把 <code>e.getMessage()</code> 塞进返回值，而没有单独 <code>log.error(..., e)</code> 的话，专属文件里看到的就只有一句“工具执行失败”，没有 stack trace，没有根因，连抛异常的类都看不见。排查时还是得回系统错误日志里翻。</p><p>这块要单独补一刀：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">try</span> &#123;<br>    <span class="hljs-keyword">return</span> toolRegistry.invoke(toolName, args, ctx);<br>&#125; <span class="hljs-keyword">catch</span> (Exception e) &#123;<br>    AI_CHAIN_LOG.error(<br>        <span class="hljs-string">&quot;tool invoke failed tool=&#123;&#125; conversationId=&#123;&#125; toolCallId=&#123;&#125;&quot;</span>,<br>        toolName,<br>        conversationId,<br>        toolCallId,<br>        e<br>    );<br>    <span class="hljs-keyword">throw</span> e;<br>&#125;<br></code></pre></td></tr></table></figure><h3 id="2-线程切换以后，MDC-会丢"><a href="#2-线程切换以后，MDC-会丢" class="headerlink" title="2. 线程切换以后，MDC 会丢"></a>2. 线程切换以后，MDC 会丢</h3><p><code>MDC</code> 默认挂在线程上。同步调用时很顺手，线程一切换，标签就可能掉地上。</p><p>常见场景有这些：</p><ul><li><code>@Async</code></li><li>自定义线程池</li><li><code>CompletableFuture</code></li><li>MQ 回调</li><li>Reactor &#x2F; 响应式链路</li></ul><p>这类地方如果不做透传，前半段日志在 <code>ai-chain.log</code>，后半段突然消失，读起来像日志自己断片了。<br>只覆盖同步链路的话，这套方案当天就能上；想把“全链路”几个字写得住，线程池那层迟早得补 <code>TaskDecorator</code> 或 MDC 复制包装。</p><h3 id="3-参数和结果不能裸奔"><a href="#3-参数和结果不能裸奔" class="headerlink" title="3. 参数和结果不能裸奔"></a>3. 参数和结果不能裸奔</h3><p>既然准备把 AI 链路单独汇总，大家很容易顺手把 <code>args</code>、<code>result</code>、上下文快照全打进去。<br>这事短期排障是爽的，长期会有三个后果：</p><ul><li>文件量暴涨</li><li>敏感字段泄露</li><li>搜索时被大片 JSON 噪音淹没</li></ul><p>我比较认同的做法是：</p><ul><li>摘要日志里保留预览，做长度截断</li><li>关键 error 分支打印 stack trace</li><li>真要打完整 payload，单独做脱敏和长度策略</li></ul><p>别把 <code>ai-chain.log</code> 写成对象储存桶。日志不是归档系统。</p><h2 id="一版能落地的最小实现"><a href="#一版能落地的最小实现" class="headerlink" title="一版能落地的最小实现"></a>一版能落地的最小实现</h2><p>现在就要改的话，我会按下面这个粒度落：</p><h3 id="Phase-1"><a href="#Phase-1" class="headerlink" title="Phase 1"></a>Phase 1</h3><ol><li>在 AI 的 <code>tools/call</code> 外层入口设置 MDC</li><li>在 dispatcher 里补全 <code>conversationId/toolCallId/toolName</code></li><li>新增 <code>ai-chain.log</code></li><li>用 MDC filter 只接收 <code>aiChain=true</code> 的日志</li><li>异常分支补完整 stack trace</li><li>pattern 里带上 <code>conversationId/toolCallId/toolName</code></li></ol><p>做到这里，已经能解决大部分“AI 调用了谁、谁报错了、错误栈在哪、同一条链路里还有哪些普通 service 被打到了”的问题。</p><h3 id="Phase-2"><a href="#Phase-2" class="headerlink" title="Phase 2"></a>Phase 2</h3><ol><li>处理线程池和异步透传</li><li>对 <code>args/result</code> 做脱敏和截断</li><li>补统一的 AI audit 日志工具</li><li>按 <code>conversationId</code> 做检索脚本或 Kibana 查询模板</li></ol><p>没必要一上来就搞成完整观测平台。先把日志从“到处都是，但哪都不全”改到“至少能在一个文件里还原现场”。</p><h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="MDC-到底是什么"><a href="#MDC-到底是什么" class="headerlink" title="MDC 到底是什么"></a>MDC 到底是什么</h3><p>可以把它当成线程本地的小字条。<br>请求一进来，把 <code>traceId</code>、<code>conversationId</code>、<code>toolCallId</code> 这些字段写进去；后续这条线程上的任何日志都能自动带上它们。你不需要在每一行 <code>log.info()</code> 里手动拼接。</p><h3 id="共享组件会不会被-AI-方案绑架"><a href="#共享组件会不会被-AI-方案绑架" class="headerlink" title="共享组件会不会被 AI 方案绑架"></a>共享组件会不会被 AI 方案绑架</h3><p>按这次拆法，入口负责打标，日志系统负责分流，共享组件基本无感。<br>方案要求你去批量改共享组件的 logger 名字，或者在 service 里到处写 <code>if (isAiRequest)</code>，设计就已经跑偏了。</p><h3 id="为什么不直接建一个-ai-包专门打日志"><a href="#为什么不直接建一个-ai-包专门打日志" class="headerlink" title="为什么不直接建一个 ai 包专门打日志"></a>为什么不直接建一个 <code>ai</code> 包专门打日志</h3><p>因为真正让人头疼的日志通常不在入口层，而在链路深处。<br>AI 类自己当然会打两三条日志，SQL、参数校验、聚合逻辑、异常栈更多时候在共享组件里。只按包名切，日志还是会缺页。</p><h2 id="收尾"><a href="#收尾" class="headerlink" title="收尾"></a>收尾</h2><p>这类需求讨论到最后，核心会落到“调用来源该放在哪里表达”。<br>我这次的处理办法比较朴素：来源放在入口上下文里，日志框架只做分流，业务组件继续干业务组件的事。</p><p>链路基本同步的话，这套做法已经够用了。<br>AI 流量一进来就跨线程、跨任务、跨进程乱窜，光有一个单独文件还不够，还得把上下文透传补完，全链路日志才算成立。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>复盘</tag>
+      
+      <tag>Java</tag>
+      
+      <tag>日志</tag>
+      
+      <tag>Logback</tag>
+      
+      <tag>MDC</tag>
+      
+      <tag>AI</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>单 Agent 编排里，Prompt、JSON Schema 与 Function Calling 到底该怎么收口</title>
     <link href="/2026/03/12/single-agent-prompt-json-schema-function-calling/"/>
     <url>/2026/03/12/single-agent-prompt-json-schema-function-calling/</url>
@@ -1104,11 +1141,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>MCP</tag>
+      
       <tag>Java</tag>
       
       <tag>Python</tag>
-      
-      <tag>MCP</tag>
       
       <tag>里程碑</tag>
       
@@ -1281,9 +1318,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Java</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>Java</tag>
       
       <tag>AI工程</tag>
       
@@ -1357,11 +1394,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>MCP</tag>
+      
       <tag>Java</tag>
       
       <tag>Python</tag>
-      
-      <tag>MCP</tag>
       
       <tag>AI工程</tag>
       
