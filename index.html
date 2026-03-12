@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/12/single-agent-prompt-json-schema-function-calling/" target="_self">
+          单 Agent 编排里，Prompt、JSON Schema 与 Function Calling 到底该怎么收口
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/12/single-agent-prompt-json-schema-function-calling/" target="_self">
+        <div>
+          最近我把一个 FastAPI + LangGraph 的 AI 控制平面，从“多节点编排”一路砍到“单节点 Agent Loop”。 砍到最后，真正难的地方已经不是“节点怎么连”，而是这三个问题：  prompt 里到底该塞什么。 工具的输入约束到底该放在哪一层。 如果要接官方 function calling，它和现在这套 response schema + JSON 解析 有什么本质区别。
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-12 11:45" pubdate>
+              2026-03-12
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/Function-Calling/">#Function Calling</a>
+            
+              <a href="/tags/Prompt%E5%B7%A5%E7%A8%8B/">#Prompt工程</a>
+            
+              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%8C%96/">#工程化</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/12/agent-react/" target="_self">
           把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘
         </a>
@@ -865,77 +936,6 @@
               <a href="/tags/Checkpoint/">#Checkpoint</a>
             
               <a href="/tags/STAR/">#STAR</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/05/langgraph-hitl/" target="_self">
-          LangGraph HITL 重构复盘：从一次性澄清到可恢复编排
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/langgraph-hitl/" target="_self">
-        <div>
-          这周把一条很“能跑但不优雅”的链路，改成了真正可恢复的人在回路（HITL）语义。 一句话版本：  以前：clarification_needed -&gt; final，一轮结束，下一轮靠外部再喂输入，图内语义断开。 现在：clarify 节点内 interrupt(payload) 挂起，用户补充后 Command(resume=...) 继续执行，图内闭环。  下面按工程复盘写清楚：问题是什么
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-06 01:11" pubdate>
-              2026-03-06
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
-              <a href="/tags/%E7%BC%96%E6%8E%92/">#编排</a>
-            
-              <a href="/tags/LangChain/">#LangChain</a>
-            
-              <a href="/tags/HITL/">#HITL</a>
             
           </div>
         

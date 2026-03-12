@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/05/langgraph-hitl/" target="_self">
+          LangGraph HITL 重构复盘：从一次性澄清到可恢复编排
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/langgraph-hitl/" target="_self">
+        <div>
+          这周把一条很“能跑但不优雅”的链路，改成了真正可恢复的人在回路（HITL）语义。 一句话版本：  以前：clarification_needed -&gt; final，一轮结束，下一轮靠外部再喂输入，图内语义断开。 现在：clarify 节点内 interrupt(payload) 挂起，用户补充后 Command(resume=...) 继续执行，图内闭环。  下面按工程复盘写清楚：问题是什么
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-06 01:11" pubdate>
+              2026-03-06
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
+              <a href="/tags/%E7%BC%96%E6%8E%92/">#编排</a>
+            
+              <a href="/tags/LangChain/">#LangChain</a>
+            
+              <a href="/tags/HITL/">#HITL</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/05/langgraph-star/" target="_self">
           LangGraph 编排重构实录：拆编排不拆对外契约（STAR）
         </a>
@@ -803,81 +874,6 @@
               <a href="/tags/%E5%BE%AE%E4%BF%A1%E5%BC%80%E5%8F%91%E8%80%85%E5%B7%A5%E5%85%B7/">#微信开发者工具</a>
             
               <a href="/tags/%E8%81%94%E8%B0%83/">#联调</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
-          单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
-        <div>
-          这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-02 23:57" pubdate>
-              2026-03-02
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
-            
-              <a href="/tags/Guardrails/">#Guardrails</a>
-            
-              <a href="/tags/Memory/">#Memory</a>
-            
-              <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
-            
-              <a href="/tags/AI%E7%BC%96%E6%8E%92/">#AI编排</a>
             
           </div>
         
