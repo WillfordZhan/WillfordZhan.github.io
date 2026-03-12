@@ -10,6 +10,10 @@ tags:
   - "LangGraph"
   - "Agent"
   - "工程化"
+source_archive:
+  id: 20260312-single-agent-prompt-function-calling
+  rel_path: source_materials/posts/20260312-single-agent-prompt-function-calling
+  conversation_file: conversation.jsonl
 ---
 
 最近我把一个 FastAPI + LangGraph 的 AI 控制平面，从“多节点编排”一路砍到“单节点 Agent Loop”。
