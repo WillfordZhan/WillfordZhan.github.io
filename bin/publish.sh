@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="${BLOG_REPO:-$HOME/Desktop/Project/blog}"
 MSG=""
 SKIP_BUILD=0
@@ -43,6 +44,11 @@ fi
 if ! test -f _config.yml; then
   echo "Missing _config.yml; this doesn't look like the Hexo source branch." >&2
   exit 1
+fi
+
+# 发布前先同步 skill 镜像，避免全局 skill 改了但 blog 仓库里还是旧版本。
+if [[ -f "$SCRIPT_DIR/sync_skill.sh" ]]; then
+  bash "$SCRIPT_DIR/sync_skill.sh" --repo "$REPO"
 fi
 
 # Install + build
