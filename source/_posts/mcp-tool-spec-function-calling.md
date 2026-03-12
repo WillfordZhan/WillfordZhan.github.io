@@ -10,6 +10,10 @@ tags:
   - "JSON Schema"
   - "AI Agent"
   - "AI工作日志"
+source_archive:
+  id: "20260312-mcp-tool-spec-function-calling"
+  rel_path: "source_materials/posts/20260312-mcp-tool-spec-function-calling"
+  conversation_file: "conversation.jsonl"
 ---
 
 ## 前言
