@@ -1,6 +1,6 @@
 {
   "archive_id": "20260312-single-agent-prompt-function-calling",
-  "post_name": "单 Agent 编排里，Prompt、JSON Schema 与 Function Calling 到底该怎么收口",
+  "post_name": "单 Agent 编排里，Prompt、JSON Schema 与 Function Calling 该怎么收口",
   "post_rel_path": "source/_posts/single-agent-prompt-json-schema-function-calling.md",
   "conversation_file": "conversation.jsonl",
   "archived_at": "2026-03-12T22:10:00+08:00",

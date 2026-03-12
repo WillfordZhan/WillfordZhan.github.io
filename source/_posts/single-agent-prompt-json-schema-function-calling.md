@@ -1,36 +1,30 @@
 ---
-title: "单 Agent 编排里，Prompt、JSON Schema 与 Function Calling 到底该怎么收口"
+title: "单 Agent 编排里，Prompt、JSON Schema 与 Function Calling 该怎么收口"
 date: 2026-03-12 11:45:00
 categories:
   - "AI"
 tags:
-  - "AI工作日志"
   - "Prompt工程"
   - "Function Calling"
   - "LangGraph"
   - "Agent"
   - "工程化"
+  - "控制平面"
 source_archive:
   id: 20260312-single-agent-prompt-function-calling
   rel_path: source_materials/posts/20260312-single-agent-prompt-function-calling
   conversation_file: conversation.jsonl
 ---
 
-最近我把一个 FastAPI + LangGraph 的 AI 控制平面，从“多节点编排”一路砍到“单节点 Agent Loop”。
+最近我把一个 FastAPI + LangGraph 的控制平面，从“多节点编排”一路砍到“单节点 Agent Loop”。
 
-砍到最后，真正难的地方已经不是“节点怎么连”，而是这三个问题：
+砍到最后，最费脑子的地方已经不是“节点怎么连”，而是这三个问题：
 
 1. prompt 里到底该塞什么。
 2. 工具的输入约束到底该放在哪一层。
 3. 如果要接官方 `function calling`，它和现在这套 `response schema + JSON 解析` 有什么本质区别。
 
-这篇就把这条链路掰开说清楚。
-
-文章会覆盖三件事：
-
-- 我当前项目里 prompt、tool、response schema 是怎么串起来的。
-- 官方 `function calling` 到底能帮什么，不能帮什么。
-- 如果继续演进，最稳的改造方案是什么。
+这篇就把这条链路掰开说清楚：prompt、tool、response schema 现在怎么串，`function calling` 放进来以后边界怎么划，继续演进时哪些地方值得先动。
 
 ## 先说现在这条链路长什么样
 
@@ -64,9 +58,7 @@ START -> agent -> END
 - `app/http_tool_adapter.py`
 - `app/mcp_client.py`
 
-这类收口有一个直接好处：
-
-你不用再一边追状态机，一边猜“这条澄清是谁发出来的”“这次工具校验在哪个节点挂的”。代码阅读路径短很多。
+这类收口有一个直接好处：你不用再一边追状态机，一边猜“这条澄清是谁发出来的”“这次工具校验在哪个节点挂的”。代码阅读路径短很多。
 
 ## Prompt 现在怎么导入工具和上下文
 
