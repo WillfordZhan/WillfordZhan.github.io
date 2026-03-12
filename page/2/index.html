@@ -241,6 +241,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/05/langgraph-star/" target="_self">
+          LangGraph 编排重构实录：拆编排不拆对外契约（STAR）
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/langgraph-star/" target="_self">
+        <div>
+          这篇复盘写给已经在做 Agent&#x2F;LLM 编排、并且被“历史包袱 + 线上契约 + 多系统联动”三连击过的工程师。 一句话版结论：这次不是“把代码搬到新目录”，而是把编排从“单文件扛全场”升级为“LangGraph 节点化 + 对外契约不动”的可演进内核。过程不炫技，核心是稳。 如果要用一句带点黑色幽默的话描述这次重构：  我们终于把 orchestrator.py 从“全栈菩萨”劝退成
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-05 20:18" pubdate>
+              2026-03-05
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/">#重构复盘</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E6%B2%BB%E7%90%86/">#架构治理</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/05/dify-tool-java-mcp-python/" target="_self">
           Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径
         </a>
@@ -811,77 +878,6 @@
               <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
             
               <a href="/tags/AI%E7%BC%96%E6%8E%92/">#AI编排</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/02/agent-langgraph-llamaindex/" target="_self">
-          项目技术选型调研：通用Agent与LangGraph+LlamaIndex对比
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/agent-langgraph-llamaindex/" target="_self">
-        <div>
-          这篇文章基于实际业务场景（原子查询工具 + RAG 分析）给出技术选型依据，重点对比 OpenClaw 这类强 Agent 项目与 LangGraph + LlamaIndex 组合方案。 1. 调研结论（先给结论）对于当前项目定位（“可控的数据查询与分析助手”，而非“全自主代码代理”），推荐主选型为：  编排内核：LangGraph 数据&#x2F;RAG 层：LlamaIndex 工程护栏参考
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-02 23:44" pubdate>
-              2026-03-02
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">#技术选型</a>
-            
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
-              <a href="/tags/LlamaIndex/">#LlamaIndex</a>
-            
-              <a href="/tags/OpenClaw/">#OpenClaw</a>
-            
-              <a href="/tags/Agent-Engineering/">#Agent Engineering</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
           </div>
         
