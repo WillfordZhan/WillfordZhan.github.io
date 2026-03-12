@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/06/langgraph-checkpoint-event-replay/" target="_self">
+          LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/06/langgraph-checkpoint-event-replay/" target="_self">
+        <div>
+          调试 LangGraph 时，最容易踩的一个坑不是代码写错，而是脑子里把三件不同的东西混成了一件事：  event checkpoint replay  表面看它们都能回答“这轮到底发生了什么”，于是很多项目自然会冒出一个问题： “既然 LangGraph 已经有 checkpoint 和 replay，我自己写的 event 机制是不是多余了？” 这个问题我最近在一套 AI 编排服务里来回掰扯了
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-06 15:59" pubdate>
+              2026-03-06
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Checkpoint/">#Checkpoint</a>
+            
+              <a href="/tags/%E8%B0%83%E8%AF%95/">#调试</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E5%A4%8D%E7%9B%98/">#架构复盘</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/05/langgraph-checkpoint/" target="_self">
           LangGraph Checkpoint 改造复盘：从内存快照到可恢复执行
         </a>
@@ -499,11 +568,11 @@
             
               <a href="/tags/MCP/">#MCP</a>
             
+              <a href="/tags/%E6%9E%B6%E6%9E%84/">#架构</a>
+            
               <a href="/tags/Dify/">#Dify</a>
             
               <a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/">#知识库</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84/">#架构</a>
             
           </div>
         
@@ -826,75 +895,6 @@
               <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/">#故障排查</a>
             
               <a href="/tags/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">#后端工程</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/03/iot-app-kafka/" target="_self">
-          本地启动 iot-app 禁用 Kafka 配置实践
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/iot-app-kafka/" target="_self">
-        <div>
-          本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-03 17:20" pubdate>
-              2026-03-03
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/Spring-Boot/">#Spring Boot</a>
-            
-              <a href="/tags/Kafka/">#Kafka</a>
-            
-              <a href="/tags/Nacos/">#Nacos</a>
-            
-              <a href="/tags/%E6%9C%AC%E5%9C%B0%E5%BC%80%E5%8F%91/">#本地开发</a>
             
           </div>
         
