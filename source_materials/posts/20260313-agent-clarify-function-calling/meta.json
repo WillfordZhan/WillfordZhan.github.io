@@ -3,7 +3,9 @@
   "article_file": "source/_posts/agent-clarify-tool-call.md",
   "article_title": "把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call",
   "source_type": "conversation",
-  "source_status": "conversation_log_not_exported_in_workspace",
+  "source_status": "full_raw_session_imported",
   "created_at": "2026-03-13 20:00:00",
-  "notes": "Article drafted from the active Codex conversation. Original conversation.jsonl was not available from the local workspace at publish time."
+  "source_session_id": "019ce5e9-a23a-7c01-ae76-5ba843815872",
+  "source_origin": "~/.codex/sessions/2026/03/13/rollout-2026-03-13T14-36-59-019ce5e9-a23a-7c01-ae76-5ba843815872.jsonl",
+  "notes": "Archived as the full raw Codex session file, including system and developer instruction content, per explicit user approval."
 }
