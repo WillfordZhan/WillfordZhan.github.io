@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call</title>
+    <link href="/2026/03/13/agent-clarify-tool-call/"/>
+    <url>/2026/03/13/agent-clarify-tool-call/</url>
+    
+    <content type="html"><![CDATA[<p>这次在改工业 AI 助手的编排层时，前面已经把 <code>LangGraph + checkpoint</code> 那层黑盒拆掉了，但 clarify 这件事还是不顺。问题不在“能不能让模型问用户要参数”，而在“这句补参话术到底应该由谁写”。</p><p>一开始很容易想到两条路：</p><ol><li>继续把补参文案硬编码在工具 schema 里，比如 <code>x-clarifyTemplate</code></li><li>让模型自己在普通 <code>content</code> 里判断这是补参还是最终回答</li></ol><p>这两条路都能跑，但都不够稳。前者维护成本高，后者运行时语义太虚。最后收敛下来的做法是把 clarify 拆成两步：</p><ul><li>第一步，模型通过原生 function calling 明确声明“缺了什么参数”</li><li>第二步，系统再让模型根据这些缺参元数据生成真正给用户看的澄清话术</li></ul><p>这篇就只写这件事。</p><h2 id="原来的-clarify-为什么不好维护"><a href="#原来的-clarify-为什么不好维护" class="headerlink" title="原来的 clarify 为什么不好维护"></a>原来的 clarify 为什么不好维护</h2><p>当前这类业务工具本身会带一些字段元数据，比如：</p><ul><li>内部字段名：<code>fnCode</code></li><li>中文业务名：<code>炉号</code></li><li>参数说明：需要用户明确指定哪台炉</li><li>有时还会带一些 <code>x-*</code> 扩展字段</li></ul><p>问题出在最后一类。</p><p>如果把 <code>x-clarifyTemplate</code> 当成长期方案，工具 schema 很快就会开始长成下面这样：</p><ul><li><code>x-clarifyTemplate</code></li><li><code>x-userLabel</code></li><li><code>x-example</code></li><li><code>x-normalizationRule</code></li><li>还有各种和 prompt 一样长的说明文字</li></ul><p>这会带来三个直接问题。</p><p>第一，文案维护会散。<br>工具一多，澄清句子就会分散在各个 schema 里。后面你想统一语气、统一产品口径、统一“示例怎么写”，改起来会很烦。</p><p>第二，schema 会开始承载不该它承载的东西。<br>工具 schema 应该回答的是“参数长什么样、哪些必填、哪些可枚举”，不是“缺参数时这句话怎么说才更自然”。</p><p>第三，多轮上下文会越来越难处理。<br>同样缺 <code>fnCode</code>，如果用户上一轮已经提到“查今天的炉次情况”，和用户这一轮直接问“帮我查生产情况”，澄清文案不应该完全一样。模板很难把这种上下文差异处理好。</p><h2 id="另一条路为什么也不够稳"><a href="#另一条路为什么也不够稳" class="headerlink" title="另一条路为什么也不够稳"></a>另一条路为什么也不够稳</h2><p>另一种更激进的想法是：不用专门的 clarify 语义，直接让模型在普通 <code>content</code> 里输出一句补参话术。</p><p>这样表面上更省事，因为 loop 会很像这样：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">有 tool_call =&gt; 执行工具<br>没有 tool_call =&gt; 直接把 content 返回给用户<br></code></pre></td></tr></table></figure><p>这里的问题不是功能做不到，而是系统很难稳定判断：</p><ul><li>这是最终回答</li><li>还是一条待恢复的澄清问题</li></ul><p>如果两者都走裸 <code>content</code>，运行时就得靠额外 prompt 约束或者字符串规则猜。这样一来：</p><ul><li>事件语义会变糊</li><li><code>pending_action</code> 很难稳定落库</li><li>前端也不知道当前这轮到底是 final 还是 clarification</li><li>以后做 resume、审计、统计都会变难</li></ul><p>这和前面拆黑盒的目标是反着来的。</p><h2 id="这次确定下来的结构"><a href="#这次确定下来的结构" class="headerlink" title="这次确定下来的结构"></a>这次确定下来的结构</h2><p>最后比较稳的做法其实很简单：让 clarify 变成一个显式的结构化信号，但不要让它负责写文案。</p><h3 id="第一步：用一个本地-Tool-表达“缺参数”"><a href="#第一步：用一个本地-Tool-表达“缺参数”" class="headerlink" title="第一步：用一个本地 Tool 表达“缺参数”"></a>第一步：用一个本地 Tool 表达“缺参数”</h3><p>给模型额外提供一个本地 tool，比如 <code>request_clarification</code>。</p><p>它不去调用 Java MCP，不查外部数据，也不拼用户话术。它只负责告诉运行时三件事：</p><ol><li>当前不能继续查证据</li><li>缺了哪些参数</li><li>这些参数的业务名字是什么</li></ol><p>结构大概像这样：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;request_clarification&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;arguments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;question_goal&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;查询今天炉次生产情况&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;tool_name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;today_furnace_batches&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;missing_fields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>      <span class="hljs-punctuation">&#123;</span><br>        <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;fnCode&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;label&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;炉号&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;需要明确具体炉体&quot;</span><br>      <span class="hljs-punctuation">&#125;</span><br>    <span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>这里最关键的是：</p><ul><li><code>name</code> 给运行时用</li><li><code>label</code> 给用户表达用</li><li><code>description</code> 给 LLM 生成澄清文案时参考</li></ul><p>这个 tool call 一出来，系统就知道这是 clarify，不会和 final 混掉。</p><h3 id="第二步：再让模型专门生成一条澄清话术"><a href="#第二步：再让模型专门生成一条澄清话术" class="headerlink" title="第二步：再让模型专门生成一条澄清话术"></a>第二步：再让模型专门生成一条澄清话术</h3><p>真正给用户看的那句话，不再写死在 schema 里，而是用另一个很小的 prompt 现场生成。</p><p>输入内容可以很克制：</p><ul><li>用户原问题</li><li>缺参列表</li><li>每个参数的中文业务名</li><li>当前用户可见的候选范围</li><li>几条写作约束</li></ul><p>例如：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs text">用户问题：今天炉次生产情况怎么样<br>缺失信息：<br>- 炉号：需要明确具体炉体<br>可见炉体：<br>- 9号炉<br>- 11号炉<br>- A号炉<br><br>请生成一句简洁、自然、面向用户的补参问题：<br>- 不要泄露内部字段名<br>- 不要提 tool/function/schema<br>- 可以给 2 到 3 个示例<br>- 只输出最终话术<br></code></pre></td></tr></table></figure><p>模型输出：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">请问您想查询哪台炉的生产情况？例如 9号炉、11号炉 或 A号炉。<br></code></pre></td></tr></table></figure><p>这句就是最后发给前端的 <code>clarification_needed.content</code>。</p><h2 id="这套结构为什么更稳"><a href="#这套结构为什么更稳" class="headerlink" title="这套结构为什么更稳"></a>这套结构为什么更稳</h2><p>我最后比较看重的是两个边界。</p><h3 id="1-“缺了什么”必须结构化"><a href="#1-“缺了什么”必须结构化" class="headerlink" title="1. “缺了什么”必须结构化"></a>1. “缺了什么”必须结构化</h3><p>这个判断不能再交给第二次 LLM 去猜。</p><p>缺参判断一旦不结构化，后面就会出现一串连锁问题：</p><ul><li>这轮到底是不是 clarify</li><li>要不要写 <code>pending_action</code></li><li>resume 时应该拿哪些字段合并用户补充输入</li><li>前端该不该渲染成补参态</li></ul><p>所以第一层必须是机器可判定的结构。</p><h3 id="2-“怎么问用户”可以交给-LLM"><a href="#2-“怎么问用户”可以交给-LLM" class="headerlink" title="2. “怎么问用户”可以交给 LLM"></a>2. “怎么问用户”可以交给 LLM</h3><p>这部分反而适合交给模型做，因为它天然擅长：</p><ul><li>把同一个参数换成更自然的业务表达</li><li>根据当前上下文调整话术</li><li>根据候选值给用户几个容易理解的示例</li></ul><p>运行时不需要维护一堆模板，也不用把语言风格散落在工具 schema 里。</p><h2 id="改完以后，loop-会变成什么样"><a href="#改完以后，loop-会变成什么样" class="headerlink" title="改完以后，loop 会变成什么样"></a>改完以后，loop 会变成什么样</h2><p>编排会比现在干净很多。主循环只需要处理三种结果：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs text">1. 返回业务 tool_call<br>   - 执行工具<br>   - 写入 tool_result<br>   - 继续 loop<br><br>2. 返回 request_clarification<br>   - 生成澄清文案<br>   - 写入 clarification_needed<br>   - 保存 pending_action<br>   - 本轮结束<br><br>3. 没有 tool_call<br>   - content 直接作为 final answer<br></code></pre></td></tr></table></figure><p>这套 loop 跟 <code>nanobot</code> 那种原生 function calling 骨架已经很接近了，但又保留了工业助手需要的补参恢复语义。</p><h2 id="这次我不想再让-schema-扛文案了"><a href="#这次我不想再让-schema-扛文案了" class="headerlink" title="这次我不想再让 schema 扛文案了"></a>这次我不想再让 schema 扛文案了</h2><p>这轮最值钱的地方，不是“加了一个 clarify tool”，而是把责任重新切清楚了。</p><p>工具 schema 回到它该做的事：</p><ul><li>描述参数</li><li>提供字段级业务标签</li><li>提供必要的约束和可选值</li></ul><p>LLM 去做它更适合的事：</p><ul><li>把结构化缺参信息转成自然对话</li></ul><p>运行时负责把这两件事接起来：</p><ul><li>明确记录 clarify 语义</li><li>明确保存 resume 所需状态</li></ul><p>这样后面就算要换模型、换文风、换联调环境，也不会再去一堆 <code>x-clarifyTemplate</code> 里翻文案。</p><h2 id="代价也得说清楚"><a href="#代价也得说清楚" class="headerlink" title="代价也得说清楚"></a>代价也得说清楚</h2><p>这套方案不是没有代价。</p><p>第一，clarify 分支从“一次 LLM 调用”变成了“两次”。<br>第一次做 function calling 决策，第二次生成澄清文案。虽然第二次 prompt 很小，但它确实多了一次模型调用。</p><p>第二，对 provider 能力有要求。<br>模型必须稳定支持原生 function calling，否则这条链路会退化回 JSON 解析。</p><p>第三，字段级元数据还是要维护。<br>虽然不再维护整句模板，但 <code>label/description/examples</code> 这些基础业务元数据还是要保持干净，不然第二次生成的澄清话术也不会好。</p><p>这些代价都能接受，因为它们换回来的是更清楚的运行时边界和更低的长期维护成本。</p><h2 id="收口"><a href="#收口" class="headerlink" title="收口"></a>收口</h2><p>这次 clarify 的改造，真正让我满意的点不是“代码更短”，而是 finally 把三件事分开了：</p><ul><li>模型判断需不需要继续查证据</li><li>运行时判断当前是不是 clarify</li><li>模型负责把缺参信息说成人话</li></ul><p>这三件事混在一起时，代码会越来越像 prompt 工程。把它们拆开以后，编排才更像一个可以长期维护的系统。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Agent</tag>
+      
+      <tag>Function Calling</tag>
+      
+      <tag>Clarify</tag>
+      
+      <tag>工程复盘</tag>
+      
+      <tag>AI工作日志</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>把知识库检索参数交给 LLM，是一条错误的分层</title>
     <link href="/2026/03/12/llm-retrieval-params/"/>
     <url>/2026/03/12/llm-retrieval-params/</url>
@@ -90,11 +123,11 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>Prompt工程</tag>
       
@@ -125,11 +158,11 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
+      <tag>Agent</tag>
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
+      <tag>LangGraph</tag>
       
       <tag>ReAct</tag>
       
@@ -160,11 +193,11 @@
     
     <tags>
       
+      <tag>Function Calling</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>MCP</tag>
-      
-      <tag>Function Calling</tag>
       
       <tag>Tool Calling</tag>
       
@@ -230,11 +263,11 @@
     
     <tags>
       
+      <tag>Function Calling</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>Qwen</tag>
-      
-      <tag>Function Calling</tag>
       
       <tag>JSON Schema</tag>
       
@@ -271,17 +304,17 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
+      <tag>Agent</tag>
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
-      <tag>FastAPI</tag>
+      <tag>LangGraph</tag>
       
       <tag>Security</tag>
       
       <tag>Prompt Injection</tag>
+      
+      <tag>FastAPI</tag>
       
     </tags>
     
@@ -306,9 +339,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>重构复盘</tag>
       
@@ -339,15 +372,15 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
+      <tag>工程复盘</tag>
       
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>架构重构</tag>
       
       <tag>FastAPI</tag>
-      
-      <tag>工程复盘</tag>
       
     </tags>
     
@@ -372,9 +405,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>Checkpoint</tag>
       
@@ -405,9 +438,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>复盘</tag>
       
@@ -438,9 +471,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>复盘</tag>
       
@@ -473,9 +506,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>重构复盘</tag>
       
@@ -537,9 +570,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>联调复盘</tag>
       
@@ -568,9 +601,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>复盘</tag>
       
@@ -599,9 +632,9 @@
     
     <tags>
       
-      <tag>LangGraph</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>复盘</tag>
       
@@ -754,13 +787,13 @@
     
     <tags>
       
+      <tag>工程复盘</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>FastAPI</tag>
       
       <tag>MCP</tag>
-      
-      <tag>工程复盘</tag>
       
       <tag>Guardrails</tag>
       
@@ -793,6 +826,8 @@
     
     <tags>
       
+      <tag>AI工作日志</tag>
+      
       <tag>技术选型</tag>
       
       <tag>LangGraph</tag>
@@ -802,8 +837,6 @@
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
-      
-      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -828,11 +861,11 @@
     
     <tags>
       
+      <tag>AI工作日志</tag>
+      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
-      
-      <tag>AI工作日志</tag>
       
       <tag>ReAct</tag>
       
@@ -865,17 +898,17 @@
     
     <tags>
       
-      <tag>OpenClaw</tag>
+      <tag>Function Calling</tag>
       
       <tag>AI工作日志</tag>
+      
+      <tag>OpenClaw</tag>
       
       <tag>Memory</tag>
       
       <tag>AI Orchestrator</tag>
       
       <tag>Tool Guardrails</tag>
-      
-      <tag>Function Calling</tag>
       
     </tags>
     
@@ -929,13 +962,13 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>AI网关</tag>
       
       <tag>Java</tag>
       
       <tag>Python</tag>
-      
-      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -966,9 +999,9 @@
     
     <tags>
       
-      <tag>OpenClaw</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>OpenClaw</tag>
       
       <tag>ReAct</tag>
       
@@ -1030,9 +1063,9 @@
     
     <tags>
       
-      <tag>Python</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>Python</tag>
       
       <tag>调试</tag>
       
@@ -1207,13 +1240,13 @@
     
     <tags>
       
+      <tag>工程复盘</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>RAG</tag>
       
       <tag>STAR</tag>
-      
-      <tag>工程复盘</tag>
       
       <tag>OpenSearch</tag>
       

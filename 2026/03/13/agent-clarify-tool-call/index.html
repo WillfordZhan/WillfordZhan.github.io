@@ -1,0 +1,837 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="这次在改工业 AI 助手的编排层时，前面已经把 LangGraph + checkpoint 那层黑盒拆掉了，但 clarify 这件事还是不顺。问题不在“能不能让模型问用户要参数”，而在“这句补参话术到底应该由谁写”。 一开始很容易想到两条路：  继续把补参文案硬编码在工具 schema 里，比如 x-clarifyTemplate 让模型自己在普通 content 里判断这是补参还是最终回答">
+<meta property="og:type" content="article">
+<meta property="og:title" content="把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/13/agent-clarify-tool-call/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="这次在改工业 AI 助手的编排层时，前面已经把 LangGraph + checkpoint 那层黑盒拆掉了，但 clarify 这件事还是不顺。问题不在“能不能让模型问用户要参数”，而在“这句补参话术到底应该由谁写”。 一开始很容易想到两条路：  继续把补参文案硬编码在工具 schema 里，比如 x-clarifyTemplate 让模型自己在普通 content 里判断这是补参还是最终回答">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-13T11:58:59.000Z">
+<meta property="article:modified_time" content="2026-03-13T12:00:20.091Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="Function Calling">
+<meta property="article:tag" content="Clarify">
+<meta property="article:tag" content="工程复盘">
+<meta property="article:tag" content="AI工作日志">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-13 19:58" pubdate>
+          2026年3月13日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          17 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>这次在改工业 AI 助手的编排层时，前面已经把 <code>LangGraph + checkpoint</code> 那层黑盒拆掉了，但 clarify 这件事还是不顺。问题不在“能不能让模型问用户要参数”，而在“这句补参话术到底应该由谁写”。</p>
+<p>一开始很容易想到两条路：</p>
+<ol>
+<li>继续把补参文案硬编码在工具 schema 里，比如 <code>x-clarifyTemplate</code></li>
+<li>让模型自己在普通 <code>content</code> 里判断这是补参还是最终回答</li>
+</ol>
+<p>这两条路都能跑，但都不够稳。前者维护成本高，后者运行时语义太虚。最后收敛下来的做法是把 clarify 拆成两步：</p>
+<ul>
+<li>第一步，模型通过原生 function calling 明确声明“缺了什么参数”</li>
+<li>第二步，系统再让模型根据这些缺参元数据生成真正给用户看的澄清话术</li>
+</ul>
+<p>这篇就只写这件事。</p>
+<h2 id="原来的-clarify-为什么不好维护"><a href="#原来的-clarify-为什么不好维护" class="headerlink" title="原来的 clarify 为什么不好维护"></a>原来的 clarify 为什么不好维护</h2><p>当前这类业务工具本身会带一些字段元数据，比如：</p>
+<ul>
+<li>内部字段名：<code>fnCode</code></li>
+<li>中文业务名：<code>炉号</code></li>
+<li>参数说明：需要用户明确指定哪台炉</li>
+<li>有时还会带一些 <code>x-*</code> 扩展字段</li>
+</ul>
+<p>问题出在最后一类。</p>
+<p>如果把 <code>x-clarifyTemplate</code> 当成长期方案，工具 schema 很快就会开始长成下面这样：</p>
+<ul>
+<li><code>x-clarifyTemplate</code></li>
+<li><code>x-userLabel</code></li>
+<li><code>x-example</code></li>
+<li><code>x-normalizationRule</code></li>
+<li>还有各种和 prompt 一样长的说明文字</li>
+</ul>
+<p>这会带来三个直接问题。</p>
+<p>第一，文案维护会散。<br>工具一多，澄清句子就会分散在各个 schema 里。后面你想统一语气、统一产品口径、统一“示例怎么写”，改起来会很烦。</p>
+<p>第二，schema 会开始承载不该它承载的东西。<br>工具 schema 应该回答的是“参数长什么样、哪些必填、哪些可枚举”，不是“缺参数时这句话怎么说才更自然”。</p>
+<p>第三，多轮上下文会越来越难处理。<br>同样缺 <code>fnCode</code>，如果用户上一轮已经提到“查今天的炉次情况”，和用户这一轮直接问“帮我查生产情况”，澄清文案不应该完全一样。模板很难把这种上下文差异处理好。</p>
+<h2 id="另一条路为什么也不够稳"><a href="#另一条路为什么也不够稳" class="headerlink" title="另一条路为什么也不够稳"></a>另一条路为什么也不够稳</h2><p>另一种更激进的想法是：不用专门的 clarify 语义，直接让模型在普通 <code>content</code> 里输出一句补参话术。</p>
+<p>这样表面上更省事，因为 loop 会很像这样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">有 tool_call =&gt; 执行工具<br>没有 tool_call =&gt; 直接把 content 返回给用户<br></code></pre></td></tr></table></figure>
+
+<p>这里的问题不是功能做不到，而是系统很难稳定判断：</p>
+<ul>
+<li>这是最终回答</li>
+<li>还是一条待恢复的澄清问题</li>
+</ul>
+<p>如果两者都走裸 <code>content</code>，运行时就得靠额外 prompt 约束或者字符串规则猜。这样一来：</p>
+<ul>
+<li>事件语义会变糊</li>
+<li><code>pending_action</code> 很难稳定落库</li>
+<li>前端也不知道当前这轮到底是 final 还是 clarification</li>
+<li>以后做 resume、审计、统计都会变难</li>
+</ul>
+<p>这和前面拆黑盒的目标是反着来的。</p>
+<h2 id="这次确定下来的结构"><a href="#这次确定下来的结构" class="headerlink" title="这次确定下来的结构"></a>这次确定下来的结构</h2><p>最后比较稳的做法其实很简单：让 clarify 变成一个显式的结构化信号，但不要让它负责写文案。</p>
+<h3 id="第一步：用一个本地-Tool-表达“缺参数”"><a href="#第一步：用一个本地-Tool-表达“缺参数”" class="headerlink" title="第一步：用一个本地 Tool 表达“缺参数”"></a>第一步：用一个本地 Tool 表达“缺参数”</h3><p>给模型额外提供一个本地 tool，比如 <code>request_clarification</code>。</p>
+<p>它不去调用 Java MCP，不查外部数据，也不拼用户话术。它只负责告诉运行时三件事：</p>
+<ol>
+<li>当前不能继续查证据</li>
+<li>缺了哪些参数</li>
+<li>这些参数的业务名字是什么</li>
+</ol>
+<p>结构大概像这样：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;request_clarification&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;arguments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;question_goal&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;查询今天炉次生产情况&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;tool_name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;today_furnace_batches&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;missing_fields&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>      <span class="hljs-punctuation">&#123;</span><br>        <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;fnCode&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;label&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;炉号&quot;</span><span class="hljs-punctuation">,</span><br>        <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;需要明确具体炉体&quot;</span><br>      <span class="hljs-punctuation">&#125;</span><br>    <span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>这里最关键的是：</p>
+<ul>
+<li><code>name</code> 给运行时用</li>
+<li><code>label</code> 给用户表达用</li>
+<li><code>description</code> 给 LLM 生成澄清文案时参考</li>
+</ul>
+<p>这个 tool call 一出来，系统就知道这是 clarify，不会和 final 混掉。</p>
+<h3 id="第二步：再让模型专门生成一条澄清话术"><a href="#第二步：再让模型专门生成一条澄清话术" class="headerlink" title="第二步：再让模型专门生成一条澄清话术"></a>第二步：再让模型专门生成一条澄清话术</h3><p>真正给用户看的那句话，不再写死在 schema 里，而是用另一个很小的 prompt 现场生成。</p>
+<p>输入内容可以很克制：</p>
+<ul>
+<li>用户原问题</li>
+<li>缺参列表</li>
+<li>每个参数的中文业务名</li>
+<li>当前用户可见的候选范围</li>
+<li>几条写作约束</li>
+</ul>
+<p>例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs text">用户问题：今天炉次生产情况怎么样<br>缺失信息：<br>- 炉号：需要明确具体炉体<br>可见炉体：<br>- 9号炉<br>- 11号炉<br>- A号炉<br><br>请生成一句简洁、自然、面向用户的补参问题：<br>- 不要泄露内部字段名<br>- 不要提 tool/function/schema<br>- 可以给 2 到 3 个示例<br>- 只输出最终话术<br></code></pre></td></tr></table></figure>
+
+<p>模型输出：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">请问您想查询哪台炉的生产情况？例如 9号炉、11号炉 或 A号炉。<br></code></pre></td></tr></table></figure>
+
+<p>这句就是最后发给前端的 <code>clarification_needed.content</code>。</p>
+<h2 id="这套结构为什么更稳"><a href="#这套结构为什么更稳" class="headerlink" title="这套结构为什么更稳"></a>这套结构为什么更稳</h2><p>我最后比较看重的是两个边界。</p>
+<h3 id="1-“缺了什么”必须结构化"><a href="#1-“缺了什么”必须结构化" class="headerlink" title="1. “缺了什么”必须结构化"></a>1. “缺了什么”必须结构化</h3><p>这个判断不能再交给第二次 LLM 去猜。</p>
+<p>缺参判断一旦不结构化，后面就会出现一串连锁问题：</p>
+<ul>
+<li>这轮到底是不是 clarify</li>
+<li>要不要写 <code>pending_action</code></li>
+<li>resume 时应该拿哪些字段合并用户补充输入</li>
+<li>前端该不该渲染成补参态</li>
+</ul>
+<p>所以第一层必须是机器可判定的结构。</p>
+<h3 id="2-“怎么问用户”可以交给-LLM"><a href="#2-“怎么问用户”可以交给-LLM" class="headerlink" title="2. “怎么问用户”可以交给 LLM"></a>2. “怎么问用户”可以交给 LLM</h3><p>这部分反而适合交给模型做，因为它天然擅长：</p>
+<ul>
+<li>把同一个参数换成更自然的业务表达</li>
+<li>根据当前上下文调整话术</li>
+<li>根据候选值给用户几个容易理解的示例</li>
+</ul>
+<p>运行时不需要维护一堆模板，也不用把语言风格散落在工具 schema 里。</p>
+<h2 id="改完以后，loop-会变成什么样"><a href="#改完以后，loop-会变成什么样" class="headerlink" title="改完以后，loop 会变成什么样"></a>改完以后，loop 会变成什么样</h2><p>编排会比现在干净很多。主循环只需要处理三种结果：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs text">1. 返回业务 tool_call<br>   - 执行工具<br>   - 写入 tool_result<br>   - 继续 loop<br><br>2. 返回 request_clarification<br>   - 生成澄清文案<br>   - 写入 clarification_needed<br>   - 保存 pending_action<br>   - 本轮结束<br><br>3. 没有 tool_call<br>   - content 直接作为 final answer<br></code></pre></td></tr></table></figure>
+
+<p>这套 loop 跟 <code>nanobot</code> 那种原生 function calling 骨架已经很接近了，但又保留了工业助手需要的补参恢复语义。</p>
+<h2 id="这次我不想再让-schema-扛文案了"><a href="#这次我不想再让-schema-扛文案了" class="headerlink" title="这次我不想再让 schema 扛文案了"></a>这次我不想再让 schema 扛文案了</h2><p>这轮最值钱的地方，不是“加了一个 clarify tool”，而是把责任重新切清楚了。</p>
+<p>工具 schema 回到它该做的事：</p>
+<ul>
+<li>描述参数</li>
+<li>提供字段级业务标签</li>
+<li>提供必要的约束和可选值</li>
+</ul>
+<p>LLM 去做它更适合的事：</p>
+<ul>
+<li>把结构化缺参信息转成自然对话</li>
+</ul>
+<p>运行时负责把这两件事接起来：</p>
+<ul>
+<li>明确记录 clarify 语义</li>
+<li>明确保存 resume 所需状态</li>
+</ul>
+<p>这样后面就算要换模型、换文风、换联调环境，也不会再去一堆 <code>x-clarifyTemplate</code> 里翻文案。</p>
+<h2 id="代价也得说清楚"><a href="#代价也得说清楚" class="headerlink" title="代价也得说清楚"></a>代价也得说清楚</h2><p>这套方案不是没有代价。</p>
+<p>第一，clarify 分支从“一次 LLM 调用”变成了“两次”。<br>第一次做 function calling 决策，第二次生成澄清文案。虽然第二次 prompt 很小，但它确实多了一次模型调用。</p>
+<p>第二，对 provider 能力有要求。<br>模型必须稳定支持原生 function calling，否则这条链路会退化回 JSON 解析。</p>
+<p>第三，字段级元数据还是要维护。<br>虽然不再维护整句模板，但 <code>label/description/examples</code> 这些基础业务元数据还是要保持干净，不然第二次生成的澄清话术也不会好。</p>
+<p>这些代价都能接受，因为它们换回来的是更清楚的运行时边界和更低的长期维护成本。</p>
+<h2 id="收口"><a href="#收口" class="headerlink" title="收口"></a>收口</h2><p>这次 clarify 的改造，真正让我满意的点不是“代码更短”，而是 finally 把三件事分开了：</p>
+<ul>
+<li>模型判断需不需要继续查证据</li>
+<li>运行时判断当前是不是 clarify</li>
+<li>模型负责把缺参信息说成人话</li>
+</ul>
+<p>这三件事混在一起时，代码会越来越像 prompt 工程。把它们拆开以后，编排才更像一个可以长期维护的系统。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/Function-Calling/" class="print-no-link">#Function Calling</a>
+      
+        <a href="/tags/Clarify/" class="print-no-link">#Clarify</a>
+      
+        <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/" class="print-no-link">#工程复盘</a>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call</div>
+      <div>https://willfordzhan.github.io/2026/03/13/agent-clarify-tool-call/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月13日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/12/llm-retrieval-params/" title="把知识库检索参数交给 LLM，是一条错误的分层">
+                        <span class="hidden-mobile">把知识库检索参数交给 LLM，是一条错误的分层</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
