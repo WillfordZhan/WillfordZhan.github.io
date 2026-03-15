@@ -19,30 +19,30 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="背景这次改造聚焦一个真实线上体验问题：用户问的是通用解释类问题（本质不需要工具），Orchestrator 仍然进入 ReAct 规划，随后触发 CLARIFY，并在后续交互里反复追问，形成“看起来一直要补信息”的循环感。 目标很明确：在不扩大系统复杂度的前提下，借鉴 OpenClaw 的分层思路，把“是否需要工具”尽早判定，把 CLARIFY 收紧到真正可执行的场景，让非工具问题直接回到 CHA">
+    <meta name="description" content="最近在做一条自建 RAG 链路：Java 负责知识库工具调用，Python 负责编排和回答生成。链路能跑，双知识库也已经接上了，但同一个问题丢给 Dify 原生聊天助手，回答还是更稳，引用也更像“已经把资料看明白了再说话”。 这个差距一开始看着像模型问题，后来排下来，主要不是模型本身，而是检索编排层差得比较多。Dify 用的是一条完整的问答链路，我们现在更像是“从知识库捞几段文本出来，再让模型自己">
 <meta property="og:type" content="article">
-<meta property="og:title" content="基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/index.html">
+<meta property="og:title" content="为什么我们的 RAG 还打不过 Dify 原生助手">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/15/rag-vs-dify-native-assistant/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="背景这次改造聚焦一个真实线上体验问题：用户问的是通用解释类问题（本质不需要工具），Orchestrator 仍然进入 ReAct 规划，随后触发 CLARIFY，并在后续交互里反复追问，形成“看起来一直要补信息”的循环感。 目标很明确：在不扩大系统复杂度的前提下，借鉴 OpenClaw 的分层思路，把“是否需要工具”尽早判定，把 CLARIFY 收紧到真正可执行的场景，让非工具问题直接回到 CHA">
+<meta property="og:description" content="最近在做一条自建 RAG 链路：Java 负责知识库工具调用，Python 负责编排和回答生成。链路能跑，双知识库也已经接上了，但同一个问题丢给 Dify 原生聊天助手，回答还是更稳，引用也更像“已经把资料看明白了再说话”。 这个差距一开始看着像模型问题，后来排下来，主要不是模型本身，而是检索编排层差得比较多。Dify 用的是一条完整的问答链路，我们现在更像是“从知识库捞几段文本出来，再让模型自己">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-28T03:12:21.000Z">
-<meta property="article:modified_time" content="2026-03-15T11:06:13.617Z">
+<meta property="article:published_time" content="2026-03-15T10:59:27.000Z">
+<meta property="article:modified_time" content="2026-03-15T11:06:13.618Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="OpenClaw">
-<meta property="article:tag" content="ReAct">
-<meta property="article:tag" content="FastAPI">
-<meta property="article:tag" content="Orchestrator">
-<meta property="article:tag" content="CLARIFY">
-<meta property="article:tag" content="奥卡姆剃刀">
+<meta property="article:tag" content="复盘">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Dify">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="DashScope">
+<meta property="article:tag" content="检索">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环 - 味儿福德詹的小站</title>
+  <title>为什么我们的 RAG 还打不过 Dify 原生助手 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -220,7 +220,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环"></span>
+            <span id="subtitle" data-typed-text="为什么我们的 RAG 还打不过 Dify 原生助手"></span>
           
         </div>
 
@@ -231,8 +231,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-28 11:12" pubdate>
-          2026年2月28日 上午
+        <time datetime="2026-03-15 18:59" pubdate>
+          2026年3月15日 晚上
         </time>
       </span>
     
@@ -243,7 +243,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.1k 字
+          2.5k 字
         
       </span>
     
@@ -254,7 +254,7 @@
         
         
         
-          10 分钟
+          21 分钟
         
       </span>
     
@@ -300,81 +300,167 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环</h1>
+            <h1 id="seo-header">为什么我们的 RAG 还打不过 Dify 原生助手</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h2><p>这次改造聚焦一个真实线上体验问题：用户问的是通用解释类问题（本质不需要工具），Orchestrator 仍然进入 ReAct 规划，随后触发 <code>CLARIFY</code>，并在后续交互里反复追问，形成“看起来一直要补信息”的循环感。</p>
-<p>目标很明确：在不扩大系统复杂度的前提下，借鉴 OpenClaw 的分层思路，把“是否需要工具”尽早判定，把 <code>CLARIFY</code> 收紧到真正可执行的场景，让非工具问题直接回到 CHAT。</p>
-<h2 id="问题复现"><a href="#问题复现" class="headerlink" title="问题复现"></a>问题复现</h2><p>复现输入（典型）：</p>
-<ul>
-<li>Query：<code>铸造行业的通用定义是什么</code></li>
-<li>可用工具：<code>today_furnace_batches</code> 等业务数据查询工具</li>
-</ul>
-<p>改造前表现（问题态）：</p>
-<ol>
-<li>Query 直接进入 ReAct planner。</li>
-<li>Planner 可能输出 <code>action=CLARIFY</code>，但 <code>tool_name</code> 为空、<code>missing_slots</code> 为空，问题并非“缺参数的工具调用”。</li>
-<li>用户继续回答后，系统仍可能在“澄清-再澄清”路径内打转，无法尽快回到直接回答。</li>
-</ol>
-<p>根因不是模型“笨”，而是编排器缺少足够强的前置闸门与动作约束。</p>
-<h2 id="OpenClaw-关键机制对照"><a href="#OpenClaw-关键机制对照" class="headerlink" title="OpenClaw 关键机制对照"></a>OpenClaw 关键机制对照</h2><p>OpenClaw 给了三个值得借鉴的点：</p>
-<ol>
-<li>先路由再执行：先决定是否走工具链路，再进入工具循环，而不是所有请求都先进入循环。</li>
-<li>结构化动作与守卫：工具调用、终止、澄清都有清晰边界，避免“语义上不成立但语法上合法”的动作继续扩散。</li>
-<li>循环治理：强调无进展循环检测与回退策略，避免 agent 在低价值轨道上反复执行。</li>
-</ol>
-<p>对照下来，我们原链路缺的正是“前置分流 + CLARIFY 可执行性约束 + 明确回退”。</p>
-<h2 id="现状评审"><a href="#现状评审" class="headerlink" title="现状评审"></a>现状评审</h2><p>旧链路的关键风险点：</p>
-<ol>
-<li>没有 <code>CHAT|TOOL|UNKNOWN</code> 前置判定，非工具问题也被送进 ReAct。</li>
-<li><code>CLARIFY</code> 触发条件过宽，只要模型给出 <code>CLARIFY</code> 就可能被接收。</li>
-<li>对“不可执行澄清”缺乏强制回退，导致对用户感知是“问来问去不落地”。</li>
-</ol>
-<p>这三个点叠加后，正好解释了“非工具问题陷入 CLARIFY 循环”。</p>
-<h2 id="奥卡姆方案"><a href="#奥卡姆方案" class="headerlink" title="奥卡姆方案"></a>奥卡姆方案</h2><p>遵循奥卡姆剃刀，这次没有引入新策略层、没有增加多模型协同，只做最小闭环：</p>
-<ol>
-<li>在 ReAct 前增加一个轻量 mode 决策：<code>CHAT|TOOL|UNKNOWN</code>。</li>
-<li>让 <code>CLARIFY</code> 只有在“已锁定具体工具且确实缺必填参数”时才成立。</li>
-<li>对不满足可执行条件的 <code>CLARIFY</code>，直接回退到 CHAT 直答，不继续澄清链路。</li>
-<li>用测试把上述行为固化，避免回归。</li>
-</ol>
-<p>这套方案改动集中、语义清晰、维护成本低。</p>
-<h2 id="改造点（核心）"><a href="#改造点（核心）" class="headerlink" title="改造点（核心）"></a>改造点（核心）</h2><p>这次改造的核心可归纳为四条：</p>
-<ol>
-<li><p><code>CHAT|TOOL|UNKNOWN</code> 前置分流<br>在 <code>_process_input</code> 初始阶段引入 <code>_determine_mode(...)</code>。若判定为 <code>CHAT</code>，直接 <code>policy_decision=chat/respond</code> 并结束；只有 <code>TOOL/UNKNOWN</code> 才进入 ReAct 主循环。</p>
-</li>
-<li><p><code>CLARIFY</code> 触发条件收紧<br>Planner prompt 增加硬规则：非工具问题输出 <code>RESPOND</code>，且只有“已确定 <code>tool_name</code> + 缺必填参数”才能 <code>CLARIFY</code>。<br>同时 <code>_plan_from_intent_route(...)</code> 也改为：只有存在 <code>normalized_call</code> 且有 <code>missing_slots</code> 才映射为 <code>CLARIFY</code>。</p>
-</li>
-<li><p>非可执行 <code>CLARIFY</code> 回退到 CHAT<br>新增 <code>_is_actionable_clarify(...)</code>：若没有具体工具、没有缺失必填参数，判定为不可执行澄清。<br>一旦命中，记录 <code>react_feedback=clarify_without_actionable_tool</code>，再发 <code>policy_decision=chat/fallback</code>，最终走 <code>_direct_answer(query)</code> 结束。</p>
-</li>
-<li><p>相关测试补齐<br>新增并通过关键测试，覆盖“聊天短路”“不可执行澄清回退”与“工具场景仍可多步执行”。</p>
-</li>
-</ol>
-<h2 id="测试结果"><a href="#测试结果" class="headerlink" title="测试结果"></a>测试结果</h2><p>本次改造后在 <code>sample_ai_service</code> 仓库执行：</p>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs bash">pytest -q tests/test_runs.py<br><span class="hljs-comment"># 15 passed in 0.28s</span><br><br>pytest -q tests/test_qwen_client.py<br><span class="hljs-comment"># 6 passed in 0.46s</span><br><br>pytest -q<br><span class="hljs-comment"># 37 passed in 0.97s</span><br></code></pre></td></tr></table></figure>
+                <p>最近在做一条自建 RAG 链路：Java 负责知识库工具调用，Python 负责编排和回答生成。链路能跑，双知识库也已经接上了，但同一个问题丢给 Dify 原生聊天助手，回答还是更稳，引用也更像“已经把资料看明白了再说话”。</p>
+<p>这个差距一开始看着像模型问题，后来排下来，主要不是模型本身，而是检索编排层差得比较多。Dify 用的是一条完整的问答链路，我们现在更像是“从知识库捞几段文本出来，再让模型自己总结”。</p>
+<p>这篇把这次对比里真正拉开差距的地方写清楚，也顺手把后面的优化方向收口一下。</p>
+<h2 id="先看现象"><a href="#先看现象" class="headerlink" title="先看现象"></a>先看现象</h2><p>拿一个很典型的定义题来说：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">发热冒口是什么<br></code></pre></td></tr></table></figure>
 
-<p>重点行为用例：</p>
-<ol>
-<li><p><code>test_chat_query_short_circuits_without_react_tool_loop</code><br>验证 CHAT 问题不再进入 <code>react_plan/tool_call/clarification_needed</code>。</p>
-</li>
-<li><p><code>test_non_actionable_clarify_falls_back_to_chat_response</code><br>验证非可执行 <code>CLARIFY</code> 不再继续追问，而是回退直答。</p>
-</li>
-<li><p><code>test_compare_query_forces_second_tool_call_before_respond</code><br>验证工具型对比问题仍保持多步 <code>CALL_TOOL</code> 能力，没有被“过度收紧”误伤。</p>
-</li>
-</ol>
-<h2 id="经验总结"><a href="#经验总结" class="headerlink" title="经验总结"></a>经验总结</h2><ol>
-<li><code>CLARIFY</code> 不是“兜底动作”，而是“可执行动作”：必须绑定具体工具和缺失参数。</li>
-<li>agent 的第一道关卡应是“是否需要工具”，而不是“先规划再看情况”。</li>
-<li>回退策略要显式可观测（事件化），否则线上很难定位“为什么看起来在打转”。</li>
-<li>简化优先于堆叠：先把错误路径切断，再考虑更复杂的智能优化。</li>
-</ol>
-<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
-<li>OpenClaw Docs（Tools &amp; loop detection）：<a target="_blank" rel="noopener" href="https://docs.openclaw.ai/architecture/tools">https://docs.openclaw.ai/architecture/tools</a></li>
-<li>OpenClaw Docs（Core architecture）：<a target="_blank" rel="noopener" href="https://docs.openclaw.ai/architecture/overview">https://docs.openclaw.ai/architecture/overview</a></li>
-<li>OpenClaw Docs（System prompt &#x2F; tool use policy）：<a target="_blank" rel="noopener" href="https://docs.openclaw.ai/architecture/system-prompt">https://docs.openclaw.ai/architecture/system-prompt</a></li>
+<p>Dify 原生助手给出的回答有几个明显特征：</p>
+<ul>
+<li>开头先给一句标准定义</li>
+<li>后面再补工作原理、优点和适用场景</li>
+<li>能引用教材类资料，也能带图片</li>
+<li>整体像是在回答“这是什么”，而不是在复述一段检索结果</li>
 </ul>
+<p>我们这边在接上双知识库之后，回答质量确实上来了一点，但整体风格还是更像论文摘要：</p>
+<ul>
+<li>会提到 907A 模铸、球墨铸铁研磨盘之类的应用案例</li>
+<li>会解释补缩、放热、延缓凝固这些机理</li>
+<li>但定义句通常不够靠前</li>
+<li>结构更像“根据检索结果总结”，而不是“先把问题答准”</li>
+</ul>
+<p>这说明两个问题已经分开了：</p>
+<ol>
+<li>双知识库确实能补覆盖面。</li>
+<li>覆盖面补上以后，链路本身的检索和组织方式还是不如 Dify 原生。</li>
+</ol>
+<h2 id="第一个误判：以为差距主要在知识库数量"><a href="#第一个误判：以为差距主要在知识库数量" class="headerlink" title="第一个误判：以为差距主要在知识库数量"></a>第一个误判：以为差距主要在知识库数量</h2><p>最开始 Java 工具只查了一个 dataset，结果里甚至能直接看到只有一个 <code>dataset_id</code>。把第二个知识库接进去以后，召回确实更好了，说明这个方向没错。</p>
+<p>但这件事只能解决“有没有看到那份资料”，解决不了“看到了以后怎么排、怎么喂给模型、怎么让模型按正确的问法回答”。</p>
+<p>也就是说，双知识库更像补地基，不是把 Dify 效果复刻出来的那一步。</p>
+<h2 id="真正的差距在检索编排层"><a href="#真正的差距在检索编排层" class="headerlink" title="真正的差距在检索编排层"></a>真正的差距在检索编排层</h2><h3 id="1-Dify-是多路召回-全局-rerank，我们是分库检索后本地拼"><a href="#1-Dify-是多路召回-全局-rerank，我们是分库检索后本地拼" class="headerlink" title="1. Dify 是多路召回 + 全局 rerank，我们是分库检索后本地拼"></a>1. Dify 是多路召回 + 全局 rerank，我们是分库检索后本地拼</h3><p>Dify 的知识库问答默认不是只跑一条检索通道。按实际配置看，它会做多路召回，然后再统一 rerank：</p>
+<ul>
+<li>语义召回</li>
+<li>关键词召回</li>
+<li>多知识库一起取候选</li>
+<li>用 rerank 模型统一重排</li>
+<li>最后再把候选喂给回答模型</li>
+</ul>
+<p>我们这边当时的做法更接近：</p>
+<ol>
+<li>Java 针对每个 dataset 调一次 retrieve</li>
+<li>每个库先拿各自的 top-k</li>
+<li>把结果按返回分数拼在一起</li>
+<li>Python 再拿这些片段生成答案</li>
+</ol>
+<p>问题在于，这两条链路不是一个级别的东西。</p>
+<p>多知识库的原始检索分数通常不适合直接横向比较。一个库里的 <code>0.72</code>，和另一个库里的 <code>0.68</code>，很可能不是一个统一标尺。Dify 这里多做了一步全局 rerank，把所有候选重新放到同一个尺度上打分。我们当时没有这一步，所以跨库排序天然更飘。</p>
+<h3 id="2-Dify-有关键词通道，定义题更容易命中教材式答案"><a href="#2-Dify-有关键词通道，定义题更容易命中教材式答案" class="headerlink" title="2. Dify 有关键词通道，定义题更容易命中教材式答案"></a>2. Dify 有关键词通道，定义题更容易命中教材式答案</h3><p>“发热冒口是什么”这种问题，最优答案通常不是来自案例论文，而是来自教材、手册、工艺说明里的定义段。</p>
+<p>这类段落有几个特点：</p>
+<ul>
+<li>词面非常稳定</li>
+<li>通常直接写“X 是一种……”</li>
+<li>结构化程度高</li>
+</ul>
+<p>这对关键词召回很友好。</p>
+<p>我们这边一开始更偏语义检索，命中的内容就更容易往“相关工艺研究”“应用效果”那边偏。于是模型拿到上下文以后，能总结出一个差不多的答案，但很难像 Dify 一样先把定义句拿出来，再往下展开。</p>
+<p>所以定义题上，Dify 看起来更像“答题”，我们更像“摘要”。</p>
+<h3 id="3-每个库先截-top-k，会把好-chunk-提前裁掉"><a href="#3-每个库先截-top-k，会把好-chunk-提前裁掉" class="headerlink" title="3. 每个库先截 top-k，会把好 chunk 提前裁掉"></a>3. 每个库先截 top-k，会把好 chunk 提前裁掉</h3><p>这次还有一个很具体的问题：我们当时是每个 dataset 各取一批结果，再在本地合并。</p>
+<p>这个策略的问题不在“能不能工作”，而在于它会让局部排序过早生效。</p>
+<p>举个简单例子：</p>
+<ul>
+<li>最终只想给模型 6 条 chunk</li>
+<li>每个库各拿 5 条</li>
+<li>某个库里最有价值的定义段刚好排第 7</li>
+</ul>
+<p>那这条定义段在进入全局视野之前就已经没了。后面不管怎么提示模型，它都答不出最像样的定义句。</p>
+<p>Dify 这类原生助手一般会先放大候选池，再做统一排序，局部截断没有那么早。</p>
+<h3 id="4-我们喂给模型的是“被压扁的片段”，不是完整证据"><a href="#4-我们喂给模型的是“被压扁的片段”，不是完整证据" class="headerlink" title="4. 我们喂给模型的是“被压扁的片段”，不是完整证据"></a>4. 我们喂给模型的是“被压扁的片段”，不是完整证据</h3><p>Java 侧最开始返回给 Python 的信息很薄：</p>
+<ul>
+<li>片段文本</li>
+<li>文档名</li>
+<li>文档 ID</li>
+<li>分数</li>
+</ul>
+<p>片段本身还做了截断。</p>
+<p>这样一来，Python 看到的是几段已经被压扁的证据：</p>
+<ul>
+<li>缺章节结构</li>
+<li>缺相邻段上下文</li>
+<li>缺图片链接</li>
+<li>缺更完整的原始引用</li>
+</ul>
+<p>模型在这种上下文里通常会做一件很自然的事：概括。</p>
+<p>概括不是错，但定义题、图片题、引用题最怕只剩概括。Dify 那边之所以更像“真的懂你在问什么”，一个很重要的原因是它给回答模型的上下文通常更完整，不只是几个短片段。</p>
+<h3 id="5-Dify-的回答-prompt-约束更明确"><a href="#5-Dify-的回答-prompt-约束更明确" class="headerlink" title="5. Dify 的回答 prompt 约束更明确"></a>5. Dify 的回答 prompt 约束更明确</h3><p>这次对比里还有一层很容易被忽略：Dify 原生助手的 prompt 其实已经替这条链路做了不少约束。</p>
+<p>比如：</p>
+<ul>
+<li>严格根据知识库回答</li>
+<li>有图片链接就返回图片链接</li>
+<li>用户问题模糊时要求继续澄清</li>
+<li>不把知识库内容误当成用户输入</li>
+</ul>
+<p>这类约束会直接影响最后的回答组织方式。</p>
+<p>我们自己的 Python 链路之前更像是一个通用回答器，检索结果拿到了就让模型去写。这样在开放问答上问题不大，但在“定义题要像教材”“图片题要保留链接”“模糊题要先追问”这些场景上，就会慢慢输给 Dify 原生。</p>
+<h2 id="为什么接上双知识库后，还是只能算“好了一点”"><a href="#为什么接上双知识库后，还是只能算“好了一点”" class="headerlink" title="为什么接上双知识库后，还是只能算“好了一点”"></a>为什么接上双知识库后，还是只能算“好了一点”</h2><p>因为补双知识库只修了一层：召回覆盖面。</p>
+<p>它没有修下面这些问题：</p>
+<ul>
+<li>没有全局 rerank</li>
+<li>没有关键词通道</li>
+<li>没有更宽的候选池</li>
+<li>没有保留完整证据和图片</li>
+<li>没有把回答 prompt 收紧到 grounded QA 模式</li>
+</ul>
+<p>所以效果变好是正常的，差距还在也正常。</p>
+<p>从工程上看，这个阶段继续在 Java 上补洞，性价比已经不高了。因为接下来的每一项优化都越来越像 AI 编排层的职责，而不是业务网关的职责。</p>
+<h2 id="后面怎么优化"><a href="#后面怎么优化" class="headerlink" title="后面怎么优化"></a>后面怎么优化</h2><h3 id="方向一：继续留在-Java，但把整条链路补全"><a href="#方向一：继续留在-Java，但把整条链路补全" class="headerlink" title="方向一：继续留在 Java，但把整条链路补全"></a>方向一：继续留在 Java，但把整条链路补全</h3><p>这条路不是不能走，但会越来越像在 Java 里重搭一套小型 RAG 编排器。</p>
+<p>至少要补这些东西：</p>
+<ul>
+<li>多路召回，而不是只靠一条语义检索</li>
+<li>跨知识库统一 rerank</li>
+<li>更大的候选池</li>
+<li>更完整的 chunk 和引用信息</li>
+<li>图片链接透传</li>
+<li>针对定义题、比较题、模糊题的回答模板</li>
+</ul>
+<p>做到这一步以后，Java 这边不只是工具网关了，已经开始承担 AI orchestration 的活。复杂度会往 Java 里长，而且调参、排障、灰度都不如 Python 顺手。</p>
+<h3 id="方向二：把知识库检索收回-Python"><a href="#方向二：把知识库检索收回-Python" class="headerlink" title="方向二：把知识库检索收回 Python"></a>方向二：把知识库检索收回 Python</h3><p>这次讨论下来，我更倾向这个方向。</p>
+<p>原因很直接：真正需要频繁调的部分，都在 Python 这边更自然。</p>
+<p>包括：</p>
+<ul>
+<li>dataset 选择策略</li>
+<li>query rewrite</li>
+<li>多知识库召回</li>
+<li>DashScope rerank</li>
+<li>prompt 收敛</li>
+<li>grounded answer 生成</li>
+<li>图片和 citation 处理</li>
+</ul>
+<p>Java 保留它本来就更适合做的事：</p>
+<ul>
+<li>鉴权</li>
+<li>审计</li>
+<li>用户和租户上下文</li>
+<li>SSE &#x2F; gateway</li>
+<li>MCP tools 的 runtime scope</li>
+</ul>
+<p>这样职责会更清楚，后面要把效果往 Dify 靠，也会顺很多。</p>
+<h2 id="我现在更倾向的落地方案"><a href="#我现在更倾向的落地方案" class="headerlink" title="我现在更倾向的落地方案"></a>我现在更倾向的落地方案</h2><p>我会把这次优化拆成两步。</p>
+<h3 id="第一步：先把检索编排搬到-Python"><a href="#第一步：先把检索编排搬到-Python" class="headerlink" title="第一步：先把检索编排搬到 Python"></a>第一步：先把检索编排搬到 Python</h3><p>目标不是一步到位重做全部能力，而是先把最影响效果的环节统一起来：</p>
+<ul>
+<li>Python 直接接知识库</li>
+<li>Python 控制多 dataset 检索</li>
+<li>Python 调 DashScope rerank</li>
+<li>Python 决定最终喂给模型哪些 chunk</li>
+</ul>
+<p>这样做以后，至少链路从“Java retrieve + Python 总结”变成“Python 检索编排 + Python 回答生成”，问题会收敛很多。</p>
+<h3 id="第二步：再把回答策略做细"><a href="#第二步：再把回答策略做细" class="headerlink" title="第二步：再把回答策略做细"></a>第二步：再把回答策略做细</h3><p>等检索编排收口以后，再按问题类型去补策略：</p>
+<ul>
+<li>定义题：优先定义句，再补原理和优点</li>
+<li>模糊题：先澄清，不急着答</li>
+<li>图片题：保留并原样返回图片链接</li>
+<li>对比题：明确比较维度和时间范围</li>
+</ul>
+<p>这一步如果还分散在 Java 和 Python 两边做，调一次要来回改两层，维护成本很快就上去。</p>
+<h2 id="这次复盘里最重要的判断"><a href="#这次复盘里最重要的判断" class="headerlink" title="这次复盘里最重要的判断"></a>这次复盘里最重要的判断</h2><p>这次不是 Dify 模型比我们强，而是 Dify 把“检索、排序、提示、回答”这条链路做成了一个完整产品。</p>
+<p>我们之前那条链路能用，但结构上更像把几段检索文本递给模型，让模型自己想办法组织答案。它能跑，也能答，但在定义题、图片题、教材型问答这些场景里，天然就会弱一点。</p>
+<p>所以后面的重点不该再停留在“再加一个 dataset”“再把 top-k 调大一点”，而是把检索编排层收回到一个地方，按完整 RAG 链路来调。</p>
+<p>按现在这个项目的边界，那个地方更应该是 Python，不是 Java。</p>
 
                 
               </div>
@@ -410,17 +496,17 @@
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/OpenClaw/" class="print-no-link">#OpenClaw</a>
+        <a href="/tags/%E5%A4%8D%E7%9B%98/" class="print-no-link">#复盘</a>
       
-        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+        <a href="/tags/Python/" class="print-no-link">#Python</a>
       
-        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+        <a href="/tags/Dify/" class="print-no-link">#Dify</a>
       
-        <a href="/tags/Orchestrator/" class="print-no-link">#Orchestrator</a>
+        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
       
-        <a href="/tags/CLARIFY/" class="print-no-link">#CLARIFY</a>
+        <a href="/tags/DashScope/" class="print-no-link">#DashScope</a>
       
-        <a href="/tags/%E5%A5%A5%E5%8D%A1%E5%A7%86%E5%89%83%E5%88%80/" class="print-no-link">#奥卡姆剃刀</a>
+        <a href="/tags/%E6%A3%80%E7%B4%A2/" class="print-no-link">#检索</a>
       
     </div>
   
@@ -432,8 +518,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环</div>
-      <div>https://willfordzhan.github.io/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/</div>
+      <div>为什么我们的 RAG 还打不过 Dify 原生助手</div>
+      <div>https://willfordzhan.github.io/2026/03/15/rag-vs-dify-native-assistant/</div>
     </div>
     <div class="license-meta">
       
@@ -445,7 +531,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月28日</div>
+          <div>2026年3月15日</div>
         </div>
       
       
@@ -477,18 +563,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/28/ai-chat-java-ai-gateway-python/" title="AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">AI Chat 网关化重构工作日志：Java AI Gateway 签名上下文与 Python 鉴权落地</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/27/sample-ai-service-ai-control-plane-retrospective/" title="奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘">
-                        <span class="hidden-mobile">奥卡姆剃刀式瘦身重构：sample_ai_service AI 控制面分类复盘</span>
+                      <a href="/2026/03/15/ai-tool-notlogin/" title="AI Tool 调用里的 NotLogin 排查与线程级登录态注入">
+                        <span class="hidden-mobile">AI Tool 调用里的 NotLogin 排查与线程级登录态注入</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
