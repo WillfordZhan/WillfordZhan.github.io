@@ -1,0 +1,812 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近在一条 AI tool 调用链路里碰到一个典型问题：工具本身是从 Python 调 Java MCP，再进入 Java 里的业务 service，但执行到查库阶段时抛了 NotLoginException。表面看像是工具参数没带全，实际排下来，问题不在参数，而在历史业务代码对登录态的隐式依赖。 这次排查最后没有把整条链路改造成显式上下文传递，而是先做了一个线程级 LoginUser 注入的兼容">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI Tool 调用里的 NotLogin 排查与线程级登录态注入">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/15/ai-tool-notlogin/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="最近在一条 AI tool 调用链路里碰到一个典型问题：工具本身是从 Python 调 Java MCP，再进入 Java 里的业务 service，但执行到查库阶段时抛了 NotLoginException。表面看像是工具参数没带全，实际排下来，问题不在参数，而在历史业务代码对登录态的隐式依赖。 这次排查最后没有把整条链路改造成显式上下文传递，而是先做了一个线程级 LoginUser 注入的兼容">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-15T09:51:19.000Z">
+<meta property="article:modified_time" content="2026-03-15T09:52:36.421Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="Sa-Token">
+<meta property="article:tag" content="问题排查">
+<meta property="article:tag" content="线程上下文">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>AI Tool 调用里的 NotLogin 排查与线程级登录态注入 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="AI Tool 调用里的 NotLogin 排查与线程级登录态注入"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-15 17:51" pubdate>
+          2026年3月15日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          15 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">AI Tool 调用里的 NotLogin 排查与线程级登录态注入</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>最近在一条 AI tool 调用链路里碰到一个典型问题：工具本身是从 Python 调 Java MCP，再进入 Java 里的业务 service，但执行到查库阶段时抛了 <code>NotLoginException</code>。表面看像是工具参数没带全，实际排下来，问题不在参数，而在历史业务代码对登录态的隐式依赖。</p>
+<p>这次排查最后没有把整条链路改造成显式上下文传递，而是先做了一个线程级 <code>LoginUser</code> 注入的兼容方案。这个方案不够“理想”，但能在不污染真实登录会话的前提下，把 AI tool 跑通。</p>
+<h2 id="问题怎么出现的"><a href="#问题怎么出现的" class="headerlink" title="问题怎么出现的"></a>问题怎么出现的</h2><p>AI tool 调用日志里能看到工具执行失败，错误信息大致是这样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">nested exception is org.apache.ibatis.exceptions.PersistenceException:<br>### Error querying database.<br>Cause: cn.dev33.satoken.exception.NotLoginException: 未能读取到有效Token<br></code></pre></td></tr></table></figure>
+
+<p>一开始很容易怀疑两件事：</p>
+<ol>
+<li>Python 调 Java MCP 时是不是没把用户 token 透传过去。</li>
+<li>工具执行时是不是 tenantId、userId 一类的业务上下文缺了。</li>
+</ol>
+<p>但继续看调用链后，问题并不是这两类。</p>
+<h2 id="先把链路拆开看"><a href="#先把链路拆开看" class="headerlink" title="先把链路拆开看"></a>先把链路拆开看</h2><p>当时这条链路大致是：</p>
+<ol>
+<li>Python 收到 AI tool call。</li>
+<li>Python 调 Java MCP 的 <code>tools/call</code>。</li>
+<li>Java MCP 根据最小 caller context 构建 <code>AiRunContext</code>。</li>
+<li>dispatcher 调 <code>toolRegistry.invoke(...)</code>。</li>
+<li>tool 再进入共享业务 service。</li>
+<li>深层 service &#x2F; mapper 查询时抛 <code>NotLoginException</code>。</li>
+</ol>
+<p>这里有一个关键事实：Python 调 Java MCP 时，只传了最小 caller context，也就是 <code>tenantId</code> 和 <code>userId</code> 一类信息，没有把真实用户 Bearer token 一路透传下去。</p>
+<p>这本来不是 bug，而是当前设计本来就这样。问题出在更深一层：Java MCP 已经有了 AI 运行时上下文，但下游不少历史业务代码并没有显式消费这个上下文，而是继续隐式依赖 Sa-Token 当前线程里的登录态。</p>
+<h2 id="根因不在-Python，而在-Java-存量代码的登录态假设"><a href="#根因不在-Python，而在-Java-存量代码的登录态假设" class="headerlink" title="根因不在 Python，而在 Java 存量代码的登录态假设"></a>根因不在 Python，而在 Java 存量代码的登录态假设</h2><p>后面把 Java 侧调度和业务调用链串起来之后，问题就比较清楚了。</p>
+<p>MCP dispatcher 自己做的是：</p>
+<ul>
+<li>标准化 <code>conversationId</code>、<code>toolCallId</code></li>
+<li>resolve runtime scope</li>
+<li>执行 tool</li>
+</ul>
+<p>它并没有恢复一段线程内登录态。也就是说，进入 tool 时有 <code>AiRunContext</code>，但没有“当前登录用户”。</p>
+<p>而历史业务代码里还存在大量这种调用方式：</p>
+<ul>
+<li><code>LoginHelper.getLoginUser()</code></li>
+<li><code>LoginHelper.getUserId()</code></li>
+<li>更糟一点的还会走 <code>StpUtil.checkLogin()</code> 或 <code>StpUtil.getLoginIdAsString()</code></li>
+</ul>
+<p>这类代码的问题不在于当时没意识到要显式传 userContext，而是系统历史上本来就是靠隐式登录态跑起来的。现在 AI tool 这条内部调用链不走传统 Web 登录入口，原来的假设自然就不成立了。</p>
+<p>换句话说，这不是一次“忘了传 userId”的低级错误，而是历史设计包袱在 AI 场景里暴露出来了。</p>
+<h2 id="一开始为什么没直接走-run-as-login"><a href="#一开始为什么没直接走-run-as-login" class="headerlink" title="一开始为什么没直接走 run-as login"></a>一开始为什么没直接走 run-as login</h2><p>最直接的修法其实是：在 dispatcher 执行 tool 之前，临时构造一个 <code>LoginUser</code>，再调用 <code>StpUtil.login(...)</code> 或 <code>LoginHelper.loginByDevice(...)</code>，把当前线程伪装成一个已登录用户。这样老代码里依赖 <code>checkLogin()</code> 的地方也能跑通。</p>
+<p>这个方案我一开始也试了，而且从兼容性上说它最稳。</p>
+<p>但它的问题也很明显：</p>
+<ol>
+<li>本质上还是做了一次 Sa-Token login。</li>
+<li>会建立一段 token &#x2F; token-session。</li>
+<li>默认会走 Sa-Token 的持久化逻辑，通常会落到 Redis。</li>
+<li>这更像“兼容旧系统”，不是一个干净的 AI tool 运行时方案。</li>
+</ol>
+<p>如果只是为了让一条内部工具调用临时拿到用户对象，这个代价偏大了。</p>
+<h2 id="这次落地的方案：线程级注入-LoginUser"><a href="#这次落地的方案：线程级注入-LoginUser" class="headerlink" title="这次落地的方案：线程级注入 LoginUser"></a>这次落地的方案：线程级注入 LoginUser</h2><p>最后采用的做法更克制一些：不做 <code>StpUtil.login</code>，只在 tool 执行线程里临时注入一个 <code>LoginUser</code>。</p>
+<p>核心思路是：</p>
+<ol>
+<li>dispatcher 先根据 <code>sysUserId</code> 查出 <code>SysUser</code>。</li>
+<li>用现有 <code>LoginSupport.buildLoginUser(...)</code> 构建标准 <code>LoginUser</code>。</li>
+<li>只往 <code>SaHolder.getStorage()</code> 里塞 <code>loginUser</code>。</li>
+<li>执行真正的 tool 逻辑。</li>
+<li>在 <code>finally</code> 里把线程内 <code>loginUser</code> 清掉。</li>
+</ol>
+<p>伪代码大概是这样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">LoginUser</span> <span class="hljs-variable">loginUser</span> <span class="hljs-operator">=</span> loginSupport.buildLoginUser(user);<br>SaHolder.getStorage().set(LoginHelper.LOGIN_USER_KEY, loginUser);<br><span class="hljs-keyword">try</span> &#123;<br>    <span class="hljs-keyword">return</span> action.get();<br>&#125; <span class="hljs-keyword">finally</span> &#123;<br>    SaHolder.getStorage().set(LoginHelper.LOGIN_USER_KEY, <span class="hljs-literal">null</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这个方案能覆盖什么，不能覆盖什么，要说清楚。</p>
+<p>能覆盖的：</p>
+<ul>
+<li><code>LoginHelper.getLoginUser()</code></li>
+<li><code>LoginHelper.getUserId()</code></li>
+<li><code>LoginHelper.getDeptId()</code></li>
+<li>其他基于线程内 <code>loginUser</code> 的旧逻辑</li>
+</ul>
+<p>不能覆盖的：</p>
+<ul>
+<li><code>StpUtil.checkLogin()</code></li>
+<li><code>StpUtil.getLoginIdAsString()</code></li>
+<li>直接依赖 token-session 的逻辑</li>
+</ul>
+<p>这次之所以能这么收，是因为排查后确认当前这条业务链路里没有直接调用这些更重的 Sa-Token API。</p>
+<h2 id="为什么这个方案更适合当前场景"><a href="#为什么这个方案更适合当前场景" class="headerlink" title="为什么这个方案更适合当前场景"></a>为什么这个方案更适合当前场景</h2><p>它不是完美方案，但在当前约束下更合适。</p>
+<p>第一，它不会污染真实登录会话。<br>只注入线程级 <code>loginUser</code>，不建 token，不写 token-session，也不碰 Redis 里的真实在线用户数据。</p>
+<p>第二，它只影响当前执行线程。<br>工具执行完就清理，不会把一段“假登录态”扩散到系统级别。</p>
+<p>第三，它和现有历史代码的耦合点刚好对上。<br>既然问题点主要集中在 <code>LoginHelper.getLoginUser()</code> 这类隐式读取，那就先用最小代价补这一层，不先动更大的业务面。</p>
+<h2 id="并发和线程池的问题怎么看"><a href="#并发和线程池的问题怎么看" class="headerlink" title="并发和线程池的问题怎么看"></a>并发和线程池的问题怎么看</h2><p>这种线程级注入有一个天然边界：它只在当前线程有效。</p>
+<p>这意味着两件事：</p>
+<ol>
+<li>如果 dispatcher 同步执行 tool，这个方案是安全的。</li>
+<li>如果后面改成线程池异步执行，也不是不能用，但注入动作必须发生在真正执行 tool 的工作线程里，而不是提交任务的父线程。</li>
+</ol>
+<p>它不会自动跨线程传播，这其实是好事。默认不传播，至少比错误传播更安全。真正需要跨线程时，再按具体异步点显式处理。</p>
+<h2 id="顺手还修了一层日志问题"><a href="#顺手还修了一层日志问题" class="headerlink" title="顺手还修了一层日志问题"></a>顺手还修了一层日志问题</h2><p>这次排查还有一个副产品：tool 调用里的异常链路原来有被反射调用抹平的风险。</p>
+<p>原因是 tool 执行通过 <code>Method.invoke(...)</code>，而执行异常又在 <code>ToolRegistry</code> 里被直接吃成了 <code>ToolResult.fail(...)</code>。这样最终日志里容易只看到一个错误摘要，看不到真正的业务异常栈。</p>
+<p>后面把这层也收了一下：</p>
+<ul>
+<li><code>ToolMethod.invoke(...)</code> 里解包 <code>InvocationTargetException</code></li>
+<li>参数绑定错误继续在 <code>ToolRegistry</code> 里转成稳定错误码</li>
+<li>真正的业务执行异常统一往上抛</li>
+<li>最终由 <code>AiMcpToolDispatcher</code> 统一打完整异常栈，并统一转成对外响应</li>
+</ul>
+<p>这样排查体验会好很多。至少日志里能看到真实业务方法栈，而不是只停在反射层。</p>
+<h2 id="这次方案的定位"><a href="#这次方案的定位" class="headerlink" title="这次方案的定位"></a>这次方案的定位</h2><p>这次的线程级 <code>LoginUser</code> 注入，我把它视为一个兼容层，而不是最终架构。</p>
+<p>更理想的状态应该是：</p>
+<ul>
+<li>AI tool 链路显式消费 <code>AiRunContext</code></li>
+<li>共享业务逻辑逐步减少对 <code>LoginHelper</code> 和 Sa-Token 当前线程态的隐式依赖</li>
+<li>最终让 AI 内部调用和传统 Web 登录态彻底解耦</li>
+</ul>
+<p>但这类历史设计问题很少适合一次性推平。改造成本不小，风险也不低。既然当前目标是先把 AI tool 调通，同时别污染真实登录会话，那么线程级注入 <code>LoginUser</code> 是一个可以接受的中间方案。</p>
+<p>它不优雅，但足够克制，也足够实用。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
+      
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+      
+        <a href="/tags/Sa-Token/" class="print-no-link">#Sa-Token</a>
+      
+        <a href="/tags/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/" class="print-no-link">#问题排查</a>
+      
+        <a href="/tags/%E7%BA%BF%E7%A8%8B%E4%B8%8A%E4%B8%8B%E6%96%87/" class="print-no-link">#线程上下文</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>AI Tool 调用里的 NotLogin 排查与线程级登录态注入</div>
+      <div>https://willfordzhan.github.io/2026/03/15/ai-tool-notlogin/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月15日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/13/langgraph-to-react-loop-refactor/" title="把 LangGraph 黑盒编排重构成精简 React Loop">
+                        <span class="hidden-mobile">把 LangGraph 黑盒编排重构成精简 React Loop</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
