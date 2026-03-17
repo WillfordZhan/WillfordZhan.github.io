@@ -241,6 +241,81 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
+          单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/" target="_self">
+        <div>
+          这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-02 23:57" pubdate>
+              2026-03-02
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
+            
+              <a href="/tags/Guardrails/">#Guardrails</a>
+            
+              <a href="/tags/Memory/">#Memory</a>
+            
+              <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
+            
+              <a href="/tags/AI%E7%BC%96%E6%8E%92/">#AI编排</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/02/agent-langgraph-llamaindex/" target="_self">
           项目技术选型调研：通用Agent与LangGraph+LlamaIndex对比
         </a>
@@ -553,13 +628,13 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/AI%E7%BD%91%E5%85%B3/">#AI网关</a>
-            
-              <a href="/tags/Java/">#Java</a>
-            
               <a href="/tags/Python/">#Python</a>
             
               <a href="/tags/FastAPI/">#FastAPI</a>
+            
+              <a href="/tags/AI%E7%BD%91%E5%85%B3/">#AI网关</a>
+            
+              <a href="/tags/Java/">#Java</a>
             
               <a href="/tags/%E9%89%B4%E6%9D%83/">#鉴权</a>
             
@@ -820,88 +895,15 @@
             
               <a href="/tags/ReAct/">#ReAct</a>
             
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
               <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
             
               <a href="/tags/Qwen/">#Qwen</a>
             
               <a href="/tags/%E7%A8%B3%E5%AE%9A%E6%80%A7/">#稳定性</a>
             
               <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/">#重构复盘</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/25/ai-llm-react/" target="_self">
-          AI控制面生产化改造：LLM意图路由与ReAct执行边界
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/25/ai-llm-react/" target="_self">
-        <div>
-          这次改造把 sample_ai_service 的 Orchestrator 从 MVP 规则路由，切到生产模式的 LLM 驱动编排。 背景线上痛点很明确：process_input 里 IntentRouter.route(query) 主要依赖模式匹配，无法稳定处理语义歧义、槽位缺失和复杂意图。与此同时，React 执行层存在 query 二次解析，执行边界不够清晰。 目标是把链路拉直为： U
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-25 19:29" pubdate>
-              2026-02-25
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/ReAct/">#ReAct</a>
-            
-              <a href="/tags/Qwen/">#Qwen</a>
-            
-              <a href="/tags/Orchestrator/">#Orchestrator</a>
-            
-              <a href="/tags/IntentRouter/">#IntentRouter</a>
-            
-              <a href="/tags/PolicyEngine/">#PolicyEngine</a>
-            
-              <a href="/tags/Verify/">#Verify</a>
             
           </div>
         
