@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/05/dify-tool-java-mcp-python/" target="_self">
+          Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/dify-tool-java-mcp-python/" target="_self">
+        <div>
+          背景在 iot-framework 的 AI 链路里，我们已经有一条稳定的工具调用架构：  Java AI Gateway 对外暴露 /api/ai/* Python ats_iot_ai 负责编排与执行（LangGraph + SSE） Java MCP 负责 /ai/mcp/tools/list 与 /ai/mcp/tools/call  这次目标是把 Dify 知识库检索接成一个 tool，
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-05 19:30" pubdate>
+              2026-03-05
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84/">#架构</a>
+            
+              <a href="/tags/Dify/">#Dify</a>
+            
+              <a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/">#知识库</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/05/p1/" target="_self">
           P1解析失败恢复：从误报模型不可用到可恢复澄清链路
         </a>
@@ -804,88 +873,15 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
               <a href="/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">#技术选型</a>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
             
               <a href="/tags/LlamaIndex/">#LlamaIndex</a>
             
               <a href="/tags/OpenClaw/">#OpenClaw</a>
             
               <a href="/tags/Agent-Engineering/">#Agent Engineering</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/02/llm-openclaw-prompt/" target="_self">
-          单 LLM 节点不是简化：OpenClaw Prompt 注入范式与护栏工程化重构
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/llm-openclaw-prompt/" target="_self">
-        <div>
-          前言这篇文章写给已经在做 Agent 编排、并且踩过“意图层拆太多 + Prompt 越改越乱 + 护栏和主流程耦合”坑的工程师。 核心观点先摆在前面：  单 LLM 节点不是“把所有事都丢给模型”。 OpenClaw 的关键价值，不在“单节点”，而在“模型自决 + 工程护栏 + Prompt 注入可插拔”。 真正可维护的实现，必须把 决策、注入、护栏、记忆 四层切开。   一、单节点到底是什么：
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-02 17:49" pubdate>
-              2026-03-02
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/ReAct/">#ReAct</a>
-            
-              <a href="/tags/OpenClaw/">#OpenClaw</a>
-            
-              <a href="/tags/Agent-Engineering/">#Agent Engineering</a>
-            
-              <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
-            
-              <a href="/tags/Guardrails/">#Guardrails</a>
-            
-              <a href="/tags/Memory/">#Memory</a>
             
           </div>
         
