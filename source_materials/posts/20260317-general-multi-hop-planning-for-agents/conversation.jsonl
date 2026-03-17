@@ -1,0 +1,3 @@
+{"role":"user","content":"对，按照“通用多跳规划能力”来改，怎么实现和增强这种“通用多跳规划能力”推理呢，业界方法一般是什么"}
+{"role":"assistant","content":"一般要把“多跳规划能力”做成系统能力，而不是靠某句 query 的特判。主流做法基本是这 5 类，适合你们这套链路的优先级也很明确。1. 明确 tool 的职责边界。2. 给 planner 一个“完成条件”，不要只给“看起来够了就停”。3. 区分 tool 类型：locator / evidence / summarizer。4. 用结构化中间状态，而不是只靠自然语言追问。5. 复杂多跳最终还是会收敛成 facade / workflow tool。"}
+{"role":"user","content":"关于多跳能力怎么增强的这个分析很有价值，使用 blog skill 发一篇 blog"}
