@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/12/agent-react/" target="_self">
+          把多节点 Agent 编排压成单节点 ReAct：一次真实重构复盘
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/12/agent-react/" target="_self">
+        <div>
+          前段时间我把一条原本还算“规矩”的 Agent 编排链路，硬生生压成了单节点。 原始版本大概是这种气质：  bootstrap plan tool_validate tool_call clarify chat  看起来层次分明，像一张写给评审看的 UML 图。真跑起来以后，感受更像在组装机关枪，每多一个节点，代码体积、状态字段、测试断言和联调排查成本就跟着长。 这篇文章记录的就是一次比较彻底的收
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-12 10:52" pubdate>
+              2026-03-12
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/ReAct/">#ReAct</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">#架构重构</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/12/mcp-tool-spec-function-calling/" target="_self">
           MCP、Tool Spec 与 Function Calling：别把三层协议揉成一锅粥
         </a>
@@ -865,73 +936,6 @@
               <a href="/tags/LangChain/">#LangChain</a>
             
               <a href="/tags/HITL/">#HITL</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/05/langgraph-star/" target="_self">
-          LangGraph 编排重构实录：拆编排不拆对外契约（STAR）
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/langgraph-star/" target="_self">
-        <div>
-          这篇复盘写给已经在做 Agent&#x2F;LLM 编排、并且被“历史包袱 + 线上契约 + 多系统联动”三连击过的工程师。 一句话版结论：这次不是“把代码搬到新目录”，而是把编排从“单文件扛全场”升级为“LangGraph 节点化 + 对外契约不动”的可演进内核。过程不炫技，核心是稳。 如果要用一句带点黑色幽默的话描述这次重构：  我们终于把 orchestrator.py 从“全栈菩萨”劝退成
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-05 20:18" pubdate>
-              2026-03-05
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
-              <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/">#重构复盘</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E6%B2%BB%E7%90%86/">#架构治理</a>
             
           </div>
         

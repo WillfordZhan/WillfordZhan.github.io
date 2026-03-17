@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做</title>
+    <link href="/2026/03/17/general-multi-hop-planning-for-agents/"/>
+    <url>/2026/03/17/general-multi-hop-planning-for-agents/</url>
+    
+    <content type="html"><![CDATA[<p>最近在调一条生产计划问答链时，碰到一个很典型的问题。</p><p>用户问的是“今天计划炉次有多少”，系统却在第一跳 <code>production_plan_search</code> 后就停了，直接把计划列表里的 <code>count/total</code> 当成了答案。真正需要的链路其实是：</p><ol><li>先查计划，定位目标计划。</li><li>再查计划详情。</li><li>最后基于详情里的计划炉次做汇总。</li></ol><p>这个问题看起来像“模型不够聪明”，但本质不是。更准确地说，是系统没有把“什么时候可以停，什么时候必须继续查”做成显式能力。</p><h2 id="为什么-Agent-会在第一跳就停下来"><a href="#为什么-Agent-会在第一跳就停下来" class="headerlink" title="为什么 Agent 会在第一跳就停下来"></a>为什么 Agent 会在第一跳就停下来</h2><p>这类问题一般不是单点故障，而是几层因素叠在一起。</p><p>第一层是 tool 本身的语义边界不够清楚。</p><p>如果一个工具叫 <code>production_plan_search</code>，返回里又有 <code>count</code>、<code>total</code>、<code>items</code>，模型很容易把它理解成“已经拿到了足够的统计结果”。但实际上，这个工具只能回答“有几个计划”“有哪些计划”，并不能回答“某个计划里有多少个计划炉次”。</p><p>第二层是 planner 的停机条件太宽。</p><p>很多系统都会给模型一条类似的规则：如果证据已经足够，就直接回答，不要继续调工具。这条规则本身没错，问题在于“证据是否足够”如果完全交给模型自己判断，它往往会选择最短路径，而不是最稳路径。</p><p>第三层是缺少“证据完成条件”。</p><p>对于“计划炉次有多少”这类问题，真正的回答证据应该来自计划详情，而不是计划列表。也就是说，这类问题的完成条件不是“拿到 search result”，而是“拿到 detail result 里的炉次字段或炉次计数”。如果系统没有把这个完成条件显式表达出来，模型就会用自己看到的第一份结构化结果尽快收尾。</p><h2 id="这不是某一句-query-的问题"><a href="#这不是某一句-query-的问题" class="headerlink" title="这不是某一句 query 的问题"></a>这不是某一句 query 的问题</h2><p>如果只盯着“今天计划炉次有多少”这一句，很容易走到一个错误方向：给这句话写一条 if&#x2F;else，或者在 prompt 里专门补一条规则。</p><p>这种做法短期能压住一个 case，但很快会失效。因为用户下一次可能会问：</p><ul><li>今天这个计划的炉次安排数量是多少</li><li>这个生产计划下有几炉</li><li>当前计划一共排了多少个炉次</li><li>今天 9 号炉的计划里现在有几炉</li></ul><p>这些问题在业务上是同一种意图，但文本不一样。如果靠 query patch，一定会越写越碎。</p><p>所以更合理的做法不是“修一句话”，而是把多跳规划能力做成系统能力。</p><h2 id="业界一般怎么增强这种通用多跳规划能力"><a href="#业界一般怎么增强这种通用多跳规划能力" class="headerlink" title="业界一般怎么增强这种通用多跳规划能力"></a>业界一般怎么增强这种通用多跳规划能力</h2><p>如果把官方文档和企业 Agent 实践放在一起看，主流方法基本都落在四件事上。</p><h3 id="1-先把-tool-的职责边界说清楚"><a href="#1-先把-tool-的职责边界说清楚" class="headerlink" title="1. 先把 tool 的职责边界说清楚"></a>1. 先把 tool 的职责边界说清楚</h3><p>这是最基础的一层。</p><p>一个工具要明确：</p><ul><li>它负责做什么</li><li>不负责做什么</li><li>它更像“定位工具”还是“证据工具”</li><li>如果用户要问更深一层的问题，通常应该接哪个工具</li></ul><p>比如：</p><ul><li><code>production_plan_search</code> 的职责应该是“定位计划”</li><li><code>production_plan_detail</code> 的职责应该是“提供计划内炉次安排、计划炉次数、配方摘要等详情证据”</li></ul><p>一旦这层边界模糊，模型就会倾向于偷懒，直接在第一跳结果上作答。</p><p>Anthropic 的 tool use 文档里一直强调，工具描述不仅是“接口文档”，还是模型的行为边界。OpenAI 的 function calling 也是类似情况：它能强约束参数，但不会自动帮你定义“下一跳还该不该继续查”。</p><h3 id="2-把完成条件做成显式规则"><a href="#2-把完成条件做成显式规则" class="headerlink" title="2. 把完成条件做成显式规则"></a>2. 把完成条件做成显式规则</h3><p>这一步非常关键。</p><p>不要只告诉模型“如果证据够了就停”，而要告诉它：</p><ul><li>哪类问题需要哪类证据</li><li>当前拿到的证据是否满足回答条件</li><li>如果不满足，下一步应该去拿什么</li></ul><p>比如对“数量&#x2F;明细&#x2F;安排&#x2F;组成”类问题，可以定义一个通用原则：</p><ul><li>列表搜索工具只负责定位对象，不算最终回答证据</li><li>只有详情工具、明细工具或汇总工具返回了目标字段，才允许结束回答</li></ul><p>这样系统就不再依赖模型的主观判断，而是有了更稳定的完成条件。</p><h3 id="3-给-planner-一个结构化的中间状态"><a href="#3-给-planner-一个结构化的中间状态" class="headerlink" title="3. 给 planner 一个结构化的中间状态"></a>3. 给 planner 一个结构化的中间状态</h3><p>如果 planner 只有用户 query、历史消息和工具清单，它就只能靠自然语言去“猜”下一步。</p><p>更稳的做法是让 planner 内部至少形成这几个结构化状态：</p><ul><li><code>intent</code></li><li><code>target_scope</code></li><li><code>required_evidence</code></li><li><code>missing_evidence</code></li></ul><p>拿上面的例子来说，可以抽象成：</p><ul><li><code>intent = plan_furnace_count</code></li><li><code>target_scope = today/current inherited plan scope</code></li><li><code>required_evidence = production_plan_detail.furnacePlanCount or furnacePlans</code></li><li><code>missing_evidence = detail_not_loaded</code></li></ul><p>这样 planner 的行为就不再是“看起来差不多”，而是“缺哪份证据，就继续取哪份证据”。</p><h3 id="4-当某条链路已经稳定时，直接收敛成-facade-tool"><a href="#4-当某条链路已经稳定时，直接收敛成-facade-tool" class="headerlink" title="4. 当某条链路已经稳定时，直接收敛成 facade tool"></a>4. 当某条链路已经稳定时，直接收敛成 facade tool</h3><p>这一步不是所有系统一上来就要做，但在企业系统里通常是最终形态。</p><p>如果某类问题总是固定链路：</p><ul><li>先 search</li><li>再 detail</li><li>再 aggregate</li></ul><p>那最稳的方式往往不是继续训练 planner，而是直接给它一个新的只读 facade tool。</p><p>比如：</p><ul><li><code>production_plan_furnace_summary</code></li></ul><p>内部自己完成：</p><ul><li>计划定位</li><li>详情拉取</li><li>炉次数统计</li><li>结果摘要</li></ul><p>这样对模型来说就只剩“选工具”和“补参数”，而不是“自己设计工作流”。</p><h2 id="在工程上，应该怎么落到现有系统里"><a href="#在工程上，应该怎么落到现有系统里" class="headerlink" title="在工程上，应该怎么落到现有系统里"></a>在工程上，应该怎么落到现有系统里</h2><p>如果是已经有一套 Java MCP + Python Orchestrator 的系统，我更建议按下面这个顺序落。</p><h3 id="第一步：给-tool-增加角色信息"><a href="#第一步：给-tool-增加角色信息" class="headerlink" title="第一步：给 tool 增加角色信息"></a>第一步：给 tool 增加角色信息</h3><p>不要只给工具名和 description，可以补一层更靠近 planner 的 metadata，例如：</p><ul><li><code>role = locator</code></li><li><code>role = evidence</code></li><li><code>role = aggregate</code></li><li><code>satisfies = [&quot;plan_detail&quot;, &quot;furnace_count&quot;]</code></li></ul><p>有了这一层之后，planner 就能区分：</p><ul><li>哪些工具只是帮我找到对象</li><li>哪些工具才是真正能支撑回答的证据源</li></ul><h3 id="第二步：在-planner-里引入“回答完成条件”"><a href="#第二步：在-planner-里引入“回答完成条件”" class="headerlink" title="第二步：在 planner 里引入“回答完成条件”"></a>第二步：在 planner 里引入“回答完成条件”</h3><p>这是比补 few-shot 更关键的东西。</p><p>可以定义一组通用规则：</p><ul><li>用户问列表存在性，<code>locator</code> 结果可直接回答</li><li>用户问对象内明细、数量、组成，<code>locator</code> 结果不能直接回答</li><li>如果当前证据只到对象列表，必须继续调用 <code>evidence</code> 工具</li></ul><p>这一步不需要一上来就上复杂 planning framework，但必须把“可停止”和“不可停止”从模型自由裁量中拿出来。</p><h3 id="第三步：用例不要只测-final-answer，要测事件链"><a href="#第三步：用例不要只测-final-answer，要测事件链" class="headerlink" title="第三步：用例不要只测 final answer，要测事件链"></a>第三步：用例不要只测 final answer，要测事件链</h3><p>很多多跳能力在联调里会被误判，是因为只看最终回答，不看中间事件。</p><p>更靠谱的验收应该是：</p><ul><li>有没有先调 locator</li><li>有没有继续调 evidence</li><li>最终回答是不是基于 evidence 收敛</li></ul><p>也就是说，验收不只是看“答得像不像”，还要看“链路是不是对的”。</p><h3 id="第四步：把高频稳定链路收敛成-facade"><a href="#第四步：把高频稳定链路收敛成-facade" class="headerlink" title="第四步：把高频稳定链路收敛成 facade"></a>第四步：把高频稳定链路收敛成 facade</h3><p>当某条链路已经很稳定，继续让 planner 每次都做多跳选择，其实是在浪费 token 和稳定性预算。</p><p>这时候就该把它沉淀成 facade：</p><ul><li>查询类问题优先做只读 facade</li><li>写操作问题后面再考虑 preview&#x2F;confirm&#x2F;commit 三段式</li></ul><p>这会比无休止地加 prompt 规则更稳。</p><h2 id="一句更直接的总结"><a href="#一句更直接的总结" class="headerlink" title="一句更直接的总结"></a>一句更直接的总结</h2><p>多跳规划能力增强的关键，不是让模型“更会猜下一步”，而是让系统把下面这几件事显式化：</p><ul><li>tool 边界</li><li>证据类型</li><li>完成条件</li><li>工作流归并</li></ul><p>只要这四件事没立起来，模型就很容易在第一跳结果上过早停下。</p><p>反过来，只要这四件事被做成系统能力，即使用户换一种问法，planner 也更容易走出正确的 <code>locator -&gt; evidence -&gt; summarize</code> 链。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Agent</tag>
+      
+      <tag>Function Calling</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>AI</tag>
+      
+      <tag>架构</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>AI Tool 回答为什么会泄漏内部字段名</title>
     <link href="/2026/03/17/ai-tool-answer-internal-field-leak/"/>
     <url>/2026/03/17/ai-tool-answer-internal-field-leak/</url>

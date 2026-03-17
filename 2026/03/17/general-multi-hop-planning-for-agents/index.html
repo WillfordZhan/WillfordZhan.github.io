@@ -19,28 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇文章复盘 ats_iot_ai 这一轮重构的关键路径，重点覆盖三部分：  重构记录（发生了什么、按什么顺序推进） 工程收益（稳定性、可维护性、协作成本） 风险与后续计划（哪些问题还在，下一步怎么收敛）  文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。 一、重构背景：为什么必须从“旧编排”走向节点化旧阶段的核心问题并不是“功能不工作”，而是“功">
+    <meta name="description" content="最近在调一条生产计划问答链时，碰到一个很典型的问题。 用户问的是“今天计划炉次有多少”，系统却在第一跳 production_plan_search 后就停了，直接把计划列表里的 count&#x2F;total 当成了答案。真正需要的链路其实是：  先查计划，定位目标计划。 再查计划详情。 最后基于详情里的计划炉次做汇总。  这个问题看起来像“模型不够聪明”，但本质不是。更准确地说，是系统没有把“什么时候">
 <meta property="og:type" content="article">
-<meta property="og:title" content="ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/index.html">
+<meta property="og:title" content="别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/17/general-multi-hop-planning-for-agents/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇文章复盘 ats_iot_ai 这一轮重构的关键路径，重点覆盖三部分：  重构记录（发生了什么、按什么顺序推进） 工程收益（稳定性、可维护性、协作成本） 风险与后续计划（哪些问题还在，下一步怎么收敛）  文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。 一、重构背景：为什么必须从“旧编排”走向节点化旧阶段的核心问题并不是“功能不工作”，而是“功">
+<meta property="og:description" content="最近在调一条生产计划问答链时，碰到一个很典型的问题。 用户问的是“今天计划炉次有多少”，系统却在第一跳 production_plan_search 后就停了，直接把计划列表里的 count&#x2F;total 当成了答案。真正需要的链路其实是：  先查计划，定位目标计划。 再查计划详情。 最后基于详情里的计划炉次做汇总。  这个问题看起来像“模型不够聪明”，但本质不是。更准确地说，是系统没有把“什么时候">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-05T02:35:00.000Z">
+<meta property="article:published_time" content="2026-03-17T12:35:00.000Z">
 <meta property="article:modified_time" content="2026-03-17T12:36:15.379Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="LangGraph">
-<meta property="article:tag" content="复盘">
-<meta property="article:tag" content="ats_iot_ai">
-<meta property="article:tag" content="AI重构">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="Function Calling">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="架构">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分 - 味儿福德詹的小站</title>
+  <title>别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分"></span>
+            <span id="subtitle" data-typed-text="别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做"></span>
           
         </div>
 
@@ -229,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-05 10:35" pubdate>
-          2026年3月5日 上午
+        <time datetime="2026-03-17 20:35" pubdate>
+          2026年3月17日 晚上
         </time>
       </span>
     
@@ -241,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.5k 字
+          2k 字
         
       </span>
     
@@ -252,7 +252,7 @@
         
         
         
-          13 分钟
+          17 分钟
         
       </span>
     
@@ -298,153 +298,146 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分</h1>
+            <h1 id="seo-header">别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇文章复盘 <code>ats_iot_ai</code> 这一轮重构的关键路径，重点覆盖三部分：</p>
+                <p>最近在调一条生产计划问答链时，碰到一个很典型的问题。</p>
+<p>用户问的是“今天计划炉次有多少”，系统却在第一跳 <code>production_plan_search</code> 后就停了，直接把计划列表里的 <code>count/total</code> 当成了答案。真正需要的链路其实是：</p>
 <ol>
-<li>重构记录（发生了什么、按什么顺序推进）</li>
-<li>工程收益（稳定性、可维护性、协作成本）</li>
-<li>风险与后续计划（哪些问题还在，下一步怎么收敛）</li>
+<li>先查计划，定位目标计划。</li>
+<li>再查计划详情。</li>
+<li>最后基于详情里的计划炉次做汇总。</li>
 </ol>
-<p>文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。</p>
-<h2 id="一、重构背景：为什么必须从“旧编排”走向节点化"><a href="#一、重构背景：为什么必须从“旧编排”走向节点化" class="headerlink" title="一、重构背景：为什么必须从“旧编排”走向节点化"></a>一、重构背景：为什么必须从“旧编排”走向节点化</h2><p>旧阶段的核心问题并不是“功能不工作”，而是“功能能工作但工程不可持续”：</p>
+<p>这个问题看起来像“模型不够聪明”，但本质不是。更准确地说，是系统没有把“什么时候可以停，什么时候必须继续查”做成显式能力。</p>
+<h2 id="为什么-Agent-会在第一跳就停下来"><a href="#为什么-Agent-会在第一跳就停下来" class="headerlink" title="为什么 Agent 会在第一跳就停下来"></a>为什么 Agent 会在第一跳就停下来</h2><p>这类问题一般不是单点故障，而是几层因素叠在一起。</p>
+<p>第一层是 tool 本身的语义边界不够清楚。</p>
+<p>如果一个工具叫 <code>production_plan_search</code>，返回里又有 <code>count</code>、<code>total</code>、<code>items</code>，模型很容易把它理解成“已经拿到了足够的统计结果”。但实际上，这个工具只能回答“有几个计划”“有哪些计划”，并不能回答“某个计划里有多少个计划炉次”。</p>
+<p>第二层是 planner 的停机条件太宽。</p>
+<p>很多系统都会给模型一条类似的规则：如果证据已经足够，就直接回答，不要继续调工具。这条规则本身没错，问题在于“证据是否足够”如果完全交给模型自己判断，它往往会选择最短路径，而不是最稳路径。</p>
+<p>第三层是缺少“证据完成条件”。</p>
+<p>对于“计划炉次有多少”这类问题，真正的回答证据应该来自计划详情，而不是计划列表。也就是说，这类问题的完成条件不是“拿到 search result”，而是“拿到 detail result 里的炉次字段或炉次计数”。如果系统没有把这个完成条件显式表达出来，模型就会用自己看到的第一份结构化结果尽快收尾。</p>
+<h2 id="这不是某一句-query-的问题"><a href="#这不是某一句-query-的问题" class="headerlink" title="这不是某一句 query 的问题"></a>这不是某一句 query 的问题</h2><p>如果只盯着“今天计划炉次有多少”这一句，很容易走到一个错误方向：给这句话写一条 if&#x2F;else，或者在 prompt 里专门补一条规则。</p>
+<p>这种做法短期能压住一个 case，但很快会失效。因为用户下一次可能会问：</p>
 <ul>
-<li>编排主逻辑长期集中在单体 <code>orchestrator</code>，职责耦合（路由、护栏、提示词、记忆、工具调用）。</li>
-<li>兼容逻辑与新逻辑并存，随着需求增加，回归成本越来越高。</li>
-<li>会话存储早期有 Python 本地持久化路径，跨服务一致性和治理边界不够清晰。</li>
-<li>LLM 联调在不同启动方式下会出现配置路径漂移，导致“同代码、不同运行目录”行为不一致。</li>
+<li>今天这个计划的炉次安排数量是多少</li>
+<li>这个生产计划下有几炉</li>
+<li>当前计划一共排了多少个炉次</li>
+<li>今天 9 号炉的计划里现在有几炉</li>
 </ul>
-<p>因此目标不是“把文件拆小”，而是把边界重画清楚：</p>
+<p>这些问题在业务上是同一种意图，但文本不一样。如果靠 query patch，一定会越写越碎。</p>
+<p>所以更合理的做法不是“修一句话”，而是把多跳规划能力做成系统能力。</p>
+<h2 id="业界一般怎么增强这种通用多跳规划能力"><a href="#业界一般怎么增强这种通用多跳规划能力" class="headerlink" title="业界一般怎么增强这种通用多跳规划能力"></a>业界一般怎么增强这种通用多跳规划能力</h2><p>如果把官方文档和企业 Agent 实践放在一起看，主流方法基本都落在四件事上。</p>
+<h3 id="1-先把-tool-的职责边界说清楚"><a href="#1-先把-tool-的职责边界说清楚" class="headerlink" title="1. 先把 tool 的职责边界说清楚"></a>1. 先把 tool 的职责边界说清楚</h3><p>这是最基础的一层。</p>
+<p>一个工具要明确：</p>
 <ul>
-<li>Python 控制面负责编排与协议兼容。</li>
-<li>Java 侧收口为执行与持久化真相源（尤其是 store）。</li>
-<li>编排按节点化思路拆分，逐步向 LangGraph 化执行模型靠拢。</li>
+<li>它负责做什么</li>
+<li>不负责做什么</li>
+<li>它更像“定位工具”还是“证据工具”</li>
+<li>如果用户要问更深一层的问题，通常应该接哪个工具</li>
 </ul>
-<h2 id="二、关键节点时间线（可追踪）"><a href="#二、关键节点时间线（可追踪）" class="headerlink" title="二、关键节点时间线（可追踪）"></a>二、关键节点时间线（可追踪）</h2><blockquote>
-<p>时间均为本地 Git 记录日期（UTC+8）。</p>
-</blockquote>
-<table>
-<thead>
-<tr>
-<th>日期</th>
-<th>提交</th>
-<th>关键变化</th>
-<th>说明</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>2026-02-21</td>
-<td><code>1af4a0b</code></td>
-<td><code>feat(model): integrate qwen api into python orchestrator</code></td>
-<td>首次打通 Qwen 接入能力</td>
-</tr>
-<tr>
-<td>2026-02-27</td>
-<td><code>248ce25</code></td>
-<td>收敛为单一 ReAct 循环并移除策略栈</td>
-<td>从多策略堆叠走向单主循环</td>
-</tr>
-<tr>
-<td>2026-03-02</td>
-<td><code>2cfc73e</code></td>
-<td>抽取 prompt pipeline runtime</td>
-<td>节点化拆分第一步（Prompt）</td>
-</tr>
-<tr>
-<td>2026-03-02</td>
-<td><code>eb13f84</code> &#x2F; <code>2d0e86c</code></td>
-<td>抽取 guardrail pipeline</td>
-<td>护栏从主循环中剥离</td>
-</tr>
-<tr>
-<td>2026-03-03</td>
-<td><code>bb2363e</code> &#x2F; <code>d38342b</code></td>
-<td>memory facade runtime</td>
-<td>短期记忆读写从主干解耦</td>
-</tr>
-<tr>
-<td>2026-03-04</td>
-<td><code>97555b0</code></td>
-<td>抽离 ToolService，统一 call_tool 接口</td>
-<td>工具调用入口标准化</td>
-</tr>
-<tr>
-<td>2026-03-04</td>
-<td><code>84311b0</code></td>
-<td><code>remove orchestration internals and keep api-compatible orchestrator shell</code></td>
-<td>形成“API 兼容壳 + 内部节点化运行时”</td>
-</tr>
-<tr>
-<td>2026-03-04</td>
-<td><code>efa2522</code>（master）</td>
-<td>会话存储改为调用 Java 接口</td>
-<td>store 真相源迁移到 Java</td>
-</tr>
-<tr>
-<td>2026-03-04</td>
-<td><code>da9a726</code>、<code>74778bd</code></td>
-<td><code>Merge branch &#39;master&#39; into feature/langgraph-llamaindex-refactor</code></td>
-<td>将主分支 store 迁移成果并入 refactor 分支</td>
-</tr>
-</tbody></table>
-<h3 id="LLM-联调修复节点（QWEN-API-KEY-FILE）"><a href="#LLM-联调修复节点（QWEN-API-KEY-FILE）" class="headerlink" title="LLM 联调修复节点（QWEN_API_KEY_FILE）"></a>LLM 联调修复节点（QWEN_API_KEY_FILE）</h3><p>这部分主要是联调治理而非单一功能提交：</p>
+<p>比如：</p>
 <ul>
-<li>现象：同一代码在不同启动目录下，<code>QWEN_API_KEY_FILE</code> 使用相对路径时会出现“本地可用、脚本启动不可用”。</li>
-<li>处理：启动配置改为显式传入文件路径，并在联调脚本&#x2F;环境中统一约定；缺失时走明确报错，不再隐式降级。</li>
-<li>收益：减少“偶发不可复现”的接入问题，把故障点从模型调用链收敛到配置校验阶段。</li>
+<li><code>production_plan_search</code> 的职责应该是“定位计划”</li>
+<li><code>production_plan_detail</code> 的职责应该是“提供计划内炉次安排、计划炉次数、配方摘要等详情证据”</li>
 </ul>
-<h2 id="三、前后对比：结构和职责怎么变了"><a href="#三、前后对比：结构和职责怎么变了" class="headerlink" title="三、前后对比：结构和职责怎么变了"></a>三、前后对比：结构和职责怎么变了</h2><h3 id="1-编排结构"><a href="#1-编排结构" class="headerlink" title="1) 编排结构"></a>1) 编排结构</h3><p><strong>重构前</strong>：</p>
+<p>一旦这层边界模糊，模型就会倾向于偷懒，直接在第一跳结果上作答。</p>
+<p>Anthropic 的 tool use 文档里一直强调，工具描述不仅是“接口文档”，还是模型的行为边界。OpenAI 的 function calling 也是类似情况：它能强约束参数，但不会自动帮你定义“下一跳还该不该继续查”。</p>
+<h3 id="2-把完成条件做成显式规则"><a href="#2-把完成条件做成显式规则" class="headerlink" title="2. 把完成条件做成显式规则"></a>2. 把完成条件做成显式规则</h3><p>这一步非常关键。</p>
+<p>不要只告诉模型“如果证据够了就停”，而要告诉它：</p>
 <ul>
-<li>大量流程集中在单文件主循环，修改一个分支容易影响其他分支。</li>
-<li>Prompt&#x2F;Guardrail&#x2F;Memory&#x2F;Tool 分层边界弱，测试常依赖端到端覆盖。</li>
+<li>哪类问题需要哪类证据</li>
+<li>当前拿到的证据是否满足回答条件</li>
+<li>如果不满足，下一步应该去拿什么</li>
 </ul>
-<p><strong>重构后</strong>：</p>
+<p>比如对“数量&#x2F;明细&#x2F;安排&#x2F;组成”类问题，可以定义一个通用原则：</p>
 <ul>
-<li>形成节点化拆分：Prompt、Guardrail、Memory、ToolService 各自独立演进。</li>
-<li><code>orchestrator</code> 逐步收敛为流程调度入口和兼容壳，内部实现可替换。</li>
-<li>为 LangGraph 风格状态流转打下可迁移结构（节点职责清晰、边界可观测）。</li>
+<li>列表搜索工具只负责定位对象，不算最终回答证据</li>
+<li>只有详情工具、明细工具或汇总工具返回了目标字段，才允许结束回答</li>
 </ul>
-<h3 id="2-API-与前端兼容"><a href="#2-API-与前端兼容" class="headerlink" title="2) API 与前端兼容"></a>2) API 与前端兼容</h3><p><strong>重构前</strong>：新旧实现切换风险高，常需要同步调整调用方。</p>
-<p><strong>重构后</strong>：</p>
+<p>这样系统就不再依赖模型的主观判断，而是有了更稳定的完成条件。</p>
+<h3 id="3-给-planner-一个结构化的中间状态"><a href="#3-给-planner-一个结构化的中间状态" class="headerlink" title="3. 给 planner 一个结构化的中间状态"></a>3. 给 planner 一个结构化的中间状态</h3><p>如果 planner 只有用户 query、历史消息和工具清单，它就只能靠自然语言去“猜”下一步。</p>
+<p>更稳的做法是让 planner 内部至少形成这几个结构化状态：</p>
 <ul>
-<li>明确保留 API 兼容壳（尤其是事件流与对话接口契约）。</li>
-<li>迁移内部实现时，外部调用语义不变，降低联调冲击面。</li>
+<li><code>intent</code></li>
+<li><code>target_scope</code></li>
+<li><code>required_evidence</code></li>
+<li><code>missing_evidence</code></li>
 </ul>
-<h3 id="3-存储边界"><a href="#3-存储边界" class="headerlink" title="3) 存储边界"></a>3) 存储边界</h3><p><strong>重构前</strong>：Python 侧承担部分本地存储语义，跨语言一致性治理成本高。</p>
-<p><strong>重构后</strong>：</p>
+<p>拿上面的例子来说，可以抽象成：</p>
 <ul>
-<li>主分支将 store 迁移到 Java 后，再合并到 refactor 分支。</li>
-<li>Python 侧更聚焦编排，Java 侧承担持久化真相源，职责边界更稳。</li>
+<li><code>intent = plan_furnace_count</code></li>
+<li><code>target_scope = today/current inherited plan scope</code></li>
+<li><code>required_evidence = production_plan_detail.furnacePlanCount or furnacePlans</code></li>
+<li><code>missing_evidence = detail_not_loaded</code></li>
 </ul>
-<h2 id="四、本轮收益（工程视角）"><a href="#四、本轮收益（工程视角）" class="headerlink" title="四、本轮收益（工程视角）"></a>四、本轮收益（工程视角）</h2><ol>
-<li>可维护性提升：从“单体流程修改”变为“节点级变更”，评审和回归颗粒度更细。</li>
-<li>兼容性可控：API 兼容壳使内部重构不必强绑定外部调用方升级节奏。</li>
-<li>协作效率提升：Python&#x2F;Java 边界更清楚，排障路径更短。</li>
-<li>发布风险下降：store 收口后，状态一致性问题更容易定位与治理。</li>
-<li>联调稳定性提升：LLM key 路径问题从隐式运行时失败转为显式配置校验。</li>
-</ol>
-<h2 id="五、风险与后续计划"><a href="#五、风险与后续计划" class="headerlink" title="五、风险与后续计划"></a>五、风险与后续计划</h2><h3 id="当前仍存在的风险"><a href="#当前仍存在的风险" class="headerlink" title="当前仍存在的风险"></a>当前仍存在的风险</h3><ol>
-<li>节点化不等于完全图化：目前是“按 LangGraph 思路拆分”，仍有一部分历史兼容逻辑需要继续清理。</li>
-<li>双分支并进期间，merge 冲突和行为漂移风险仍在。</li>
-<li>store 迁移后，Python 与 Java 之间的错误语义映射需要持续统一（超时、重试、业务错误码）。</li>
-</ol>
-<h3 id="后续计划"><a href="#后续计划" class="headerlink" title="后续计划"></a>后续计划</h3><ol>
-<li>把剩余兼容分支做成可观测的 feature flag，逐步下线历史路径。</li>
-<li>持续补齐“节点级”测试与回归基线，减少只能依赖全链路冒烟的情况。</li>
-<li>在 LangGraph 化阶段引入更明确的状态转移图与中断恢复策略，避免再次回到“主循环膨胀”。</li>
-<li>对 Qwen 接入补充启动期自检（key 文件可读性、超时和重试参数合法性），把问题前置到服务启动阶段。</li>
-</ol>
-<h2 id="六、结语"><a href="#六、结语" class="headerlink" title="六、结语"></a>六、结语</h2><p>这次重构的核心价值，不是“做了多少重命名”，而是把系统从“能跑”推进到“可持续演进”：</p>
+<p>这样 planner 的行为就不再是“看起来差不多”，而是“缺哪份证据，就继续取哪份证据”。</p>
+<h3 id="4-当某条链路已经稳定时，直接收敛成-facade-tool"><a href="#4-当某条链路已经稳定时，直接收敛成-facade-tool" class="headerlink" title="4. 当某条链路已经稳定时，直接收敛成 facade tool"></a>4. 当某条链路已经稳定时，直接收敛成 facade tool</h3><p>这一步不是所有系统一上来就要做，但在企业系统里通常是最终形态。</p>
+<p>如果某类问题总是固定链路：</p>
 <ul>
-<li>旧编排主干被拆分为可治理的节点职责。</li>
-<li>API 兼容壳保证了迁移阶段的稳定交付。</li>
-<li>store 真相源迁移到 Java 并顺利并入 refactor 分支，跨服务边界更清晰。</li>
-<li>LLM 接入的路径类问题得到工程化治理，联调成本显著下降。</li>
+<li>先 search</li>
+<li>再 detail</li>
+<li>再 aggregate</li>
 </ul>
-<p>后续工作重点会放在“彻底图化 + 历史兼容清理 + 观测与回归体系固化”。</p>
+<p>那最稳的方式往往不是继续训练 planner，而是直接给它一个新的只读 facade tool。</p>
+<p>比如：</p>
+<ul>
+<li><code>production_plan_furnace_summary</code></li>
+</ul>
+<p>内部自己完成：</p>
+<ul>
+<li>计划定位</li>
+<li>详情拉取</li>
+<li>炉次数统计</li>
+<li>结果摘要</li>
+</ul>
+<p>这样对模型来说就只剩“选工具”和“补参数”，而不是“自己设计工作流”。</p>
+<h2 id="在工程上，应该怎么落到现有系统里"><a href="#在工程上，应该怎么落到现有系统里" class="headerlink" title="在工程上，应该怎么落到现有系统里"></a>在工程上，应该怎么落到现有系统里</h2><p>如果是已经有一套 Java MCP + Python Orchestrator 的系统，我更建议按下面这个顺序落。</p>
+<h3 id="第一步：给-tool-增加角色信息"><a href="#第一步：给-tool-增加角色信息" class="headerlink" title="第一步：给 tool 增加角色信息"></a>第一步：给 tool 增加角色信息</h3><p>不要只给工具名和 description，可以补一层更靠近 planner 的 metadata，例如：</p>
+<ul>
+<li><code>role = locator</code></li>
+<li><code>role = evidence</code></li>
+<li><code>role = aggregate</code></li>
+<li><code>satisfies = [&quot;plan_detail&quot;, &quot;furnace_count&quot;]</code></li>
+</ul>
+<p>有了这一层之后，planner 就能区分：</p>
+<ul>
+<li>哪些工具只是帮我找到对象</li>
+<li>哪些工具才是真正能支撑回答的证据源</li>
+</ul>
+<h3 id="第二步：在-planner-里引入“回答完成条件”"><a href="#第二步：在-planner-里引入“回答完成条件”" class="headerlink" title="第二步：在 planner 里引入“回答完成条件”"></a>第二步：在 planner 里引入“回答完成条件”</h3><p>这是比补 few-shot 更关键的东西。</p>
+<p>可以定义一组通用规则：</p>
+<ul>
+<li>用户问列表存在性，<code>locator</code> 结果可直接回答</li>
+<li>用户问对象内明细、数量、组成，<code>locator</code> 结果不能直接回答</li>
+<li>如果当前证据只到对象列表，必须继续调用 <code>evidence</code> 工具</li>
+</ul>
+<p>这一步不需要一上来就上复杂 planning framework，但必须把“可停止”和“不可停止”从模型自由裁量中拿出来。</p>
+<h3 id="第三步：用例不要只测-final-answer，要测事件链"><a href="#第三步：用例不要只测-final-answer，要测事件链" class="headerlink" title="第三步：用例不要只测 final answer，要测事件链"></a>第三步：用例不要只测 final answer，要测事件链</h3><p>很多多跳能力在联调里会被误判，是因为只看最终回答，不看中间事件。</p>
+<p>更靠谱的验收应该是：</p>
+<ul>
+<li>有没有先调 locator</li>
+<li>有没有继续调 evidence</li>
+<li>最终回答是不是基于 evidence 收敛</li>
+</ul>
+<p>也就是说，验收不只是看“答得像不像”，还要看“链路是不是对的”。</p>
+<h3 id="第四步：把高频稳定链路收敛成-facade"><a href="#第四步：把高频稳定链路收敛成-facade" class="headerlink" title="第四步：把高频稳定链路收敛成 facade"></a>第四步：把高频稳定链路收敛成 facade</h3><p>当某条链路已经很稳定，继续让 planner 每次都做多跳选择，其实是在浪费 token 和稳定性预算。</p>
+<p>这时候就该把它沉淀成 facade：</p>
+<ul>
+<li>查询类问题优先做只读 facade</li>
+<li>写操作问题后面再考虑 preview&#x2F;confirm&#x2F;commit 三段式</li>
+</ul>
+<p>这会比无休止地加 prompt 规则更稳。</p>
+<h2 id="一句更直接的总结"><a href="#一句更直接的总结" class="headerlink" title="一句更直接的总结"></a>一句更直接的总结</h2><p>多跳规划能力增强的关键，不是让模型“更会猜下一步”，而是让系统把下面这几件事显式化：</p>
+<ul>
+<li>tool 边界</li>
+<li>证据类型</li>
+<li>完成条件</li>
+<li>工作流归并</li>
+</ul>
+<p>只要这四件事没立起来，模型就很容易在第一跳结果上过早停下。</p>
+<p>反过来，只要这四件事被做成系统能力，即使用户换一种问法，planner 也更容易走出正确的 <code>locator -&gt; evidence -&gt; summarize</code> 链。</p>
 
                 
               </div>
@@ -478,15 +471,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
       
-        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+        <a href="/tags/Function-Calling/" class="print-no-link">#Function Calling</a>
       
-        <a href="/tags/%E5%A4%8D%E7%9B%98/" class="print-no-link">#复盘</a>
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
       
-        <a href="/tags/ats-iot-ai/" class="print-no-link">#ats_iot_ai</a>
+        <a href="/tags/AI/" class="print-no-link">#AI</a>
       
-        <a href="/tags/AI%E9%87%8D%E6%9E%84/" class="print-no-link">#AI重构</a>
+        <a href="/tags/%E6%9E%B6%E6%9E%84/" class="print-no-link">#架构</a>
       
     </div>
   
@@ -498,8 +491,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分</div>
-      <div>https://willfordzhan.github.io/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/</div>
+      <div>别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做</div>
+      <div>https://willfordzhan.github.io/2026/03/17/general-multi-hop-planning-for-agents/</div>
     </div>
     <div class="license-meta">
       
@@ -511,7 +504,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月5日</div>
+          <div>2026年3月17日</div>
         </div>
       
       
@@ -543,18 +536,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/05/chat-star/" title="直接回复未走 Chat 优化的踩坑复盘（STAR）">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">直接回复未走 Chat 优化的踩坑复盘（STAR）</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/04/shiftbeginat-shiftdate/" title="踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常">
-                        <span class="hidden-mobile">踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常</span>
+                      <a href="/2026/03/17/ai-tool-answer-internal-field-leak/" title="AI Tool 回答为什么会泄漏内部字段名">
+                        <span class="hidden-mobile">AI Tool 回答为什么会泄漏内部字段名</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

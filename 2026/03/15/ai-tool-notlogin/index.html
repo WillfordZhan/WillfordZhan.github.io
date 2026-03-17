@@ -27,7 +27,7 @@
 <meta property="og:description" content="最近在一条 AI tool 调用链路里碰到一个典型问题：工具本身是从 Python 调 Java MCP，再进入 Java 里的业务 service，但执行到查库阶段时抛了 NotLoginException。表面看像是工具参数没带全，实际排下来，问题不在参数，而在历史业务代码对登录态的隐式依赖。 这次排查最后没有把整条链路改造成显式上下文传递，而是先做了一个线程级 LoginUser 注入的兼容">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-15T09:51:19.000Z">
-<meta property="article:modified_time" content="2026-03-17T12:11:55.562Z">
+<meta property="article:modified_time" content="2026-03-17T12:36:15.378Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="Java">
