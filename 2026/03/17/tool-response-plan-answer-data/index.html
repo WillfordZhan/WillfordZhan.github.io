@@ -19,31 +19,29 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上">
+    <meta name="description" content="最近在收一条 AI 工具链路时，问题不是 tool schema 怎么写，也不是 function calling 到底该不该开，而是一个更容易被忽略的点：tool 调完之后，返回给后续节点的那份结果，到底该长什么样。 一开始最直觉的做法是，tool 查到了什么就把什么整体回传。Java 侧查出一个对象，塞进 ToolResult.data；Python 侧拿到这份结果，再把它整个塞给回答节点。看">
 <meta property="og:type" content="article">
-<meta property="og:title" content="单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/index.html">
+<meta property="og:title" content="别再把 Tool Result 整包喂给 Answer LLM 了">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/17/tool-response-plan-answer-data/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这次复盘对应 sample_ai_service 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。 先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上">
+<meta property="og:description" content="最近在收一条 AI 工具链路时，问题不是 tool schema 怎么写，也不是 function calling 到底该不该开，而是一个更容易被忽略的点：tool 调完之后，返回给后续节点的那份结果，到底该长什么样。 一开始最直觉的做法是，tool 查到了什么就把什么整体回传。Java 侧查出一个对象，塞进 ToolResult.data；Python 侧拿到这份结果，再把它整个塞给回答节点。看">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-02T15:57:58.000Z">
+<meta property="article:published_time" content="2026-03-17T07:05:00.000Z">
 <meta property="article:modified_time" content="2026-03-17T07:27:04.226Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="工程复盘">
+<meta property="article:tag" content="Function Calling">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="FastAPI">
 <meta property="article:tag" content="MCP">
-<meta property="article:tag" content="Guardrails">
-<meta property="article:tag" content="Memory">
-<meta property="article:tag" content="Prompt Engineering">
-<meta property="article:tag" content="AI编排">
+<meta property="article:tag" content="架构设计">
+<meta property="article:tag" content="Tool Calling">
+<meta property="article:tag" content="AI Agent">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理 - 味儿福德詹的小站</title>
+  <title>别再把 Tool Result 整包喂给 Answer LLM 了 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -221,7 +219,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理"></span>
+            <span id="subtitle" data-typed-text="别再把 Tool Result 整包喂给 Answer LLM 了"></span>
           
         </div>
 
@@ -232,8 +230,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-02 23:57" pubdate>
-          2026年3月2日 晚上
+        <time datetime="2026-03-17 15:05" pubdate>
+          2026年3月17日 下午
         </time>
       </span>
     
@@ -244,7 +242,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.9k 字
+          2k 字
         
       </span>
     
@@ -301,158 +299,97 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理</h1>
+            <h1 id="seo-header">别再把 Tool Result 整包喂给 Answer LLM 了</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这次复盘对应 <code>sample_ai_service</code> 近期一轮比较完整的单模型编排内核治理。目标不是“再做一套新框架”，而是在不改外部 API 契约、不打乱 SSE 事件语义的前提下，把原本耦合较重的编排实现，收敛成可以继续演进的 runtime 分层。</p>
-<p>先给结论：这轮改造真正完成的，不是几个 helper 函数的搬家，而是把项目推进到了“单 LLM 编排 + Java MCP 工具执行”的清晰架构上，并且把 prompt、guardrail、memory、cleanup 四个层面的改造都做到了可回归、可审计、可继续扩展。</p>
-<h2 id="一、STAR-总览"><a href="#一、STAR-总览" class="headerlink" title="一、STAR 总览"></a>一、STAR 总览</h2><h3 id="S-Situation"><a href="#S-Situation" class="headerlink" title="S: Situation"></a>S: Situation</h3><p>改造开始前，项目虽然已经具备完整的 AI run 生命周期：</p>
+                <p>最近在收一条 AI 工具链路时，问题不是 tool schema 怎么写，也不是 function calling 到底该不该开，而是一个更容易被忽略的点：tool 调完之后，返回给后续节点的那份结果，到底该长什么样。</p>
+<p>一开始最直觉的做法是，tool 查到了什么就把什么整体回传。Java 侧查出一个对象，塞进 <code>ToolResult.data</code>；Python 侧拿到这份结果，再把它整个塞给回答节点。看起来最省事，实际上最容易把两类完全不同的字段揉在一起：</p>
 <ul>
-<li><code>POST /api/mock-ai/runs</code></li>
-<li><code>GET /api/mock-ai/runs/&#123;run_id&#125;/events</code></li>
-<li><code>POST /api/mock-ai/runs/&#123;run_id&#125;/conversation-input</code></li>
+<li>规划节点需要的 internal 字段，比如 <code>status</code>、<code>planId</code>、<code>recipeId</code>、内部 marker。</li>
+<li>回答节点需要的展示字段，比如 <code>statusName</code>、<code>planName</code>、<code>recipeName</code>。</li>
 </ul>
-<p>但内核层面有四个明显问题：</p>
+<p>这两个集合不是一回事。前者是给 agent 继续决策和串工具用的，后者才是给用户看的。如果 Answer LLM 直接看到了前者，那你很难再理直气壮地说“这些字段绝不会出现在最终回答里”。</p>
+<h2 id="一、问题不在-schema，而在结果消费边界"><a href="#一、问题不在-schema，而在结果消费边界" class="headerlink" title="一、问题不在 schema，而在结果消费边界"></a>一、问题不在 schema，而在结果消费边界</h2><p>Tool schema 解决的是“模型怎么调工具”，不是“工具结果应该怎么分发给后续节点”。这两件事经常因为都长得像 JSON Schema 被混成一件事。</p>
+<p>真正的问题是：一次 tool call 的结果，往往天然有两个消费者。</p>
+<p>第一个消费者是规划节点。它需要看更全的结果，用来决定下一步要不要继续调工具、调哪把工具、带什么参数。这一层看到 internal id 没问题，甚至很多时候必须看到，不然没法继续串联动作。</p>
+<p>第二个消费者是回答节点。它的目标不是做控制流，而是把已经拿到的证据翻成用户可理解的答案。到了这一层，<code>statusName</code> 有意义，<code>status=1</code> 通常没意义；<code>recipeName</code> 有意义，<code>recipeId</code> 大多数时候没意义。</p>
+<p>如果这两个消费者看到的是同一份原始 tool result，系统就会出现一个很别扭的状态：编排需要更多字段，回答需要更少字段，最后你只能靠 prompt 去提醒模型“不要暴露内部字段”。这种做法能凑合，但不稳。</p>
+<h2 id="二、更合适的做法：把工具结果拆成双视图"><a href="#二、更合适的做法：把工具结果拆成双视图" class="headerlink" title="二、更合适的做法：把工具结果拆成双视图"></a>二、更合适的做法：把工具结果拆成双视图</h2><p>这次收口下来，最顺的方案其实很简单：不要再把 tool result 当成单视图结果，而是直接升级成双视图协议。</p>
+<p>我最后给出的结构是：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;ok&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;preview&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;找到 3 条计划&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;payload&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;planData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;planId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12345</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><br>    <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;answerData&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;planName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;白班计划&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;statusName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;生产中&quot;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>这里有两个关键判断。</p>
+<p>第一，<code>planData</code> 不是“内部调试信息”，它是给规划节点消费的业务数据。只要你的 agent 还要继续串 tool、继续决定下一步动作，这层数据就是真实的运行时输入，不是附属日志。</p>
+<p>第二，<code>answerData</code> 也不是“把整份结果再 trim 一遍”。它是一个单独设计出来的展示视图，目标非常明确：只给回答节点看用户应该知道、也看得懂的字段。</p>
+<p>这样处理之后，边界一下就清楚了：</p>
+<ul>
+<li>PlanLLM 看 <code>planData</code></li>
+<li>AnswerLLM 看 <code>answerData</code></li>
+</ul>
+<p>不再需要回答节点自己猜哪些字段该说、哪些字段不该说。</p>
+<h2 id="三、为什么不建议让-Python-再按-schema-二次裁剪"><a href="#三、为什么不建议让-Python-再按-schema-二次裁剪" class="headerlink" title="三、为什么不建议让 Python 再按 schema 二次裁剪"></a>三、为什么不建议让 Python 再按 schema 二次裁剪</h2><p>这个问题当时也讨论过：既然 Java 已经有 tool schema，Python 能不能拿到 schema 之后，再根据字段定义把 tool result 做一遍 trim？</p>
+<p>结论是不太建议。</p>
+<p>原因不复杂。schema 更适合表达结构，不适合表达“哪些字段给规划节点，哪些字段给回答节点”这种多受众语义。如果把这层规则放到 Python 去推断，实际上就会出现两份规则：</p>
+<ul>
+<li>Java 一份，决定 tool 返回了什么。</li>
+<li>Python 一份，决定工具结果该怎么再裁。</li>
+</ul>
+<p>这类逻辑一旦分散，过几个月一定会漂。某个字段 Java 新加了，Python 没跟上；某个字段 Java 觉得是 internal，Python 还在往回答节点里喂。最后排查时你会发现，问题不在模型，而在你自己系统的边界已经裂开了。</p>
+<p>更稳的分工是：</p>
+<ul>
+<li>Java 负责定义字段属于哪个视图，并产出双视图结果。</li>
+<li>Python 负责按节点职责选择消费 <code>planData</code> 还是 <code>answerData</code>。</li>
+</ul>
+<p>也就是说，Python 不负责“理解字段语义”，只负责“选择哪份结果给谁”。</p>
+<h2 id="四、Java-侧要不要硬写-llmResult-字段"><a href="#四、Java-侧要不要硬写-llmResult-字段" class="headerlink" title="四、Java 侧要不要硬写 llmResult 字段"></a>四、Java 侧要不要硬写 <code>llmResult</code> 字段</h2><p>另一个容易走偏的点，是把结果字段直接命名成 <code>llmResult</code>。</p>
+<p>这听起来很自然，但其实把协议语义绑死在了当前实现细节上。今天是 PlanLLM 和 AnswerLLM，明天也许会拆成 planner、solver、renderer，或者某个 tool 结果还要给前端卡片组件消费。到那时，<code>llmResult</code> 这个名字就会越来越含糊。</p>
+<p>所以更稳的命名不是“按技术实现命名”，而是“按消费语义命名”。</p>
+<p>这也是为什么最后收口成了：</p>
+<ul>
+<li><code>planData</code></li>
+<li><code>answerData</code></li>
+</ul>
+<p>这两个名字直接回答了“谁消费它”，而不是“当前是哪个模型在看”。</p>
+<h2 id="五、Java-侧更通用的做法：在-VO-上打字段受众注解"><a href="#五、Java-侧更通用的做法：在-VO-上打字段受众注解" class="headerlink" title="五、Java 侧更通用的做法：在 VO 上打字段受众注解"></a>五、Java 侧更通用的做法：在 VO 上打字段受众注解</h2><p>如果每个 tool 都自己手工构造 <code>planData</code> 和 <code>answerData</code>，短期能跑，长期一定会乱。因为每个 tool 都会再发明一遍裁剪逻辑，最后没有统一能力。</p>
+<p>更合适的做法，是在返回对象的 VO 上直接标字段受众，然后让统一 projector 去做投影。</p>
+<p>例如：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">enum</span> <span class="hljs-title class_">ToolFieldAudience</span> &#123;<br>    PLAN,<br>    ANSWER<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Retention(RetentionPolicy.RUNTIME)</span><br><span class="hljs-meta">@Target(ElementType.FIELD)</span><br><span class="hljs-keyword">public</span> <span class="hljs-meta">@interface</span> ToolField &#123;<br>    ToolFieldAudience[] visibleTo();<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>VO 上这么标：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">ProductionPlanSearchItemVo</span> &#123;<br><br>    <span class="hljs-meta">@ToolField(visibleTo = &#123;PLAN&#125;)</span><br>    <span class="hljs-keyword">private</span> Long planId;<br><br>    <span class="hljs-meta">@ToolField(visibleTo = &#123;PLAN, ANSWER&#125;)</span><br>    <span class="hljs-keyword">private</span> String planName;<br><br>    <span class="hljs-meta">@ToolField(visibleTo = &#123;PLAN&#125;)</span><br>    <span class="hljs-keyword">private</span> Integer status;<br><br>    <span class="hljs-meta">@ToolField(visibleTo = &#123;ANSWER&#125;)</span><br>    <span class="hljs-keyword">private</span> String statusName;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>然后由统一 projector 输出：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">ToolPayload</span> <span class="hljs-variable">payload</span> <span class="hljs-operator">=</span> ToolPayloadProjector.project(vo);<br></code></pre></td></tr></table></figure>
+
+<p>这样，tool 主逻辑里真正保留下来的就只有两件事：</p>
 <ol>
-<li>Prompt 构建分散在 <code>orchestrator</code> 内部，planner、summary、direct answer 各写各的。</li>
-<li>护栏逻辑和事件编排、状态持久化强耦合，<code>orchestrator.py</code> 过重。</li>
-<li>短期记忆主要依赖事件回放，没有统一门面，也没有增量快照。</li>
-<li>历史遗留模块还在仓库里，容易误导后来的人以为旧链路仍在生产路径上。</li>
+<li>调业务 service</li>
+<li>把业务 DTO 映射成统一的返回 VO</li>
 </ol>
-<p>换句话说，当时的系统是“能跑的单模型编排器”，但还不是“适合持续迭代的单模型编排内核”。</p>
-<h3 id="T-Task"><a href="#T-Task" class="headerlink" title="T: Task"></a>T: Task</h3><p>这一轮任务不是推倒重写，而是在几个硬约束下做渐进式重构：</p>
-<ol>
-<li>不改变对外 API 契约。</li>
-<li>不破坏已有 SSE 事件名和关键事件顺序。</li>
-<li>不重新引入第二套 intent&#x2F;router 主流程。</li>
-<li>每个 phase 都要独立提交、独立回归、独立复盘。</li>
-</ol>
-<p>所以这次工作的真实目标，是把单文件大编排器拆成“主循环 + runtime 组件”，同时给后续的 prompt 注入、护栏增强、长期记忆、兼容逻辑收敛留出明确落点。</p>
-<h3 id="A-Action"><a href="#A-Action" class="headerlink" title="A: Action"></a>A: Action</h3><h2 id="二、四个-Phase-的改造亮点"><a href="#二、四个-Phase-的改造亮点" class="headerlink" title="二、四个 Phase 的改造亮点"></a>二、四个 Phase 的改造亮点</h2><table>
-<thead>
-<tr>
-<th>Phase</th>
-<th>目标</th>
-<th>关键提交</th>
-<th>亮点</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>Phase 1</td>
-<td>Prompt Pipeline</td>
-<td><code>ab4168a</code></td>
-<td>把 planner &#x2F; summary &#x2F; direct answer 的 prompt 收口成统一 runtime</td>
-</tr>
-<tr>
-<td>Phase 2</td>
-<td>Guardrail Pipeline</td>
-<td><code>2d0e86c</code></td>
-<td>把 schema、clarification、loop、final answer 护栏从主流程里抽离</td>
-</tr>
-<tr>
-<td>Phase 3</td>
-<td>Memory Facade</td>
-<td><code>95971aa</code></td>
-<td>给短期记忆建立统一 facade，并支持 runtime state 快照</td>
-</tr>
-<tr>
-<td>Phase 4</td>
-<td>Cleanup and Convergence</td>
-<td><code>bb69e01</code></td>
-<td>删除无引用遗留模块，真正完成结构迁移</td>
-</tr>
-</tbody></table>
-<h3 id="Phase-1：提示词流水线运行时化"><a href="#Phase-1：提示词流水线运行时化" class="headerlink" title="Phase 1：提示词流水线运行时化"></a>Phase 1：提示词流水线运行时化</h3><p>关联提交：<code>ab4168a feat(编排): 抽取提示词流水线运行时</code></p>
-<p>这一阶段最重要的动作，是把 prompt 相关职责从 <code>orchestrator.py</code> 中拆出来：</p>
+<p>投影这件事不再散落在各个 tool 里。</p>
+<h2 id="六、这和主流-agent-编排思路其实并不冲突"><a href="#六、这和主流-agent-编排思路其实并不冲突" class="headerlink" title="六、这和主流 agent 编排思路其实并不冲突"></a>六、这和主流 agent 编排思路其实并不冲突</h2><p>这套做法看起来像是自己发明了一层协议，其实和现在主流 agent&#x2F;runtime 的思路是一致的，只是收得更彻底。</p>
+<p>图编排系统一般都会把“运行时状态”和“给模型看的消息”分开。状态里可以有更多内部字段，消息里则更偏向模型真正需要消费的内容。只不过很多项目没有明确把这件事收敛成 tool response 协议，最后还是让工具结果直接流进消息历史。</p>
+<p>你如果已经走到了“两阶段 LLM”这一步，也就是：</p>
 <ul>
-<li>新增 <code>prompt_builder.py</code>，统一 planner &#x2F; summary &#x2F; direct answer 的 prompt 常量与 payload 组装。</li>
-<li>新增 <code>plan_engine.py</code>，封装 planner 的 LLM 调用，并复用已有纯函数解析能力。</li>
-<li>把 <code>_plan_step()</code>、direct answer、summary 等 prompt 拼装行为改为委托 runtime 组件完成。</li>
+<li>前一段负责规划和决策</li>
+<li>后一段负责回答和表达</li>
 </ul>
-<p>这一 phase 的价值不只是“代码更整洁”，而是建立了 prompt 的统一收口点。后续如果要加租户策略注入、实验 prompt、中间件式 prompt augmentation，不需要再回头撕主编排流程。</p>
-<h3 id="Phase-2：护栏流水线显式化"><a href="#Phase-2：护栏流水线显式化" class="headerlink" title="Phase 2：护栏流水线显式化"></a>Phase 2：护栏流水线显式化</h3><p>关联提交：<code>2d0e86c refactor(编排): 抽取护栏处理流水线</code></p>
-<p>这一阶段新增了 <code>guardrails.py</code>，把以下能力纳入统一 pipeline：</p>
+<p>那工具结果继续维持单视图，实际上是和架构本身不一致的。节点已经分工了，数据却还没分工。</p>
+<h2 id="七、对这次改造的最终判断"><a href="#七、对这次改造的最终判断" class="headerlink" title="七、对这次改造的最终判断"></a>七、对这次改造的最终判断</h2><p>这次最有价值的收获，不是又整理了一版 tool schema，也不是给回答 prompt 多补了一句“不要暴露内部字段”。</p>
+<p>真正有价值的，是把工具结果的消费边界正式拉出来了：</p>
 <ul>
-<li><code>SchemaGuardrail</code></li>
-<li><code>ClarificationGuardrail</code></li>
-<li><code>LoopGuardrail</code></li>
-<li><code>FinalAnswerGuardrail</code></li>
+<li>规划节点看的，不等于回答节点看的</li>
+<li>Tool result 不应该再是单一视图</li>
+<li>Python 不该再负责猜字段语义</li>
+<li>Java 侧应该提供统一的受众投影能力</li>
 </ul>
-<p>同时，<code>run_state</code> 的 runtime 维度也开始收口，至少承载了：</p>
-<ul>
-<li><code>pending_tool_call</code></li>
-<li><code>tool_loop_signatures</code></li>
-</ul>
-<p>这一阶段的关键收益是：护栏逻辑不再散落在编排分支里，<code>orchestrator</code> 只保留事件顺序控制和主流程推进，真正开始像 orchestration，而不是“所有逻辑都堆在一个文件里”。</p>
-<h3 id="Phase-3：记忆门面落地"><a href="#Phase-3：记忆门面落地" class="headerlink" title="Phase 3：记忆门面落地"></a>Phase 3：记忆门面落地</h3><p>关联提交：<code>95971aa feat(编排): 增加记忆门面运行时</code></p>
-<p>这一阶段新增 <code>memory_facade.py</code>，把短期记忆的读写路径显式化：</p>
-<ul>
-<li><code>build_short_memory()</code></li>
-<li><code>append_turn_artifacts()</code></li>
-<li><code>search()</code> 预留长期记忆扩展点</li>
-</ul>
-<p>更重要的是，短期记忆的读取策略从“只靠事件回放”变成：</p>
-<ol>
-<li>优先读 <code>run_state.short_memory_turns</code></li>
-<li>缺失时再回退 event replay</li>
-</ol>
-<p>这意味着 <code>run_state</code> 不再只是“待补参状态袋子”，而开始变成真正的 runtime state 容器。后续如果要接长期记忆、做更强的检索式上下文召回，调用点已经固定在 facade 上，不需要再分散改业务流程。</p>
-<h3 id="Phase-4：清理遗留兼容模块"><a href="#Phase-4：清理遗留兼容模块" class="headerlink" title="Phase 4：清理遗留兼容模块"></a>Phase 4：清理遗留兼容模块</h3><p>关联提交：<code>bb69e01 refactor(编排): 清理遗留兼容模块</code></p>
-<p>这一阶段做的是最容易被忽视、但对长期维护最关键的工作：真正把已经退出生产链路的模块删掉。</p>
-<p>清理内容包括：</p>
-<ul>
-<li>删除无引用的 <code>app/runtime_core/clarification.py</code></li>
-<li>删除无引用的 <code>app/runtime_core/intent_router.py</code></li>
-<li>更新 <code>app/runtime_core/__init__.py</code></li>
-<li>收敛 <code>orchestrator.py</code> 中的兼容逻辑，只保留当前仍有意义的恢复点</li>
-</ul>
-<p>很多重构都会出现“新结构已经有了，但旧模块继续躺在仓库里”的情况。这次 Phase 4 的价值就在于，它不是只做抽离，还把真正无用的旧结构一并清场，减少后续维护误判。</p>
-<h3 id="R-Result"><a href="#R-Result" class="headerlink" title="R: Result"></a>R: Result</h3><h2 id="三、结果与验证"><a href="#三、结果与验证" class="headerlink" title="三、结果与验证"></a>三、结果与验证</h2><h3 id="1-主编排器职责真正收敛了"><a href="#1-主编排器职责真正收敛了" class="headerlink" title="1. 主编排器职责真正收敛了"></a>1. 主编排器职责真正收敛了</h3><p>改造完成后，<code>orchestrator.py</code> 的职责更接近一个真正的 orchestrator：</p>
-<ul>
-<li>控制流程推进</li>
-<li>控制事件写入顺序</li>
-<li>装配 runtime 组件</li>
-<li>承接 tool call 与最终收口</li>
-</ul>
-<p>而 prompt、guardrail、memory 的主体实现，已经转移到 <code>app/runtime_core/runtime/</code>。</p>
-<h3 id="2-Runtime-分层已经成型"><a href="#2-Runtime-分层已经成型" class="headerlink" title="2. Runtime 分层已经成型"></a>2. Runtime 分层已经成型</h3><p>当前 runtime 层至少已经稳定包含：</p>
-<ul>
-<li><code>prompt_builder.py</code></li>
-<li><code>plan_engine.py</code></li>
-<li><code>guardrails.py</code></li>
-<li><code>memory_facade.py</code></li>
-</ul>
-<p>这一点很关键，因为它意味着后续扩展可以围绕“能力层”推进，而不是继续在大文件里堆条件分支。</p>
-<h3 id="3-当前总体架构已经有了清晰结论"><a href="#3-当前总体架构已经有了清晰结论" class="headerlink" title="3. 当前总体架构已经有了清晰结论"></a>3. 当前总体架构已经有了清晰结论</h3><p>结合 <code>当前项目总体架构</code> 文档，这个项目现在的定位已经比较明确：</p>
-<ul>
-<li>Python 服务负责 run 生命周期、SSE 事件流、ReAct 编排主循环，以及 prompt &#x2F; guardrail &#x2F; memory runtime。</li>
-<li>Java MCP 服务负责工具目录查询、工具执行和具体业务能力落地。</li>
-</ul>
-<p>也就是说，这次四阶段改造不是孤立动作，而是在把仓库真正推进到“单 LLM 编排 + Java MCP 工具执行”的拆分架构上。</p>
-<h3 id="4-测试结果是可追溯、可校验的"><a href="#4-测试结果是可追溯、可校验的" class="headerlink" title="4. 测试结果是可追溯、可校验的"></a>4. 测试结果是可追溯、可校验的</h3><p>这里需要把两个时间点分开写清楚：</p>
-<ul>
-<li>以复盘收口提交 <code>1a668f8</code> 为准，在临时 worktree 中执行 <code>pytest -q</code>，结果是 <code>46 passed</code>。</li>
-<li>截至 2026 年 3 月 2 日，当前主线 HEAD 再次执行 <code>pytest -q</code>，结果已经是 <code>48 passed</code>。</li>
-</ul>
-<p>这两个数字并不冲突。前者是这次四阶段改造复盘口径下的全量回归结果，后者说明主线在此之后又新增了测试覆盖。</p>
-<h3 id="5-这次改造最值得复用的方法论"><a href="#5-这次改造最值得复用的方法论" class="headerlink" title="5. 这次改造最值得复用的方法论"></a>5. 这次改造最值得复用的方法论</h3><p>如果只看代码层面，这轮工作像是在做“分层重构”；但从工程方法上看，更重要的有三点：</p>
-<ol>
-<li>按 phase 逐段推进，而不是一次性重写。</li>
-<li>每个 phase 都有明确 commit，可审计、可回放、可回归。</li>
-<li>兼容路径是显式保留的，不是默认假设没人依赖旧行为。</li>
-</ol>
-<p>这也是为什么这轮改造能在不打断现有 API 和 SSE 语义的前提下完成结构升级。</p>
-<h2 id="四、仍然保留的边界"><a href="#四、仍然保留的边界" class="headerlink" title="四、仍然保留的边界"></a>四、仍然保留的边界</h2><p>这次改造完成的是“内核骨架重整”，不是所有问题都一次性收尾。当前仍有几个边界：</p>
-<ol>
-<li><code>_recover_pending_from_call_plan()</code> 仍是兼容型启发式逻辑。</li>
-<li><code>MemoryFacade.search()</code> 目前还是空实现。</li>
-<li><code>guardrails.py</code>、<code>memory_facade.py</code> 还可以继续补模块级单测。</li>
-<li><code>RunStore.set_run_state()</code> 仍是整包覆盖语义，runtime 层仍需谨慎处理状态合并。</li>
-</ol>
-<p>这些边界不影响这轮改造的成立，但它们决定了后续迭代的优先级。</p>
-<h2 id="五、一句话结论"><a href="#五、一句话结论" class="headerlink" title="五、一句话结论"></a>五、一句话结论</h2><p>这次四阶段改造，完成的不是几个局部优化，而是把 <code>sample_ai_service</code> 从“可运行的单模型编排实现”，推进成了“具备清晰 runtime 分层、统一状态落点和后续演进空间的单模型编排内核”。</p>
+<p>如果系统还只是 demo，这件事看起来像“多做了一层”。但一旦工具变多、节点变多、链路开始稳定跑起来，这层边界会直接决定后面是继续可维护，还是每次排查都要回到 prompt 上打补丁。</p>
+<p>所以这次的结论可以收成一句话：</p>
+<p>不要再把 Tool Result 整包喂给 Answer LLM。<br>先把它拆成 <code>planData</code> 和 <code>answerData</code>，再让不同节点各看各的。</p>
 
                 
               </div>
@@ -486,21 +423,17 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/" class="print-no-link">#工程复盘</a>
+        <a href="/tags/Function-Calling/" class="print-no-link">#Function Calling</a>
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
-      
         <a href="/tags/MCP/" class="print-no-link">#MCP</a>
       
-        <a href="/tags/Guardrails/" class="print-no-link">#Guardrails</a>
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" class="print-no-link">#架构设计</a>
       
-        <a href="/tags/Memory/" class="print-no-link">#Memory</a>
+        <a href="/tags/Tool-Calling/" class="print-no-link">#Tool Calling</a>
       
-        <a href="/tags/Prompt-Engineering/" class="print-no-link">#Prompt Engineering</a>
-      
-        <a href="/tags/AI%E7%BC%96%E6%8E%92/" class="print-no-link">#AI编排</a>
+        <a href="/tags/AI-Agent/" class="print-no-link">#AI Agent</a>
       
     </div>
   
@@ -512,8 +445,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>单模型编排四阶段改造复盘：从提示词、护栏到记忆与清理</div>
-      <div>https://willfordzhan.github.io/2026/03/02/sample-ai-service-single-model-orchestration-four-phase-retrospective/</div>
+      <div>别再把 Tool Result 整包喂给 Answer LLM 了</div>
+      <div>https://willfordzhan.github.io/2026/03/17/tool-response-plan-answer-data/</div>
     </div>
     <div class="license-meta">
       
@@ -525,7 +458,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月2日</div>
+          <div>2026年3月17日</div>
         </div>
       
       
@@ -557,18 +490,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/03/hbuilderx-uni-app/" title="HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">HBuilderX 改了 uni-app 代码后，怎么在微信开发者工具里看到更新</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/02/agent-langgraph-llamaindex/" title="项目技术选型调研：通用Agent与LangGraph+LlamaIndex对比">
-                        <span class="hidden-mobile">项目技术选型调研：通用Agent与LangGraph+LlamaIndex对比</span>
+                      <a href="/2026/03/15/rag-vs-dify-native-assistant/" title="为什么我们的 RAG 还打不过 Dify 原生助手">
+                        <span class="hidden-mobile">为什么我们的 RAG 还打不过 Dify 原生助手</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

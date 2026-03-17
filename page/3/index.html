@@ -241,6 +241,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/05/p1/" target="_self">
+          P1解析失败恢复：从误报模型不可用到可恢复澄清链路
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/p1/" target="_self">
+        <div>
+          这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus=schema_validation_failed) -&
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-05 19:13" pubdate>
+              2026-03-05
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/">#联调复盘</a>
+            
+              <a href="/tags/%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D/">#故障恢复</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/05/chat-star/" target="_self">
           直接回复未走 Chat 优化的踩坑复盘（STAR）
         </a>
@@ -737,9 +804,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">#技术选型</a>
-            
               <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/%E6%8A%80%E6%9C%AF%E9%80%89%E5%9E%8B/">#技术选型</a>
             
               <a href="/tags/LlamaIndex/">#LlamaIndex</a>
             
@@ -808,11 +875,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
+              <a href="/tags/ReAct/">#ReAct</a>
+            
               <a href="/tags/OpenClaw/">#OpenClaw</a>
             
               <a href="/tags/Agent-Engineering/">#Agent Engineering</a>
-            
-              <a href="/tags/ReAct/">#ReAct</a>
             
               <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
             
@@ -826,82 +893,11 @@
     </article>
   </div>
 
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/02/llm-openclaw/" target="_self">
-          从双层意图到单 LLM 自决：OpenClaw 范式与护栏工程化落地
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/02/llm-openclaw/" target="_self">
-        <div>
-          很多 AI 编排系统一开始都会走到同一个架构：  先做 intent parser（判定 chat &#x2F; tool） 再进入 ReAct（plan&#x2F;act&#x2F;observe）  这套架构可控，但随着需求复杂化，经常出现三个问题：  决策重复（先判一次 intent，再让 planner 再判一次） 状态割裂（intent 状态和 tool 状态不同步） prompt 分裂
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-02 17:18" pubdate>
-              2026-03-02
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Function-Calling/">#Function Calling</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/OpenClaw/">#OpenClaw</a>
-            
-              <a href="/tags/Memory/">#Memory</a>
-            
-              <a href="/tags/AI-Orchestrator/">#AI Orchestrator</a>
-            
-              <a href="/tags/Tool-Guardrails/">#Tool Guardrails</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
 
 
   <nav aria-label="navigation">
     <span class="pagination" id="pagination">
-      <a class="extend prev" rel="prev" href="/page/2/#board"><i class="iconfont icon-arrowleft"></i></a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/#board">2</a><span class="page-number current">3</span><a class="page-number" href="/page/4/#board">4</a><a class="page-number" href="/page/5/#board">5</a><a class="extend next" rel="next" href="/page/4/#board"><i class="iconfont icon-arrowright"></i></a>
+      <a class="extend prev" rel="prev" href="/page/2/#board"><i class="iconfont icon-arrowleft"></i></a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/#board">2</a><span class="page-number current">3</span><a class="page-number" href="/page/4/#board">4</a><a class="page-number" href="/page/5/#board">5</a><a class="page-number" href="/page/6/#board">6</a><a class="extend next" rel="next" href="/page/4/#board"><i class="iconfont icon-arrowright"></i></a>
     </span>
   </nav>
 
