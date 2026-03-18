@@ -1,0 +1,828 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="结论先行 这轮跨 X &#x2F; Reddit &#x2F; Linux.do &#x2F; GitHub &#x2F; 论文 &#x2F; 官方文档 调研后，最清晰的共识不是“让 agent 更自由”，而是：  把 自由裁量缩到少数高价值决策点 把 执行、验证、补参、审计、回放 下沉到 runtime &#x2F; workflow &#x2F; grader &#x2F; skill 把 domain-specific 差异 优先做成 sk">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/18/ai-agent-skills-subagents-workflow/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="结论先行 这轮跨 X &#x2F; Reddit &#x2F; Linux.do &#x2F; GitHub &#x2F; 论文 &#x2F; 官方文档 调研后，最清晰的共识不是“让 agent 更自由”，而是：  把 自由裁量缩到少数高价值决策点 把 执行、验证、补参、审计、回放 下沉到 runtime &#x2F; workflow &#x2F; grader &#x2F; skill 把 domain-specific 差异 优先做成 sk">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-18T09:27:26.000Z">
+<meta property="article:modified_time" content="2026-03-18T09:29:50.571Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="LangGraph">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="AI Agent">
+<meta property="article:tag" content="Workflow">
+<meta property="article:tag" content="Skills">
+<meta property="article:tag" content="Subagents">
+<meta property="article:tag" content="调研">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-18 17:27" pubdate>
+          2026年3月18日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          13 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p><strong>结论先行</strong></p>
+<p>这轮跨 <code>X / Reddit / Linux.do / GitHub / 论文 / 官方文档</code> 调研后，最清晰的共识不是“让 agent 更自由”，而是：</p>
+<ul>
+<li>把 <strong>自由裁量缩到少数高价值决策点</strong></li>
+<li>把 <strong>执行、验证、补参、审计、回放</strong> 下沉到 runtime &#x2F; workflow &#x2F; grader &#x2F; skill</li>
+<li>把 <strong>domain-specific 差异</strong> 优先做成 <code>skills / projectors / facade workflows</code>，而不是上来拆一堆 domain agent</li>
+</ul>
+<p>更尖锐一点说：<br><strong>前沿不是在追求更会 improvisation 的 ReAct，而是在追求更强约束下的 agentic workflow。</strong></p>
+<p><strong>有可核验来源直接支持的结论</strong></p>
+<ul>
+<li>官方框架都在把 agent 定义成“workflow + tools + memory + logic + evals”，不是单纯 ReAct。OpenAI <code>Agents / Agent Builder</code> 直接把 <code>logic nodes / tools / guardrails / knowledge / workflows</code> 放进同一个构建面里。<a target="_blank" rel="noopener" href="https://developers.openai.com/api/docs/guides/agents">OpenAI Agents</a> <a target="_blank" rel="noopener" href="https://platform.openai.com/docs/guides/agent-builder">Agent Builder</a></li>
+<li>LangChain &#x2F; LangGraph 已经显式分层：<code>create_agent</code> 是高层 agent API，底层 runtime 是 LangGraph；<code>create_react_agent</code> 已被弱化&#x2F;弃用，不再是主范式。<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/releases-v1">LangChain v1</a> <a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/releases/langgraph-v1">LangGraph v1</a> <a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/agents">LangChain Agents</a></li>
+<li>Anthropic 在 2025-11-24 的 advanced tool use 里，直接把三类“硬能力”推到前台：<ul>
+<li><code>Tool Search</code> 解决工具库过大和上下文膨胀</li>
+<li><code>Programmatic Tool Calling</code> 让代码而不是自然语言协调多步执行</li>
+<li><code>Tool Use Examples</code> 解决 “JSON Schema 只能校验结构，不能表达使用模式” 的问题<br>这和你问的“证据语义层怎么硬化”高度相关。<a target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/advanced-tool-use">Anthropic advanced tool use, 2025-11-24</a></li>
+</ul>
+</li>
+<li>同一篇 Anthropic 文档明确给出一个很关键的事实：他们见过工具定义在优化前就占掉 <code>134K tokens</code>，而且常见失败不是 schema invalid，而是“选错工具 &#x2F; 参数用法错”。这直接说明“只靠 schema + prompt”不够硬。<a target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/advanced-tool-use">Anthropic advanced tool use</a></li>
+<li>Anthropic 在 2026-01-09 的 evals 文档里把 agent eval 定义成：<code>task / trials / grader / transcript / outcome / harness</code>，还明确说研究类 agent 要用 <code>groundedness / coverage / source quality</code> 组合 grader。这个方向本质就是把“证据充分性”从 prompt feeling 变成可执行评测契约。<a target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Demystifying evals for AI agents, 2026-01-09</a></li>
+<li>Anthropic 的 <code>Building Effective AI Agents</code> ebook 和 PDF 明确把模式拆成：<ul>
+<li>single-agent</li>
+<li>multi-agent centralized &#x2F; decentralized</li>
+<li>workflow sequential &#x2F; parallel &#x2F; hybrid</li>
+<li>skills<br>并强调 workflow 是静态结构，agent 是动态行为，两者是互补不是替代。<a target="_blank" rel="noopener" href="https://resources.anthropic.com/building-effective-ai-agents">Anthropic ebook</a> <a target="_blank" rel="noopener" href="https://resources.anthropic.com/hubfs/Building%20Effective%20AI%20Agents-%20Architecture%20Patterns%20and%20Implementation%20Frameworks.pdf?hsLang=en">PDF</a></li>
+</ul>
+</li>
+<li>GitHub 2025-05-19 发布 Copilot coding agent 时，核心卖点不是“更聪明”，而是 <code>integrated / steerable / verifiable</code>，并且默认走 PR、日志、审批边界。<a target="_blank" rel="noopener" href="https://github.com/newsroom/press-releases/coding-agent-for-github-copilot">GitHub Coding Agent, 2025-05-19</a></li>
+<li>GitHub 2025-12-18 正式上了 <code>Agent Skills</code>，定义成“instructions + scripts + resources，会在相关任务时自动加载”。这基本已经把 domain-specific few-shot&#x2F;链路从 prompt hack 推向了 skill 机制。<a target="_blank" rel="noopener" href="https://github.blog/changelog/2025-12-18-github-copilot-now-supports-agent-skills/">GitHub Copilot Agent Skills, 2025-12-18</a></li>
+<li>Anthropic 的 <code>subagents</code> 文档也同样把特定任务、独立上下文、工具约束、并行研究、链式 delegation 做成了正式能力，而不是临时 prompt 技巧。<a target="_blank" rel="noopener" href="https://code.claude.com/docs/en/sub-agents">Claude Code subagents docs</a></li>
+<li>论文侧也在强化这条路：<ul>
+<li><code>ReAct</code> 是基线：reasoning&#x2F;action 交替。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2210.03629">ReAct</a></li>
+<li><code>QualityFlow</code> 强调由质量检查控制的 agentic workflow 优于静态流程和单次生成。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2501.17167">QualityFlow</a></li>
+<li><code>FlowAgent</code> 直接瞄准 workflow agent 的 compliance + flexibility。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2502.14345">FlowAgent</a></li>
+<li><code>Plan-Then-Execute</code> 说明显式规划对协作和控制有价值，不是多余 ceremony。<a target="_blank" rel="noopener" href="https://arxiv.org/abs/2502.01390">Plan-Then-Execute</a></li>
+</ul>
+</li>
+</ul>
+<p><strong>社区讨论层面的高频信号</strong></p>
+<p>这些不是学术真理，但跨社区重复出现，值得重视。</p>
+<ul>
+<li>Reddit 上已经有很明确的工程派声音：<code>workflow as a tool</code>，一旦选中 workflow，就让 runtime 接管，不让 LLM 在执行中途继续乱 steering。这和“软能力下沉为硬能力”完全同向。<a target="_blank" rel="noopener" href="https://www.reddit.com/r/AI_Agents/comments/1qk2l7g/taking_execution_out_of_the_llm_exposing/">r&#x2F;AI_Agents, 2026-01-22</a></li>
+<li>Reddit 另一条高频观点是：真正能工作的 agent，本质就是 <code>FSM + memory + tools</code>，workflow 不是 weakness，而是 why they work。<a target="_blank" rel="noopener" href="https://www.reddit.com/r/LocalLLaMA/comments/1lwniq0/workflows_arent_a_weakness_in_ai_agents_theyre/">r&#x2F;LocalLLaMA, 2025-07-10</a></li>
+<li>业务落地者在 Reddit 里反复提到：最佳实践是“把 agent 当 decision assistant 放进 workflow”，而不是让 agent 取代 workflow。<a target="_blank" rel="noopener" href="https://www.reddit.com/r/LangChain/comments/1o3w8ll/anyone_here_building_agentic_ai_into_their_office/">r&#x2F;LangChain</a></li>
+<li>Linux.do 的中文讨论，2026 年明显更偏 <code>上下文工程 / Plan 模式 / HITL / 工程化 / 可观测性</code>，而不是早期那种“多智能体越多越高级”。<a target="_blank" rel="noopener" href="https://linux.do/t/topic/1543944">上下文工程</a> <a target="_blank" rel="noopener" href="https://linux.do/t/topic/1590572">AI 编程长文</a> <a target="_blank" rel="noopener" href="https://linux.do/t/topic/1687389">Agent 成熟度讨论, 2026-03-04</a> <a target="_blank" rel="noopener" href="https://linux.do/t/topic/792435">LangGraph HITL 讨论, 2025-07-16</a></li>
+<li>X 上能看到两个明显趋势，但证据强度弱于论文&#x2F;官方文档：<ul>
+<li>“Spec &#x2F; Plan first” 在 coding agent 社区升温，比如 MassGen 的 <code>Spec Plan Mode</code></li>
+<li>skills &#x2F; agents &#x2F; rules 被明确区分，且“接太多 MCP 会掉质”成为一线经验<br>这些更像一线 builder 的经验汇总，不应当当成学术共识。<a target="_blank" rel="noopener" href="https://x.com/massgen_ai/status/2026727701751685267">MassGen X snippet</a> <a target="_blank" rel="noopener" href="https://x.com/unikoukokun/status/2026262279172558992">日本开发者关于 <code>.claude/skills/.claude/agents</code> 的 X 讨论</a></li>
+</ul>
+</li>
+</ul>
+<p><strong>全球 vs 国内的差异</strong></p>
+<ul>
+<li>全球官方&#x2F;前沿框架更强调：<ul>
+<li>runtime substrate</li>
+<li>tool search</li>
+<li>code-based orchestration</li>
+<li>eval harness</li>
+<li>skills&#x2F;subagents</li>
+<li>mission control &#x2F; auditability<br>代表来源是 OpenAI、Anthropic、LangChain、GitHub。</li>
+</ul>
+</li>
+<li>国内公开讨论更强调：<ul>
+<li>context engineering</li>
+<li>HITL</li>
+<li>端到端产品化</li>
+<li>多智能体产品而不只是 SDK<br>代表信号包括 Linux.do 讨论，以及京东开源的 JoyAgent-JDGenie 在 GitHub 上自述的 <code>plan and executor + react + workflow memory</code> 产品路线。<br>但注意：JoyAgent README 属于项目方自述，不应等同于独立评测结论。<a target="_blank" rel="noopener" href="https://github.com/jd-opensource/joyagent-jdgenie">JoyAgent-JDGenie</a></li>
+</ul>
+</li>
+</ul>
+<p><strong>基于这些来源，我给你的工程判断</strong></p>
+<ul>
+<li><code>goal / subquestions / step text</code> 不应该被硬化。它们只适合做 trace，不适合做 authoritative orchestration state。</li>
+<li>真正该硬化的是：<ul>
+<li><code>intent_type</code></li>
+<li><code>slot bindings</code></li>
+<li><code>evidence requirements</code></li>
+<li><code>execution boundary</code></li>
+<li><code>outcome checks / graders</code></li>
+</ul>
+</li>
+<li>你的 <code>plan_state</code> 如果继续围绕自然语言 <code>goal/evidence_needed/missing_evidence</code> 设计，长期还是软的。前沿趋势更像：<ul>
+<li><code>PlannerTrace</code>：保留 LLM 说过什么</li>
+<li><code>OrchestrationState</code>：只保留 runtime 真正能验证和推进的结构化状态</li>
+</ul>
+</li>
+<li><code>证据语义层</code> 不该做成“让 LLM 再判断一次证据够不够”，而应该做成：<ul>
+<li><code>IntentFrame</code></li>
+<li><code>SlotState</code></li>
+<li><code>EvidenceRequirement</code></li>
+<li><code>EvidenceItem</code></li>
+<li><code>RequirementMatcher</code></li>
+<li><code>OutcomeGrader</code></li>
+</ul>
+</li>
+<li><code>few-shot / domain chain</code> 默认不该上来拆成 domain agent。优先级应该是：<ol>
+<li><code>domain skill / domain pack</code></li>
+<li><code>workflow facade tool</code></li>
+<li>只有在工具宇宙、权限边界、memory、SLA、规划语义都显著不同的时候，才拆 <code>domain agent</code></li>
+</ol>
+</li>
+<li>也就是说：<br><strong>domain-specific 知识适合放 skill；稳定执行链路适合放 facade workflow；只有独立“执行宇宙”才值得独立 domain agent。</strong></li>
+</ul>
+<p><strong>一句最核心的总结</strong></p>
+<p>跨这些前沿讨论源，真正收敛出来的不是：</p>
+<ul>
+<li>“让 agent 更像人一样自由发挥”</li>
+</ul>
+<p>而是：</p>
+<ul>
+<li>“让 agent 在更强 workflow、skills、subagents、tool search、programmatic execution、evals、audit trail 约束下工作”</li>
+</ul>
+<p><strong>小红书部分的说明</strong></p>
+<p>小红书这轮公开可检索结果里，我没有找到足够高信号、可核验的 agent 架构前沿讨论；搜到的大多是开放平台&#x2F;商家&#x2F;开发文档页面，而不是技术社区对 agent runtime 的系统讨论。因此这部分不能给强结论。公开索引样本主要是官方开放平台页，如 <a target="_blank" rel="noopener" href="https://school.xiaohongshu.com/en/open/index.html">小红书开放平台首页</a> 和 <a target="_blank" rel="noopener" href="https://miniapp.xiaohongshu.com/">小程序开放平台</a>。这部分证据不足，我不拿它来支撑架构判断。</p>
+<p>如果你愿意，我下一条可以直接输出一版：<br><strong>“把你当前 <code>plan_state + clarify + verify</code> 重构成硬能力编排层的数据结构和状态机设计”</strong>，按你的仓库形态来写。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+      
+        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+      
+        <a href="/tags/AI-Agent/" class="print-no-link">#AI Agent</a>
+      
+        <a href="/tags/Workflow/" class="print-no-link">#Workflow</a>
+      
+        <a href="/tags/Skills/" class="print-no-link">#Skills</a>
+      
+        <a href="/tags/Subagents/" class="print-no-link">#Subagents</a>
+      
+        <a href="/tags/%E8%B0%83%E7%A0%94/" class="print-no-link">#调研</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势</div>
+      <div>https://willfordzhan.github.io/2026/03/18/ai-agent-skills-subagents-workflow/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月18日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/17/ai-agent-python-agent/" title="从顶级 AI Agent 架构视角看这套 Python Agent 项目">
+                        <span class="hidden-mobile">从顶级 AI Agent 架构视角看这套 Python Agent 项目</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
