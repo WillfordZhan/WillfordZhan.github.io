@@ -19,28 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q">
+    <meta name="description" content="这次改动不复杂，判断比实现更重要。 我们原来的知识问答链路是本地 Agent 自己调 knowledge.search。问题不是它查不到东西，而是查出来的结果太大，tool_result 又会进 transcript，后面的 plan、loop、verify、answer 几轮都会把这包结果再塞回 prompt。实际看下来，单次 llm_request 很快就从两三百 KB 涨到五百多 KB，最后">
 <meta property="og:type" content="article">
-<meta property="og:title" content="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/06/langgraph-messagesstate/index.html">
+<meta property="og:title" content="把知识问答下沉到 Dify 终态回答器">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/19/dify/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q">
+<meta property="og:description" content="这次改动不复杂，判断比实现更重要。 我们原来的知识问答链路是本地 Agent 自己调 knowledge.search。问题不是它查不到东西，而是查出来的结果太大，tool_result 又会进 transcript，后面的 plan、loop、verify、answer 几轮都会把这包结果再塞回 prompt。实际看下来，单次 llm_request 很快就从两三百 KB 涨到五百多 KB，最后">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-06T09:16:30.000Z">
-<meta property="article:modified_time" content="2026-03-19T03:48:43.886Z">
+<meta property="article:published_time" content="2026-03-19T03:24:24.000Z">
+<meta property="article:modified_time" content="2026-03-19T03:48:43.885Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="工程复盘">
+<meta property="article:tag" content="Agent">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="LangGraph">
-<meta property="article:tag" content="架构重构">
-<meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="Dify">
+<meta property="article:tag" content="开发回顾">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口 - 味儿福德詹的小站</title>
+  <title>把知识问答下沉到 Dify 终态回答器 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口"></span>
+            <span id="subtitle" data-typed-text="把知识问答下沉到 Dify 终态回答器"></span>
           
         </div>
 
@@ -229,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-06 17:16" pubdate>
-          2026年3月6日 下午
+        <time datetime="2026-03-19 11:24" pubdate>
+          2026年3月19日 上午
         </time>
       </span>
     
@@ -241,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.3k 字
+          1.5k 字
         
       </span>
     
@@ -252,7 +252,7 @@
         
         
         
-          11 分钟
+          13 分钟
         
       </span>
     
@@ -298,132 +298,51 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</h1>
+            <h1 id="seo-header">把知识问答下沉到 Dify 终态回答器</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇记录复盘最近两次连续提交：</p>
-<ul>
-<li><code>76539e9</code>：<code>refactor(langgraph): 全量收口到MessagesState单一状态源</code></li>
-<li><code>2138513</code>：<code>refactor(langgraph): 删除未激活respond节点并清理导出</code></li>
-</ul>
-<p>一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。</p>
-<h2 id="先说改造前的问题"><a href="#先说改造前的问题" class="headerlink" title="先说改造前的问题"></a>先说改造前的问题</h2><p>在这次重构前，编排链路同时维护几套上下文来源：</p>
-<ul>
-<li><code>query</code></li>
-<li><code>tool_result_preview</code></li>
-<li><code>tool_result_payload</code></li>
-<li><code>validated_tool_calls</code></li>
-<li>以及事件流里的 <code>user_message/tool_result/final</code></li>
-</ul>
-<p>问题不在于字段多，问题在于这些字段会在不同节点被分别读写，久而久之出现两个经典现象：</p>
-<ol>
-<li>同一轮对话，状态里能找到三份“都像真相”的数据。</li>
-<li>想复盘一次问题，要在多个字段之间来回对照，像在车间里找同一把 14 号扳手。</li>
-</ol>
-<h2 id="Commit-1：76539e9-做了什么"><a href="#Commit-1：76539e9-做了什么" class="headerlink" title="Commit 1：76539e9 做了什么"></a>Commit 1：<code>76539e9</code> 做了什么</h2><h3 id="1-状态基类切到-MessagesState"><a href="#1-状态基类切到-MessagesState" class="headerlink" title="1) 状态基类切到 MessagesState"></a>1) 状态基类切到 <code>MessagesState</code></h3><p><code>app/langgraph/state.py</code> 从普通 <code>TypedDict</code> 改为继承 LangGraph 原生 <code>MessagesState</code>，把 <code>messages</code> 作为主上下文容器。</p>
-<p>收益：</p>
-<ul>
-<li>与 LangGraph reducer 机制对齐，后续扩展更顺滑。</li>
-<li>消息历史有统一载体，不再靠散落字段拼接“近似上下文”。</li>
-</ul>
-<h3 id="2-编排入口统一注入-HumanMessage"><a href="#2-编排入口统一注入-HumanMessage" class="headerlink" title="2) 编排入口统一注入 HumanMessage"></a>2) 编排入口统一注入 <code>HumanMessage</code></h3><p><code>app/orchestrator.py</code> 在每轮输入 graph 前写入：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-string">&quot;messages&quot;</span>: [HumanMessage(content=query)]<br></code></pre></td></tr></table></figure>
+                <p>这次改动不复杂，判断比实现更重要。</p>
+<p>我们原来的知识问答链路是本地 Agent 自己调 <code>knowledge.search</code>。问题不是它查不到东西，而是查出来的结果太大，<code>tool_result</code> 又会进 transcript，后面的 <code>plan</code>、<code>loop</code>、<code>verify</code>、<code>answer</code> 几轮都会把这包结果再塞回 prompt。实际看下来，单次 <code>llm_request</code> 很快就从两三百 KB 涨到五百多 KB，最后上下文窗口被检索结果自己吃掉了。</p>
+<p>现场证据很直接：一轮知识库搜索成功后，后续 <code>llm_request</code> 事件体持续膨胀；而且这些体积不是答案本身长，而是历史里重复带了大块检索结果。这个问题继续在本地 RAG 上修，也不是不能修，但要补的不是一个小 patch，而是一套完整的 <code>retrieve -&gt; rerank -&gt; compress -&gt; memory_view / answer_view</code> 分层。短期要止血，这条路太重了。</p>
+<p>所以这次我把知识问答改成了另一种收口方式：命中知识问答后，不再让本地 runner 继续走 tool&#x2F;planner 链路，而是直接把问题委派给一个 Dify App，让它自己完成内部知识检索和最终生成。本地只保留三件事：输入护栏、终态路由、最终回答落库。</p>
+<h2 id="原链路卡在哪里"><a href="#原链路卡在哪里" class="headerlink" title="原链路卡在哪里"></a>原链路卡在哪里</h2><p>原来这条链路的问题主要有三个。</p>
+<p>第一，<code>tool_result</code> 既承担审计职责，又承担 prompt memory 职责。知识库结果一大，审计层和运行时上下文层就绑死了。要查问题时确实方便，但代价是模型每一轮都在反复吞老的检索结果。</p>
+<p>第二，本地 runner 对知识检索没有单独的高层能力边界。<code>knowledge.search</code> 更像一个“裸检索工具”，返回的还是偏 raw 的证据包。Planner、Verifier、Answer 阶段都要自己再消费这包结果，链路很容易越跑越肥。</p>
+<p>第三，这个问题不是简单调小 <code>top_k</code> 就能解决。只改召回数只能止一点血，真正没处理的是结果投影和上下文回放边界。换句话说，问题落在“检索结果怎么进 Agent”，不只落在“检索结果召回多少”。</p>
+<h2 id="为什么直接下沉到-Dify"><a href="#为什么直接下沉到-Dify" class="headerlink" title="为什么直接下沉到 Dify"></a>为什么直接下沉到 Dify</h2><p>这次没有继续在本地把 RAG 链路做厚，而是直接把知识问答下沉到 Dify App，当成知识问答的终态回答器。</p>
+<p>原因很现实。</p>
+<p>一是它已经有现成的知识库和生成链路，不需要再在当前仓库里补一套完整的 retrieval workflow。</p>
+<p>二是它的 App API 支持 <code>blocking</code> 和 <code>streaming</code> 两种模式。对我们当前这条链路来说，<code>blocking</code> 更合适：本地只拿最终答案，不把外部流式中间 chunk 再写回 transcript。</p>
+<p>三是它天然把“外部 RAG 细节”和“本地会话历史”隔开了。这个边界一旦立住，至少不会再出现一轮知识搜索把后续几轮上下文一起拖爆的情况。</p>
+<h2 id="这次怎么落"><a href="#这次怎么落" class="headerlink" title="这次怎么落"></a>这次怎么落</h2><p>这次实现没有大拆主编排，只是在 runner 前面加了一个终态委派分支。</p>
+<p>新增了一个 <code>DifyAppClient</code>，专门负责调外部 Dify App 的 <code>POST /chat-messages</code>。这里固定用了 <code>response_mode=blocking</code>，而且请求体里明确不传 <code>conversation_id</code>。这样做的目的只有一个：每次询问都让 Dify 新建一轮 conversation，不复用它上一轮 API 对话上下文。</p>
+<p>本地 runner 命中这个分支后，会直接走 Dify 终态委派，不再进入原来的 <code>tool_catalog.load -&gt; plan -&gt; loop -&gt; verify -&gt; answer</code> 链路。Dify 返回最终 answer 后，本地只做输出护栏，再按现有 <code>final</code> 事件格式把结果写进 history。</p>
+<p>这里我刻意没有把 Dify 的中间 SSE chunk 或整包原始响应写进本地 transcript，只把最终 answer 和必要 metadata 落到 <code>final</code>。这样消息历史还是干净的，前端回看不会看到一堆碎片，后面的多轮也不会被这些中间结果污染。</p>
+<p>为了后续排查，<code>final.metadata</code> 里还是保留了几项外部标识：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;source&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;dify_app&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;delegate&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;dify_terminal&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;dify_conversation_id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;dify_message_id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;dify_task_id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;...&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
 
-<p>收益：</p>
+<p>这个 <code>dify_conversation_id</code> 只用于审计，不会在下一轮再传回 Dify。真正保证“每次新会话”的不是保存不保存这个字段，而是调用 <code>chat-messages</code> 时根本不传 <code>conversation_id</code>。</p>
+<h2 id="代码落点"><a href="#代码落点" class="headerlink" title="代码落点"></a>代码落点</h2><p>这次主要改了这几个点：</p>
 <ul>
-<li>进入图时上下文结构统一。</li>
-<li><code>plan</code> 不必依赖“这个 query 是不是刚好被某节点回填过”。</li>
+<li>新增 <code>app/dify_app.py</code>，封装 Dify App 调用</li>
+<li>在 <code>app/agent/runner.py</code> 前置 Dify 终态委派分支</li>
+<li>在 <code>app/agent/orchestrator.py</code> 注入 <code>DifyAppClient</code></li>
+<li>增加 <code>tests/test_dify_app.py</code></li>
+<li>更新 <code>tests/test_turn_runner_planning.py</code></li>
 </ul>
-<h3 id="3-新增消息工具层-app-langgraph-messages-py"><a href="#3-新增消息工具层-app-langgraph-messages-py" class="headerlink" title="3) 新增消息工具层 app/langgraph/messages.py"></a>3) 新增消息工具层 <code>app/langgraph/messages.py</code></h3><p>抽出通用函数：</p>
-<ul>
-<li><code>latest_human_query(...)</code></li>
-<li><code>serialize_history(...)</code></li>
-<li><code>tool_observations(...)</code></li>
-<li><code>latest_tool_fallback_answer(...)</code></li>
-</ul>
-<p>收益：</p>
-<ul>
-<li>消息提取规则集中，避免在 <code>plan/chat/prompting</code> 重复写解析逻辑。</li>
-<li>这是可复用抽象，不是为了“抽象而抽象”。</li>
-</ul>
-<h3 id="4-plan-节点改为消息驱动"><a href="#4-plan-节点改为消息驱动" class="headerlink" title="4) plan 节点改为消息驱动"></a>4) <code>plan</code> 节点改为消息驱动</h3><p><code>plan</code> 现在优先从 <code>messages</code> 中提取最后一条用户输入，再把历史与工具观察一起喂给 planner。</p>
-<p>收益：</p>
-<ul>
-<li>多轮澄清&#x2F;恢复时，plan 看到的是“对话事实”，不是残留字段。</li>
-</ul>
-<h3 id="5-tool-call-写入标准-ToolMessage"><a href="#5-tool-call-写入标准-ToolMessage" class="headerlink" title="5) tool_call 写入标准 ToolMessage"></a>5) <code>tool_call</code> 写入标准 <code>ToolMessage</code></h3><p>工具调用结果被写成 <code>ToolMessage</code>，内容是结构化 JSON（<code>ok/preview/result/error</code>）。</p>
-<p>收益：</p>
-<ul>
-<li>工具观察自然进入消息主链。</li>
-<li>后续做 “只靠 messages 驱动 answer 汇总”有基础。</li>
-</ul>
-<h3 id="6-clarify-和-chat-也并入消息链"><a href="#6-clarify-和-chat-也并入消息链" class="headerlink" title="6) clarify 和 chat 也并入消息链"></a>6) <code>clarify</code> 和 <code>chat</code> 也并入消息链</h3><ul>
-<li><code>clarify</code> 写入澄清 <code>AIMessage</code>，resume 后写回 <code>HumanMessage</code></li>
-<li><code>chat</code> 产出 final 时写入 <code>AIMessage</code></li>
-</ul>
-<p>收益：</p>
-<ul>
-<li>澄清中断恢复形成闭环，不再是“事件有记录，状态没历史”。</li>
-</ul>
-<h3 id="7-同步清理-schema-与测试"><a href="#7-同步清理-schema-与测试" class="headerlink" title="7) 同步清理 schema 与测试"></a>7) 同步清理 schema 与测试</h3><p><code>state_patch/tool_runtime/test_plan_node/test_prompting</code> 一并调整，保证字段迁移后行为不回退。</p>
-<h2 id="Commit-2：2138513-做了什么"><a href="#Commit-2：2138513-做了什么" class="headerlink" title="Commit 2：2138513 做了什么"></a>Commit 2：<code>2138513</code> 做了什么</h2><p>这次提交非常短，但很值钱：</p>
-<ul>
-<li>删除 <code>app/langgraph/nodes/respond.py</code></li>
-<li>清理 <code>nodes/__init__.py</code> 导出</li>
-</ul>
-<p>背景：图路由已经走 <code>chat</code>，<code>respond</code> 节点处于未激活状态。</p>
-<p>收益：</p>
-<ul>
-<li>去掉“看起来能跑、实际不会跑”的伪路径。</li>
-<li>新同学读代码不会被“幽灵节点”误导。</li>
-</ul>
-<h2 id="两次提交带来的直接收益"><a href="#两次提交带来的直接收益" class="headerlink" title="两次提交带来的直接收益"></a>两次提交带来的直接收益</h2><h3 id="可维护性"><a href="#可维护性" class="headerlink" title="可维护性"></a>可维护性</h3><ul>
-<li>状态收口后，节点职责更清晰：<ul>
-<li><code>plan</code> 看消息决定行动</li>
-<li><code>tool_call</code> 产出工具消息</li>
-<li><code>chat</code> 汇总输出</li>
-</ul>
-</li>
-<li>读链路时不再需要先猜“这轮到底读了哪个旧字段”。</li>
-</ul>
-<h3 id="可追溯性"><a href="#可追溯性" class="headerlink" title="可追溯性"></a>可追溯性</h3><ul>
-<li>一条完整轨迹可直接在消息序列中复盘：<ul>
-<li><code>HumanMessage -&gt; AI(计划/澄清) -&gt; ToolMessage -&gt; AI(final)</code></li>
-</ul>
-</li>
-<li>这对排查“为什么走了 CLARIFY 而不是 CALL_TOOL”非常实用。</li>
-</ul>
-<h3 id="可扩展性"><a href="#可扩展性" class="headerlink" title="可扩展性"></a>可扩展性</h3><ul>
-<li>与 LangGraph 原生生态更贴近，后续接 checkpoint&#x2F;human-in-the-loop&#x2F;更复杂 reducer 成本更低。</li>
-</ul>
-<h3 id="代码冗余"><a href="#代码冗余" class="headerlink" title="代码冗余"></a>代码冗余</h3><ul>
-<li>删除未激活节点，减少维护噪音。</li>
-<li>部分旧字段依赖被移除，状态面变窄。</li>
-</ul>
-<h2 id="这次改造没有解决什么"><a href="#这次改造没有解决什么" class="headerlink" title="这次改造没有解决什么"></a>这次改造没有解决什么</h2><p>客观讲，这两次提交是“主干收口”，不是“全量终局”。仍有几个后续项值得继续做：</p>
-<ol>
-<li>把剩余兼容字段继续下沉或删除，彻底做到 messages 为唯一事实源。</li>
-<li>统一参数校验入口，避免 normalize 与 validate 双逻辑长期漂移。</li>
-<li>给消息链增加结构化观测（如每轮关键消息摘要），提升线上排障速度。</li>
-</ol>
-<h2 id="一个典型的因果链（这次改造为什么有效）"><a href="#一个典型的因果链（这次改造为什么有效）" class="headerlink" title="一个典型的因果链（这次改造为什么有效）"></a>一个典型的因果链（这次改造为什么有效）</h2><ul>
-<li>现象：多轮恢复时，plan 可能读到旧字段而不是最新用户补充。</li>
-<li>机制：状态事实分散在多个字段，更新边界不一致。</li>
-<li>修复：统一改为 MessagesState 主链，resume 明确写回 <code>HumanMessage</code>。</li>
-<li>结果：plan 读取路径固定为“最后用户消息 + 历史消息”。</li>
-</ul>
-<p>这就是本次改造的核心：不是追求“看起来高级”，是把上下文事实源从“多处拼接”变成“一处主链”。</p>
-<h2 id="延伸问答"><a href="#延伸问答" class="headerlink" title="延伸问答"></a>延伸问答</h2><h3 id="Q1：为什么不是直接上一个超大-BaseModel-状态类？"><a href="#Q1：为什么不是直接上一个超大-BaseModel-状态类？" class="headerlink" title="Q1：为什么不是直接上一个超大 BaseModel 状态类？"></a>Q1：为什么不是直接上一个超大 <code>BaseModel</code> 状态类？</h3><p>因为 LangGraph 的强项是增量 patch + reducer。先用 <code>MessagesState</code> 收口主链，再按节点加 typed patch，风险更低。</p>
-<h3 id="Q2：删除-respond-会不会影响行为？"><a href="#Q2：删除-respond-会不会影响行为？" class="headerlink" title="Q2：删除 respond 会不会影响行为？"></a>Q2：删除 <code>respond</code> 会不会影响行为？</h3><p>不会。路由已经走 <code>chat</code>，<code>respond</code> 仅是未激活冗余实现。</p>
-<h3 id="Q3：这次改造最值的一点是什么？"><a href="#Q3：这次改造最值的一点是什么？" class="headerlink" title="Q3：这次改造最值的一点是什么？"></a>Q3：这次改造最值的一点是什么？</h3><p>“单一事实源”落地。调试、复盘、继续迭代都更便宜。</p>
-<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>这两次提交做的是一类看起来不炫、但长期收益很高的工程活：</p>
-<ul>
-<li>用 <code>MessagesState</code> 把主链收口</li>
-<li>用删除冗余节点减少认知噪音</li>
-</ul>
-<p>短期你会感觉“代码没多出什么新功能”；长期你会发现“同类 bug 明显更难长出来”。EOF</p>
+<p>环境变量也补了一组新的：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs env">DIFY_APP_ENABLED=true<br>DIFY_APP_BASE_URL=https://example.com/v1<br>DIFY_APP_API_KEY=app-xxxx<br>DIFY_APP_TIMEOUT_SECONDS=60<br>DIFY_APP_USER_PREFIX=ats-iot-ai<br></code></pre></td></tr></table></figure>
+
+<p>这里的 key 和域名在公开文章里都应该打码，不要直接把内网配置或真实 token 发出去。</p>
+<h2 id="这次方案解决了什么"><a href="#这次方案解决了什么" class="headerlink" title="这次方案解决了什么"></a>这次方案解决了什么</h2><p>直接收益有两个。</p>
+<p>第一，本地 history 只保存最终回答，不再保存知识检索的肥大中间结果。后面的多轮上下文会干净很多。</p>
+<p>第二，本地 runner 从“自己处理知识问答证据压缩”退回到“做路由和收口”。当前仓库的职责边界更清楚，也少了一条继续膨胀的半成品 RAG 编排链。</p>
+<h2 id="代价也很明确"><a href="#代价也很明确" class="headerlink" title="代价也很明确"></a>代价也很明确</h2><p>这次方案是止血优先，不是假装它没有代价。</p>
+<p>最大的代价是，知识问答这一路的中间证据链和生成策略更多地下沉到了 Dify 内部。本地现在能看到的是最终 answer 和一部分 metadata，控制粒度不如自建完整 retrieval workflow 高。</p>
+<p>另一个代价是，当前实现还是“启用即全量终态委派”。如果后面要保留双路能力，还得再补一层知识路由，只让知识问答走 Dify，业务查询继续留在本地 runner。</p>
+<p>但按这次现场问题看，这个权衡是值得的。原链路的问题已经不是某个小参数不对，而是检索结果进入 Agent 的边界没收住。先把知识问答收敛成外部终态，再慢慢考虑本地是不是还要重建更完整的 RAG 能力，这个节奏更稳。</p>
 
                 
               </div>
@@ -457,15 +376,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/" class="print-no-link">#工程复盘</a>
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
       
-        <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/" class="print-no-link">#架构重构</a>
+        <a href="/tags/Dify/" class="print-no-link">#Dify</a>
       
-        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+        <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/" class="print-no-link">#开发回顾</a>
       
     </div>
   
@@ -477,8 +396,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</div>
-      <div>https://willfordzhan.github.io/2026/03/06/langgraph-messagesstate/</div>
+      <div>把知识问答下沉到 Dify 终态回答器</div>
+      <div>https://willfordzhan.github.io/2026/03/19/dify/</div>
     </div>
     <div class="license-meta">
       
@@ -490,7 +409,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月6日</div>
+          <div>2026年3月19日</div>
         </div>
       
       
@@ -522,18 +441,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/06/langgraph-schema-driven-retrospective-20260306/" title="LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/06/langgraph-checkpoint-event-replay/" title="LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件">
-                        <span class="hidden-mobile">LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件</span>
+                      <a href="/2026/03/18/ai-agent-skills-subagents-workflow/" title="AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势">
+                        <span class="hidden-mobile">AI Agent 前沿调研：软能力下沉为硬能力、Skills、Subagents 与 Workflow 的真实趋势</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
