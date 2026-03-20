@@ -27,7 +27,7 @@
 <meta property="og:description" content="最近在调一条生产计划问答链时，碰到一个很典型的问题。 用户问的是“今天计划炉次有多少”，系统却在第一跳 production_plan_search 后就停了，直接把计划列表里的 count&#x2F;total 当成了答案。真正需要的链路其实是：  先查计划，定位目标计划。 再查计划详情。 最后基于详情里的计划炉次做汇总。  这个问题看起来像“模型不够聪明”，但本质不是。更准确地说，是系统没有把“当前要回">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-17T12:35:00.000Z">
-<meta property="article:modified_time" content="2026-03-20T07:58:39.982Z">
+<meta property="article:modified_time" content="2026-03-20T08:34:45.502Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="Agent">
 <meta property="article:tag" content="Function Calling">

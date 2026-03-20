@@ -27,12 +27,12 @@
 <meta property="og:description" content="这次改动不复杂，判断比实现更重要。 我们原来的知识问答链路是本地 Agent 自己调 knowledge.search。问题不是它查不到东西，而是查出来的结果太大，tool_result 又会进 transcript，后面的 plan、loop、verify、answer 几轮都会把这包结果再塞回 prompt。实际看下来，单次 llm_request 很快就从两三百 KB 涨到五百多 KB，最后">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-19T03:24:24.000Z">
-<meta property="article:modified_time" content="2026-03-20T07:58:39.982Z">
+<meta property="article:modified_time" content="2026-03-20T08:34:45.502Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="Agent">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="RAG">
 <meta property="article:tag" content="Dify">
+<meta property="article:tag" content="RAG">
 <meta property="article:tag" content="开发回顾">
 <meta name="twitter:card" content="summary_large_image">
   
@@ -380,9 +380,9 @@
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
-      
         <a href="/tags/Dify/" class="print-no-link">#Dify</a>
+      
+        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
       
         <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/" class="print-no-link">#开发回顾</a>
       

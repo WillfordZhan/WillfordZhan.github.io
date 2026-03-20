@@ -241,6 +241,52 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/04/shiftbeginat-shiftdate/" target="_self">
+          踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/04/shiftbeginat-shiftdate/" target="_self">
+        <div>
+          这次排障最核心的坑，不是某个 DTO 字段写错，而是 ObjectMapper 被覆盖后出现多实例分叉。shiftBeginAt 返回数组、shiftDate 反序列化报错，是同一个根因触发的两个表象。 关联提交（按你本地排障记录）：  8ba6d3c5914c23f29cd52f5326c79af4a0e8eced 49957ccc62e80014546bf5a62685e9c73f0d8000
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-04 17:21" pubdate>
+              2026-03-04
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/%E6%88%90%E6%9C%AC%E7%AE%A1%E7%90%86/">#成本管理</a>
+            
+              <a href="/tags/Jackson/">#Jackson</a>
+            
+              <a href="/tags/%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">#踩坑记录</a>
+            
+              <a href="/tags/iot-framework/">#iot-framework</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/03/metadata-lock-ai-communicationsexception/" target="_self">
           一次被 Metadata Lock 隐藏的 AI 聊天故障：从 CommunicationsException 到长事务排查
         </a>
@@ -831,79 +877,6 @@
               <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/">#联调复盘</a>
             
               <a href="/tags/SSE/">#SSE</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/" target="_self">
-          基于 OpenClaw 对照改造 iot-framework AI Orchestrator：终结非工具问题 CLARIFY 循环
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/02/28/openclaw-iot-framework-ai-orchestrator-clarify/" target="_self">
-        <div>
-          背景这次改造聚焦一个真实线上体验问题：用户问的是通用解释类问题（本质不需要工具），Orchestrator 仍然进入 ReAct 规划，随后触发 CLARIFY，并在后续交互里反复追问，形成“看起来一直要补信息”的循环感。 目标很明确：在不扩大系统复杂度的前提下，借鉴 OpenClaw 的分层思路，把“是否需要工具”尽早判定，把 CLARIFY 收紧到真正可执行的场景，让非工具问题直接回到 CHA
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-02-28 11:12" pubdate>
-              2026-02-28
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/OpenClaw/">#OpenClaw</a>
-            
-              <a href="/tags/ReAct/">#ReAct</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/Orchestrator/">#Orchestrator</a>
-            
-              <a href="/tags/CLARIFY/">#CLARIFY</a>
-            
-              <a href="/tags/%E5%A5%A5%E5%8D%A1%E5%A7%86%E5%89%83%E5%88%80/">#奥卡姆剃刀</a>
             
           </div>
         
