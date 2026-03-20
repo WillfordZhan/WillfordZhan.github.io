@@ -27,7 +27,7 @@
 <meta property="og:description" content="本地联调 iot-app 时，常见诉求是继续读取 Nacos 里的大部分配置，但不要连接 Kafka。直接把 Nacos 配置删掉通常不现实，因为同一个应用还依赖数据库、Redis、业务开关等其他远程配置。 这次采用的做法是：保留 Nacos 配置加载，只在 local 环境禁用 Kafka 自动装配和消费者注册，同时提供一个 no-op KafkaTemplate，让依赖 KafkaTempla">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-03T09:20:27.000Z">
-<meta property="article:modified_time" content="2026-03-19T03:48:43.886Z">
+<meta property="article:modified_time" content="2026-03-20T07:58:39.982Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="Spring Boot">

@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/13/agent-clarify-tool-call/" target="_self">
+          把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/13/agent-clarify-tool-call/" target="_self">
+        <div>
+          这次在改工业 AI 助手的编排层时，前面已经把 LangGraph + checkpoint 那层黑盒拆掉了，但 clarify 这件事还是不顺。问题不在“能不能让模型问用户要参数”，而在“这句补参话术到底应该由谁写”。 一开始很容易想到两条路：  继续把补参文案硬编码在工具 schema 里，比如 x-clarifyTemplate 让模型自己在普通 content 里判断这是补参还是最终回答
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-13 19:58" pubdate>
+              2026-03-13
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/Function-Calling/">#Function Calling</a>
+            
+              <a href="/tags/Clarify/">#Clarify</a>
+            
+              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/12/llm-retrieval-params/" target="_self">
           把知识库检索参数交给 LLM，是一条错误的分层
         </a>
@@ -871,75 +940,6 @@
               <a href="/tags/Tool-Schema/">#Tool Schema</a>
             
               <a href="/tags/%E8%81%94%E8%B0%83%E5%AE%9E%E6%88%98/">#联调实战</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/06/langgraph-messagesstate/" target="_self">
-          LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/06/langgraph-messagesstate/" target="_self">
-        <div>
-          这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-06 17:16" pubdate>
-              2026-03-06
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">#架构重构</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
             
           </div>
         

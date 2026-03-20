@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/06/langgraph-messagesstate/" target="_self">
+          LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/06/langgraph-messagesstate/" target="_self">
+        <div>
+          这篇记录复盘最近两次连续提交：  76539e9：refactor(langgraph): 全量收口到MessagesState单一状态源 2138513：refactor(langgraph): 删除未激活respond节点并清理导出  一句话总结：把编排状态从“字段搬运工模式”改成“消息主链模式”，再把没上班的节点请出工位。 先说改造前的问题在这次重构前，编排链路同时维护几套上下文来源：  q
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-06 17:16" pubdate>
+              2026-03-06
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">#架构重构</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/06/langgraph-checkpoint-event-replay/" target="_self">
           LangGraph Checkpoint、Event 和 Replay：别把状态快照当业务事件
         </a>
@@ -822,79 +891,6 @@
               <a href="/tags/%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">#踩坑记录</a>
             
               <a href="/tags/iot-framework/">#iot-framework</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/03/metadata-lock-ai-communicationsexception/" target="_self">
-          一次被 Metadata Lock 隐藏的 AI 聊天故障：从 CommunicationsException 到长事务排查
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/03/metadata-lock-ai-communicationsexception/" target="_self">
-        <div>
-          这篇文章记录一次线上故障：Java 应用里一条普通查询，最终抛出来的是 CommunicationsException。表面看像网络或连接池问题，实际是被 DDL 等待放大的 metadata lock。 排查过程横跨 4 层：  MySQL DDL 与 metadata lock 机制 JDBC 驱动的超时表现 连接池里的空闲连接与未结束事务 应用层对异常语义的误判  先说结论根因是：  某些旧
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-03 19:12" pubdate>
-              2026-03-03
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Spring-Boot/">#Spring Boot</a>
-            
-              <a href="/tags/MySQL/">#MySQL</a>
-            
-              <a href="/tags/MyBatis/">#MyBatis</a>
-            
-              <a href="/tags/Druid/">#Druid</a>
-            
-              <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/">#故障排查</a>
-            
-              <a href="/tags/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">#后端工程</a>
             
           </div>
         

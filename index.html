@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/20/mdc-logback-ai-chain-routing/" target="_self">
+          AI 日志单独落盘这件事，MDC 到底在做什么
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/20/mdc-logback-ai-chain-routing/" target="_self">
+        <div>
+          最近在收一条 AI 日志链路。诉求不复杂：AI 相关日志要单独落到 ai-chain.log，但每行日志尾巴上那串 [aiChain= aiConversationId= aiToolCallId= aiToolName=] 太重了，想砍掉大部分字段，最好日志正文里连 aiChain=true 都不要看到。 这类问题很容易改着改着偏成“怎么把日志打印得更短”，但代码顺下来以后会发现，核心不在展示，
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-20 14:55" pubdate>
+              2026-03-20
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/Logback/">#Logback</a>
+            
+              <a href="/tags/MDC/">#MDC</a>
+            
+              <a href="/tags/AI%E6%97%A5%E5%BF%97/">#AI日志</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/19/dify/" target="_self">
           把知识问答下沉到 Dify 终态回答器
         </a>
@@ -871,75 +940,6 @@
               <a href="/tags/React-Loop/">#React Loop</a>
             
               <a href="/tags/%E9%87%8D%E6%9E%84/">#重构</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/13/agent-clarify-tool-call/" target="_self">
-          把补参从模板里拿出来：Agent Clarify 改造成结构化 Tool Call
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/13/agent-clarify-tool-call/" target="_self">
-        <div>
-          这次在改工业 AI 助手的编排层时，前面已经把 LangGraph + checkpoint 那层黑盒拆掉了，但 clarify 这件事还是不顺。问题不在“能不能让模型问用户要参数”，而在“这句补参话术到底应该由谁写”。 一开始很容易想到两条路：  继续把补参文案硬编码在工具 schema 里，比如 x-clarifyTemplate 让模型自己在普通 content 里判断这是补参还是最终回答
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-13 19:58" pubdate>
-              2026-03-13
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/Function-Calling/">#Function Calling</a>
-            
-              <a href="/tags/Clarify/">#Clarify</a>
-            
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E5%A4%8D%E7%9B%98/">#工程复盘</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
           </div>
         
