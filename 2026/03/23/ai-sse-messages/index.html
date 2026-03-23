@@ -1,0 +1,879 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="这次要做的需求不复杂：让 AI 助手的回答从“等几秒后整段出现”，改成“边生成边显示”的打字机效果。 一开始最容易想到的改法，是把现有的 GET &#x2F;messages 改成 SSE。看起来改动小，前端也已经有一个拿消息的入口。但把链路顺下来以后，这个方向很快就卡住了，因为 &#x2F;messages 在当前系统里承担的是历史投影和断线补齐，不是当前这一次提问的实时生成通道。 先把链路看清楚当前链路其实是三段">
+<meta property="og:type" content="article">
+<meta property="og:title" content="把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/23/ai-sse-messages/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="这次要做的需求不复杂：让 AI 助手的回答从“等几秒后整段出现”，改成“边生成边显示”的打字机效果。 一开始最容易想到的改法，是把现有的 GET &#x2F;messages 改成 SSE。看起来改动小，前端也已经有一个拿消息的入口。但把链路顺下来以后，这个方向很快就卡住了，因为 &#x2F;messages 在当前系统里承担的是历史投影和断线补齐，不是当前这一次提问的实时生成通道。 先把链路看清楚当前链路其实是三段">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-23T08:39:32.000Z">
+<meta property="article:modified_time" content="2026-03-23T08:41:54.611Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="SSE">
+<meta property="article:tag" content="AI">
+<meta property="article:tag" content="Spring Boot">
+<meta property="article:tag" content="小程序">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-23 16:39" pubdate>
+          2026年3月23日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          26 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>这次要做的需求不复杂：让 AI 助手的回答从“等几秒后整段出现”，改成“边生成边显示”的打字机效果。</p>
+<p>一开始最容易想到的改法，是把现有的 <code>GET /messages</code> 改成 SSE。看起来改动小，前端也已经有一个拿消息的入口。但把链路顺下来以后，这个方向很快就卡住了，因为 <code>/messages</code> 在当前系统里承担的是历史投影和断线补齐，不是当前这一次提问的实时生成通道。</p>
+<h2 id="先把链路看清楚"><a href="#先把链路看清楚" class="headerlink" title="先把链路看清楚"></a>先把链路看清楚</h2><p>当前链路其实是三段。</p>
+<p>第一段是 Python 控制面。用户发起 <code>create</code> 或 <code>chat</code> 以后，Python 会先把用户消息落库，再把任务异步扔给 orchestrator，HTTP 很快返回 <code>202 accepted</code>。等编排跑完，再写一条 <code>final</code>、<code>clarification_needed</code> 或 <code>conversation_failed</code> 到会话事件里。</p>
+<p>第二段是 Java 网关。它负责把登录态和业务上下文签进去，再把请求转发给 Python。现在这层是典型的缓冲代理：把上游响应整个读完，再作为 <code>ResponseEntity&lt;String&gt;</code> 返回。</p>
+<p>第三段是前端。管理页现在还是轮询模式。小程序页已经预埋了流式消费能力，会先尝试对 <code>POST /conversations</code> 和 <code>POST /chat</code> 走 chunked&#x2F;SSE，失败再自动回退到轮询 <code>/messages</code>。</p>
+<p>这三个事实放在一起，问题就清楚了。</p>
+<p>前端不是没准备好。真正没通的是后端。</p>
+<p>Python 侧现在没有对外的 SSE API，也没有把 LLM 的增量 token 往前端继续透。即便内部某个上游支持 streaming，最后也是先聚合成完整 answer，再往下走终态写回。Java 侧的问题更直接，网关现在会把上游 body 读完才返回，这一层就已经把流式打断了。</p>
+<h2 id="SSE-到底是什么"><a href="#SSE-到底是什么" class="headerlink" title="SSE 到底是什么"></a>SSE 到底是什么</h2><p>SSE 全称是 <code>Server-Sent Events</code>。可以把它理解成一种很薄的 HTTP 流式协议。</p>
+<p>它不是 WebSocket，也不是轮询。它本质上还是一条普通 HTTP 请求，只是服务器在响应头里告诉客户端，这是一条事件流：</p>
+<figure class="highlight http"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs http"><span class="hljs-attribute">Content-Type</span><span class="hljs-punctuation">: </span>text/event-stream<br><span class="hljs-attribute">Cache-Control</span><span class="hljs-punctuation">: </span>no-cache<br><span class="hljs-attribute">Connection</span><span class="hljs-punctuation">: </span>keep-alive<br></code></pre></td></tr></table></figure>
+
+<p>然后这个响应不会立刻结束，而是持续往同一条连接里写事件。每条事件通常长这样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">event: answer_delta<br>data: &#123;&quot;delta&quot;:&quot;今&quot;&#125;<br><br>event: answer_delta<br>data: &#123;&quot;delta&quot;:&quot;天&quot;&#125;<br><br>event: final<br>data: &#123;&quot;answer&quot;:&quot;今天炉次生产情况如下&quot;&#125;<br></code></pre></td></tr></table></figure>
+
+<p>前端收到第一条 <code>answer_delta</code> 就能开始显示，不需要等整段回答全生成完。</p>
+<p>所以打字机效果真正依赖的，不是前端自己做动画，而是后端真的一段一段把内容吐出来。</p>
+<h2 id="为什么当前链路没有打字机效果"><a href="#为什么当前链路没有打字机效果" class="headerlink" title="为什么当前链路没有打字机效果"></a>为什么当前链路没有打字机效果</h2><p>因为现在这条链路里，Python 和 Java 都还是“缓冲式”的。</p>
+<p>Python 侧现在的 <code>create/chat</code> 是异步受理模式。请求进来以后，先把用户消息写进会话，再把任务扔给 orchestrator，HTTP 很快返回 <code>202 accepted</code>。后面等编排结束，再把 <code>final</code> 写进会话事件。也就是说，当前 HTTP 请求早就结束了，前端只能再去轮询 <code>/messages</code>。</p>
+<p>Java 网关这边的问题更直接。它现在不是流式代理，而是缓冲代理。代码路径大致是：</p>
+<ol>
+<li>打开到 Python 的 HTTP 连接</li>
+<li>拿到响应状态码</li>
+<li>调 <code>readBody(conn)</code> 把整个响应体读成字符串</li>
+<li>再用 <code>ResponseEntity&lt;String&gt;</code> 返回给前端</li>
+</ol>
+<p>这一步会把上游的流式输出直接打平。即便 Python 真的开始一段一段吐 token，Java 也会等全部读完以后再一次性把整段字符串返回。</p>
+<p>所以这次改造的重点不是前端，而是把“读完整 body 再返回”的链路，改成“边读上游、边写下游”的链路。</p>
+<h2 id="为什么我不打算改-messages"><a href="#为什么我不打算改-messages" class="headerlink" title="为什么我不打算改 /messages"></a>为什么我不打算改 <code>/messages</code></h2><p>这次改造的第一条判断是：SSE 不应该落在 <code>GET /messages</code>，而应该落在 <code>POST /conversations</code> 和 <code>POST /conversations/&#123;id&#125;/chat</code> 上，通过 <code>Accept: text/event-stream</code> 做内容协商。</p>
+<p>原因有四个。</p>
+<p>第一，小程序现有实现基本不用推倒重来。它本来就是按 <code>create/chat</code> 先尝试流式，再退回轮询。后端协议对齐以后，前端主路径就能直接生效。</p>
+<p>第二，<code>/messages</code> 可以继续只做历史真相。页面刷新、切会话、弱网恢复，还是从持久化消息里拿。实时流和历史投影不是一回事，混在一个接口里只会把语义搞乱。</p>
+<p>第三，一次用户提问对应一条长连接，边界清楚。连接打开以后只服务当前这一轮，流到 <code>final</code> 就结束。超时、中断、trace 都比较好挂。</p>
+<p>第四，当前 <code>/messages</code> 的职责本来就是“历史投影、断线补齐、失败兜底”。把实时生成也塞进去，后面重连、回放、游标边界都会变得很难解释。</p>
+<p>所以更稳的边界是：</p>
+<ul>
+<li><code>POST /conversations</code> 和 <code>POST /chat</code> 负责当前 turn 的实时流</li>
+<li><code>GET /messages</code> 继续负责历史补齐和失败兜底</li>
+</ul>
+<h2 id="这次改造真正要新增什么能力"><a href="#这次改造真正要新增什么能力" class="headerlink" title="这次改造真正要新增什么能力"></a>这次改造真正要新增什么能力</h2><p>这里最容易被误解的一点，是“加 SSE”不等于“多写一个流式接口”。</p>
+<p>真正需要补的是一条运行时增量输出通道。</p>
+<p>当前系统里已经有持久化事件：</p>
+<ul>
+<li><code>user_message</code></li>
+<li><code>final</code></li>
+<li><code>clarification_needed</code></li>
+<li><code>conversation_failed</code></li>
+<li><code>conversation_interrupted</code></li>
+</ul>
+<p>这些事件适合保存到会话历史里。</p>
+<p>但打字机需要的是另一类东西：</p>
+<ul>
+<li><code>answer_delta</code></li>
+</ul>
+<p>它是瞬时的、临时的、只对当前请求有意义的。它不适合直接进持久化层。</p>
+<p>所以系统需要两条并行通道：</p>
+<ol>
+<li><p>持久化真相通道</p>
+<ul>
+<li>最终把 <code>final</code> 写进 store</li>
+<li><code>/messages</code> 从这里读</li>
+<li>页面刷新、切会话都靠它</li>
+</ul>
+</li>
+<li><p>运行时流通道</p>
+<ul>
+<li>当前 turn 正在生成时，把 <code>delta</code> 实时推给当前客户端</li>
+<li>不写库</li>
+<li>这一轮结束连接就关掉</li>
+</ul>
+</li>
+</ol>
+<p>如果把两者混成一条，后面会非常难维护。</p>
+<h2 id="Python-侧应该怎么改"><a href="#Python-侧应该怎么改" class="headerlink" title="Python 侧应该怎么改"></a>Python 侧应该怎么改</h2><p>Python 侧真正需要补的，不是单独一个 SSE 路由，而是一条完整的增量输出链路。</p>
+<h3 id="1-API-层：同一个接口支持-JSON-和-SSE"><a href="#1-API-层：同一个接口支持-JSON-和-SSE" class="headerlink" title="1. API 层：同一个接口支持 JSON 和 SSE"></a>1. API 层：同一个接口支持 JSON 和 SSE</h3><p>同一个 <code>POST /conversations</code> 和 <code>POST /chat</code>，当请求头里没有 <code>Accept: text/event-stream</code> 时，继续保持原来的 JSON 模式；当请求头里带了 <code>Accept: text/event-stream</code> 时，返回 <code>StreamingResponse</code>，在这条响应里持续输出 SSE 事件。</p>
+<p>这样旧前端不受影响，支持流式的前端可以直接切新能力。</p>
+<h3 id="2-新增-turn-级-stream-broker"><a href="#2-新增-turn-级-stream-broker" class="headerlink" title="2. 新增 turn 级 stream broker"></a>2. 新增 turn 级 stream broker</h3><p>这里不能直接把 token 级别的内容写进会话表，因为会话历史承担的是“最终真相”和“页面恢复”，不是实时展示。</p>
+<p>实时增量应该走内存里的 turn stream broker，只服务当前这一轮请求。最终回答结束以后，再把完整 answer 作为 <code>final</code> 写回会话历史。</p>
+<p>这条链路可以拆成两层：</p>
+<ul>
+<li>持久化真相层：保存 <code>user_message</code>、<code>final</code>、<code>clarification_needed</code>、<code>conversation_failed</code></li>
+<li>运行时流层：输出 <code>answer_delta</code></li>
+</ul>
+<p>这样做的好处是，实时流和历史恢复不会互相污染。前端拿流式体验，页面刷新以后还是从 <code>/messages</code> 拿完整历史。</p>
+<h3 id="3-LLM-层要真的支持流式输出"><a href="#3-LLM-层要真的支持流式输出" class="headerlink" title="3. LLM 层要真的支持流式输出"></a>3. LLM 层要真的支持流式输出</h3><p>这一层是最容易被低估的。</p>
+<p>现在的最终回答阶段，本质上还是先拿到完整 <code>answer</code>，再写一条 <code>final</code>。这对 JSON 模式没问题，但对 SSE 不够。</p>
+<p>要补的不是“把 final 改名”，而是让 LLM 层多出一种能力：</p>
+<ul>
+<li>非流式：返回完整字符串</li>
+<li>流式：返回一个异步迭代器，边生成边吐 chunk</li>
+</ul>
+<p>这里 chunk 不一定必须是单个 token。只要它是可渐进展示的文本增量就够了。</p>
+<h3 id="4-Runner-层边收边发，最后再落-final"><a href="#4-Runner-层边收边发，最后再落-final" class="headerlink" title="4. Runner 层边收边发，最后再落 final"></a>4. Runner 层边收边发，最后再落 final</h3><p>最终回答生成阶段要改成这样：</p>
+<ol>
+<li>调用流式 LLM</li>
+<li>每拿到一个 chunk<ul>
+<li>追加到本地 answer buffer</li>
+<li>发布一条 <code>answer_delta</code></li>
+</ul>
+</li>
+<li>全部结束后<ul>
+<li>用完整 answer 跑 output guardrail</li>
+<li>写持久化 <code>final</code></li>
+<li>同时给当前 SSE 连接发一条 <code>final</code></li>
+</ul>
+</li>
+</ol>
+<p>这个顺序不能反过来。</p>
+<p>不能只发 <code>delta</code> 不发 <code>final</code>，否则前端断线或者漏了一段以后无法确认最终真相。也不能只发 <code>final</code> 不发 <code>delta</code>，否则就没有打字机效果。</p>
+<h2 id="Java-网关应该怎么改"><a href="#Java-网关应该怎么改" class="headerlink" title="Java 网关应该怎么改"></a>Java 网关应该怎么改</h2><p>Java 侧是这次改造里真正的阻塞点。</p>
+<p>当前实现是典型的缓冲代理，不是流式代理。问题不在于用了 <code>HttpURLConnection</code>，而在于调用方式是“把上游响应全部读完，再作为字符串返回”。</p>
+<h3 id="1-Controller-层要支持两种返回模式"><a href="#1-Controller-层要支持两种返回模式" class="headerlink" title="1. Controller 层要支持两种返回模式"></a>1. Controller 层要支持两种返回模式</h3><p>JSON 模式还是现在的老逻辑：上游返回完整 body，网关包装成 <code>ResponseEntity&lt;String&gt;</code> 返回。</p>
+<p>SSE 模式则不能继续返回完整字符串，而应该返回 <code>StreamingResponseBody</code> 或者直接写 <code>HttpServletResponse</code> 输出流。</p>
+<p>也就是说，Controller 不再是“拿到完整字符串再交给 Spring”，而是“把一个持续写数据的回调交给 Spring”。</p>
+<h3 id="2-Service-层要边读上游边写下游"><a href="#2-Service-层要边读上游边写下游" class="headerlink" title="2. Service 层要边读上游边写下游"></a>2. Service 层要边读上游边写下游</h3><p>真正的核心在这里。</p>
+<p>流式代理的关键逻辑是：</p>
+<ol>
+<li>请求 Python 时把 <code>Accept</code> 设成 <code>text/event-stream</code></li>
+<li>拿到上游 <code>InputStream</code></li>
+<li>不再调用 <code>readBody</code></li>
+<li>用固定大小的 byte buffer 循环读取</li>
+<li>每读到一块就立刻写到下游 <code>OutputStream</code></li>
+<li>每次写完都 flush</li>
+</ol>
+<p>伪代码长这样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">HttpURLConnection</span> <span class="hljs-variable">conn</span> <span class="hljs-operator">=</span> openConnection(<span class="hljs-string">&quot;POST&quot;</span>, path);<br>conn.setRequestProperty(<span class="hljs-string">&quot;Accept&quot;</span>, <span class="hljs-string">&quot;text/event-stream&quot;</span>);<br>writeRequestBody(conn, requestBody);<br><br><span class="hljs-type">StreamingResponseBody</span> <span class="hljs-variable">body</span> <span class="hljs-operator">=</span> outputStream -&gt; &#123;<br>    <span class="hljs-keyword">try</span> (<span class="hljs-type">InputStream</span> <span class="hljs-variable">input</span> <span class="hljs-operator">=</span> conn.getInputStream()) &#123;<br>        <span class="hljs-type">byte</span>[] buffer = <span class="hljs-keyword">new</span> <span class="hljs-title class_">byte</span>[<span class="hljs-number">8192</span>];<br>        <span class="hljs-type">int</span> len;<br>        <span class="hljs-keyword">while</span> ((len = input.read(buffer)) != -<span class="hljs-number">1</span>) &#123;<br>            outputStream.write(buffer, <span class="hljs-number">0</span>, len);<br>            outputStream.flush();<br>        &#125;<br>    &#125; <span class="hljs-keyword">finally</span> &#123;<br>        conn.disconnect();<br>    &#125;<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>现在和改造后的最大区别只有一句话：</p>
+<p>现在是“读完再返回”，以后是“边读边写”。</p>
+<h3 id="3-为什么必须-flush"><a href="#3-为什么必须-flush" class="headerlink" title="3. 为什么必须 flush"></a>3. 为什么必须 flush</h3><p><code>write()</code> 只是把数据写进当前这一层的缓冲区，不代表客户端立刻收到。</p>
+<p><code>flush()</code> 的作用是告诉当前这层：这段数据现在就可以往下发了。没有它，很多 chunk 会在中间被攒成一大块，前端看到的就不是打字机，而是隔几秒蹦出来一整段。</p>
+<h3 id="4-为什么网关不应该理解-token"><a href="#4-为什么网关不应该理解-token" class="headerlink" title="4. 为什么网关不应该理解 token"></a>4. 为什么网关不应该理解 token</h3><p>Java 网关在这里最合理的职责是：</p>
+<ul>
+<li>附加认证和业务上下文</li>
+<li>根据 <code>Accept</code> 选择 JSON 还是 SSE</li>
+<li>无损透传上游字节流</li>
+<li>正确设置响应头</li>
+</ul>
+<p>它不应该自己去解析 <code>event:</code>、<code>data:</code>，也不应该自己理解 <code>answer_delta</code>。</p>
+<p>这些事情属于：</p>
+<ul>
+<li>Python 控制面的对外协议</li>
+<li>前端的消费协议</li>
+</ul>
+<p>如果网关自己也开始理解事件内容，协议一改，Java 和 Python 就得一起改，耦合会很重。</p>
+<h2 id="前端为什么反而最省事"><a href="#前端为什么反而最省事" class="headerlink" title="前端为什么反而最省事"></a>前端为什么反而最省事</h2><p>小程序这边已经具备：</p>
+<ul>
+<li>chunk 读取</li>
+<li>SSE 解析</li>
+<li>delta 文本拼接</li>
+<li>终态收口</li>
+<li>流式失败自动回退轮询</li>
+</ul>
+<p>所以后端只要把协议对齐，小程序基本就能直接用。</p>
+<p>真正要做的只是把这些字段稳定下来：</p>
+<ul>
+<li><code>answer_delta.data.delta</code></li>
+<li><code>final.data.answer</code></li>
+<li><code>clarification_needed.data.question</code></li>
+<li><code>conversation_failed.data.error</code></li>
+</ul>
+<p>管理页目前还是轮询模式，这个入口后面可以再单独切流式，不需要和小程序一起强绑上线。</p>
+<h2 id="这次改造的边界"><a href="#这次改造的边界" class="headerlink" title="这次改造的边界"></a>这次改造的边界</h2><p>这里我刻意没有把 <code>tool_call</code>、<code>tool_result</code>、<code>react_plan</code> 这些内部编排事件继续往前端透。</p>
+<p>用户真正要的是“答案正在生成”，不是“状态机正在跳转”。</p>
+<p>把内部编排对象直接暴露给展示层，前端会和 runtime 结构绑死，后面只要改一次编排，展示协议也要跟着动。更稳的边界是：</p>
+<ul>
+<li>展示层只吃 <code>answer_delta + terminal</code></li>
+<li>调试页和日志继续看内部事件</li>
+</ul>
+<p>这个拆法更克制，但长期更省事。</p>
+<h2 id="最后怎么上线"><a href="#最后怎么上线" class="headerlink" title="最后怎么上线"></a>最后怎么上线</h2><p>这套方案保留了一个很重要的兜底：<code>/messages</code> 不下线。</p>
+<p>实时流负责打字机体验，<code>/messages</code> 负责历史补齐和断线恢复。流式失败时前端自动退回轮询，页面刷新以后也还能从持久化真相把整段消息拿回来。</p>
+<p>这意味着 SSE 只是新增了一条体验通道，不是把整个对话协议推倒重来。</p>
+<p>这次改造里，前端不是难点，真正的活在 Java 网关和 Python runtime。一个负责别把流吃掉，一个负责真的把 delta 产出来。只改其中一边，最后都不会有打字机效果。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+      
+        <a href="/tags/SSE/" class="print-no-link">#SSE</a>
+      
+        <a href="/tags/AI/" class="print-no-link">#AI</a>
+      
+        <a href="/tags/Spring-Boot/" class="print-no-link">#Spring Boot</a>
+      
+        <a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/" class="print-no-link">#小程序</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages</div>
+      <div>https://willfordzhan.github.io/2026/03/23/ai-sse-messages/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/20/ai-agent-prompt-history-tool-result/" title="AI Agent 里的 Prompt、History 和 Tool Result 该怎么分层">
+                        <span class="hidden-mobile">AI Agent 里的 Prompt、History 和 Tool Result 该怎么分层</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

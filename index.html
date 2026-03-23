@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/23/ai-sse-messages/" target="_self">
+          把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/23/ai-sse-messages/" target="_self">
+        <div>
+          这次要做的需求不复杂：让 AI 助手的回答从“等几秒后整段出现”，改成“边生成边显示”的打字机效果。 一开始最容易想到的改法，是把现有的 GET /messages 改成 SSE。看起来改动小，前端也已经有一个拿消息的入口。但把链路顺下来以后，这个方向很快就卡住了，因为 /messages 在当前系统里承担的是历史投影和断线补齐，不是当前这一次提问的实时生成通道。 先把链路看清楚当前链路其实是三段
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-23 16:39" pubdate>
+              2026-03-23
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
+            
+              <a href="/tags/SSE/">#SSE</a>
+            
+              <a href="/tags/AI/">#AI</a>
+            
+              <a href="/tags/Spring-Boot/">#Spring Boot</a>
+            
+              <a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/">#小程序</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/20/ai-agent-prompt-history-tool-result/" target="_self">
           AI Agent 里的 Prompt、History 和 Tool Result 该怎么分层
         </a>
@@ -432,9 +501,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/Dify/">#Dify</a>
-            
               <a href="/tags/RAG/">#RAG</a>
+            
+              <a href="/tags/Dify/">#Dify</a>
             
               <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
             
@@ -860,84 +929,13 @@
             
               <a href="/tags/Python/">#Python</a>
             
-              <a href="/tags/Dify/">#Dify</a>
-            
               <a href="/tags/RAG/">#RAG</a>
+            
+              <a href="/tags/Dify/">#Dify</a>
             
               <a href="/tags/DashScope/">#DashScope</a>
             
               <a href="/tags/%E6%A3%80%E7%B4%A2/">#检索</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/15/ai-tool-notlogin/" target="_self">
-          AI Tool 调用里的 NotLogin 排查与线程级登录态注入
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/15/ai-tool-notlogin/" target="_self">
-        <div>
-          最近在一条 AI tool 调用链路里碰到一个典型问题：工具本身是从 Python 调 Java MCP，再进入 Java 里的业务 service，但执行到查库阶段时抛了 NotLoginException。表面看像是工具参数没带全，实际排下来，问题不在参数，而在历史业务代码对登录态的隐式依赖。 这次排查最后没有把整条链路改造成显式上下文传递，而是先做了一个线程级 LoginUser 注入的兼容
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-15 17:51" pubdate>
-              2026-03-15
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/Sa-Token/">#Sa-Token</a>
-            
-              <a href="/tags/%E9%97%AE%E9%A2%98%E6%8E%92%E6%9F%A5/">#问题排查</a>
-            
-              <a href="/tags/%E7%BA%BF%E7%A8%8B%E4%B8%8A%E4%B8%8B%E6%96%87/">#线程上下文</a>
             
           </div>
         
