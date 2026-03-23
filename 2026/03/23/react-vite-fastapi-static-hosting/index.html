@@ -1,0 +1,802 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="项目里有一个 app_manage，前端是 React + Vite，后端是 Python + FastAPI。最开始的问题很直接：service.sh 启动时，能不能把前端也一起拉起来，并且把 Python 服务的默认首页切到这个前端。 这类需求第一次看，很容易顺手想到 service.sh 里再后台起一个 npm run dev。它能跑，但不太像一个稳定的服务发布方案。真正要先分清的是，这个前">
+<meta property="og:type" content="article">
+<meta property="og:title" content="React&#x2F;Vite 前端如何交给 Python&#x2F;FastAPI 托管：从 npm run build 到默认首页入口">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/03/23/react-vite-fastapi-static-hosting/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="项目里有一个 app_manage，前端是 React + Vite，后端是 Python + FastAPI。最开始的问题很直接：service.sh 启动时，能不能把前端也一起拉起来，并且把 Python 服务的默认首页切到这个前端。 这类需求第一次看，很容易顺手想到 service.sh 里再后台起一个 npm run dev。它能跑，但不太像一个稳定的服务发布方案。真正要先分清的是，这个前">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-03-23T09:23:00.000Z">
+<meta property="article:modified_time" content="2026-03-23T09:37:40.106Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="FastAPI">
+<meta property="article:tag" content="React">
+<meta property="article:tag" content="Vite">
+<meta property="article:tag" content="前端工程">
+<meta property="article:tag" content="静态资源">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-03-23 17:23" pubdate>
+          2026年3月23日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          15 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>项目里有一个 <code>app_manage</code>，前端是 React + Vite，后端是 Python + FastAPI。最开始的问题很直接：<code>service.sh</code> 启动时，能不能把前端也一起拉起来，并且把 Python 服务的默认首页切到这个前端。</p>
+<p>这类需求第一次看，很容易顺手想到 <code>service.sh</code> 里再后台起一个 <code>npm run dev</code>。它能跑，但不太像一个稳定的服务发布方案。真正要先分清的是，这个前端到底应该以“开发服务器”存在，还是应该先构建成静态产物，再交给 Python 托管。</p>
+<p>我这次最后给出的建议，是后者。</p>
+<h2 id="先把两个概念拆开"><a href="#先把两个概念拆开" class="headerlink" title="先把两个概念拆开"></a>先把两个概念拆开</h2><p>前端日常开发时，常见的是：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">npm run dev<br></code></pre></td></tr></table></figure>
+
+<p>这会启动一个 Vite 开发服务器。它的职责是热更新、模块编译、开发期代理，适合本地边改边看。</p>
+<p>真正上线或者做统一服务启动时，更合适的动作通常是：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">npm run build<br></code></pre></td></tr></table></figure>
+
+<p>这一步不会常驻运行一个 Node 服务，而是把前端源码构建成一套静态文件，通常包括：</p>
+<ul>
+<li><code>index.html</code></li>
+<li><code>assets/*.js</code></li>
+<li><code>assets/*.css</code></li>
+<li>图片、字体等资源文件</li>
+</ul>
+<p>浏览器最终访问的，其实就是这些产物。</p>
+<h2 id="这条链路到底长什么样"><a href="#这条链路到底长什么样" class="headerlink" title="这条链路到底长什么样"></a>这条链路到底长什么样</h2><p>先看完整链路图：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs text">React / TSX 源码<br>    |<br>    | npm run build<br>    v<br>Vite 构建输出<br>    |<br>    | 生成静态资源<br>    v<br>app_manage/static/manage-console/<br>    |-- index.html<br>    |-- assets/index-xxxx.js<br>    |-- assets/index-xxxx.css<br>    |<br>    | FastAPI StaticFiles 挂载<br>    v<br>/ai/management/console/<br>    |<br>    | 浏览器访问<br>    v<br>加载 index.html -&gt; 再加载 js/css -&gt; React 在浏览器里运行<br></code></pre></td></tr></table></figure>
+
+<p>如果再把 <code>service.sh</code> 也放进来，完整启动链路会变成这样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs text">./service.sh start<br>    |<br>    | 先执行<br>    v<br>npm run build<br>    |<br>    | 把前端打成静态产物<br>    v<br>app_manage/static/manage-console/<br>    |<br>    | 再执行<br>    v<br>uvicorn main:app<br>    |<br>    | FastAPI 挂载静态目录<br>    v<br>GET /<br>    |<br>    | 重定向<br>    v<br>/ai/management/console/<br></code></pre></td></tr></table></figure>
+
+<p>这里最容易让人误会的一点是：前端页面虽然是 React 写的，但真正给浏览器返回页面的，可以不是 Node，也可以是 Python。只要 Python 能把那套静态文件按 URL 提供出来，浏览器照样能运行它。</p>
+<h2 id="它和-Tomcat-部署前端的类比，能类比到哪一步"><a href="#它和-Tomcat-部署前端的类比，能类比到哪一步" class="headerlink" title="它和 Tomcat 部署前端的类比，能类比到哪一步"></a>它和 Tomcat 部署前端的类比，能类比到哪一步</h2><p>可以类比，但不要直接类比成 <code>WEB-INF</code>。</p>
+<p>更接近的理解是：</p>
+<ol>
+<li>React&#x2F;Vite 项目先打包出一个 <code>dist</code> 一样的静态目录。</li>
+<li>这个目录被服务器托管出来。</li>
+<li>浏览器请求 <code>index.html</code>、<code>js</code>、<code>css</code> 后，前端应用在浏览器里真正跑起来。</li>
+</ol>
+<p><code>WEB-INF</code> 更偏 Java Web 容器自己的内部约定，很多内容默认不是直接公开给浏览器的。这里这套 <code>static/manage-console</code> 则更像一个“可直接对外访问的前端发布目录”。</p>
+<p>所以拿 Tomcat 来比，比较像下面这个意思：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">前端打包目录  -&gt;  被应用服务器托管  -&gt;  浏览器访问首页<br></code></pre></td></tr></table></figure>
+
+<p>不是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">前端源码直接扔进服务器里运行<br></code></pre></td></tr></table></figure>
+
+<p>源码不是浏览器直接吃的，构建产物才是。</p>
+<h2 id="为什么我不建议-service-sh-直接后台起-npm-run-dev"><a href="#为什么我不建议-service-sh-直接后台起-npm-run-dev" class="headerlink" title="为什么我不建议 service.sh 直接后台起 npm run dev"></a>为什么我不建议 service.sh 直接后台起 npm run dev</h2><p>这条路不是不能走，而是它引入的东西比需求本身多。</p>
+<p>先看它会多出来什么：</p>
+<ul>
+<li>多一个 Node 常驻进程</li>
+<li>多一个前端端口</li>
+<li>多一份 PID 管理</li>
+<li>多一套日志管理</li>
+<li>停服务时还得保证 Node 也一起停掉</li>
+<li>Python 根路径如果还想保持统一入口，通常还要做反向代理</li>
+</ul>
+<p>这时服务脚本就不再是“启动一个系统”，而是在同时养两套服务。</p>
+<p>对于开发态联调，这么干可以接受。对于你这种已经明确有构建产物目录、并且 FastAPI 已经能挂静态资源的项目，这条路没必要。</p>
+<h2 id="当前项目里，这套托管其实已经基本具备了"><a href="#当前项目里，这套托管其实已经基本具备了" class="headerlink" title="当前项目里，这套托管其实已经基本具备了"></a>当前项目里，这套托管其实已经基本具备了</h2><p>前端构建配置大概是这个意思：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">export</span> <span class="hljs-keyword">default</span> <span class="hljs-title function_">defineConfig</span>(&#123;<br>  <span class="hljs-attr">base</span>: <span class="hljs-string">&quot;/ai/management/console/&quot;</span>,<br>  <span class="hljs-attr">build</span>: &#123;<br>    <span class="hljs-attr">outDir</span>: <span class="hljs-string">&quot;../static/manage-console&quot;</span>,<br>  &#125;,<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>这里有两个关键信息：</p>
+<ol>
+<li>构建后的访问基路径是 <code>/ai/management/console/</code></li>
+<li>输出目录直接落到 Python 会挂载的静态目录</li>
+</ol>
+<p>FastAPI 侧则会做类似这样的事情：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs python">app.mount(<br>    <span class="hljs-string">&quot;/ai/management/console&quot;</span>,<br>    StaticFiles(directory=<span class="hljs-string">&quot;app_manage/static/manage-console&quot;</span>, html=<span class="hljs-literal">True</span>),<br>)<br></code></pre></td></tr></table></figure>
+
+<p>意思是：</p>
+<ul>
+<li>浏览器访问 <code>/ai/management/console/</code></li>
+<li>FastAPI 就去 <code>app_manage/static/manage-console/</code> 找对应文件</li>
+<li><code>html=True</code> 时，请求目录入口会返回 <code>index.html</code></li>
+</ul>
+<p>这就是前端能被 Python 托管起来的关键。</p>
+<h2 id="默认首页入口怎么切"><a href="#默认首页入口怎么切" class="headerlink" title="默认首页入口怎么切"></a>默认首页入口怎么切</h2><p>项目里如果已经有一个旧首页，比如：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-meta">@app.get(<span class="hljs-params"><span class="hljs-string">&quot;/&quot;</span></span>)</span><br><span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">root_redirect</span>():<br>    <span class="hljs-keyword">return</span> RedirectResponse(url=<span class="hljs-string">&quot;/ai-chat/assistant.html&quot;</span>, status_code=<span class="hljs-number">307</span>)<br></code></pre></td></tr></table></figure>
+
+<p>那改默认入口，本质上只是把跳转地址换掉：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-meta">@app.get(<span class="hljs-params"><span class="hljs-string">&quot;/&quot;</span></span>)</span><br><span class="hljs-keyword">async</span> <span class="hljs-keyword">def</span> <span class="hljs-title function_">root_redirect</span>():<br>    <span class="hljs-keyword">return</span> RedirectResponse(url=<span class="hljs-string">&quot;/ai/management/console/&quot;</span>, status_code=<span class="hljs-number">307</span>)<br></code></pre></td></tr></table></figure>
+
+<p>改完以后，用户访问根路径 <code>/</code>，就直接进入新的 React 管理台了。</p>
+<p>这里没有神秘机制，就是一个服务端跳转。</p>
+<h2 id="真正推荐的-service-sh-方案"><a href="#真正推荐的-service-sh-方案" class="headerlink" title="真正推荐的 service.sh 方案"></a>真正推荐的 service.sh 方案</h2><p>更稳的做法是把 <code>service.sh</code> 设计成两步：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">1. 构建前端静态资源<br>2. 启动 Python/FastAPI<br></code></pre></td></tr></table></figure>
+
+<p>脚本行为可以概括成这样：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-function"><span class="hljs-title">start</span></span>() &#123;<br>  <span class="hljs-built_in">cd</span> app_manage/frontend<br>  npm run build<br><br>  <span class="hljs-built_in">cd</span> 项目根目录<br>  uvicorn main:app --host 127.0.0.1 --port 8000<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>实际工程里还会再补几件事：</p>
+<ul>
+<li><code>node_modules</code> 不存在时先 <code>npm install</code></li>
+<li>构建失败就不启动 Python</li>
+<li>日志、PID、端口检查仍然由原服务脚本统一处理</li>
+</ul>
+<p>这样改完后，启动路径会非常清晰：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">源码改动<br>  -&gt; build<br>  -&gt; 生成静态资源<br>  -&gt; Python 托管<br>  -&gt; 浏览器访问统一入口<br></code></pre></td></tr></table></figure>
+
+<h2 id="这套方式的收益是什么"><a href="#这套方式的收益是什么" class="headerlink" title="这套方式的收益是什么"></a>这套方式的收益是什么</h2><p>第一，部署模型更简单。</p>
+<p>最终对外只有一个 Python 服务入口。用户不需要知道前面还有没有 Node，也不需要区分“前端端口”和“后端端口”。</p>
+<p>第二，链路更稳定。</p>
+<p>你不用额外处理 Vite dev server 的生命周期，也不用担心服务停了以后 Node 还留在后台。</p>
+<p>第三，职责边界更清楚。</p>
+<ul>
+<li>开发期：前端自己用 <code>npm run dev</code></li>
+<li>服务启动或发布期：统一 <code>npm run build</code>，再交给 Python 托管</li>
+</ul>
+<p>这两种模式的职责不同，混在一起后面容易越来越乱。</p>
+<h2 id="这套方式的代价也要说清楚"><a href="#这套方式的代价也要说清楚" class="headerlink" title="这套方式的代价也要说清楚"></a>这套方式的代价也要说清楚</h2><p>它不是没有代价，只是代价比较可控。</p>
+<p>主要有三个：</p>
+<ol>
+<li>每次服务启动前，如果都重新 build，会多一点启动时间。</li>
+<li>前端一旦改了代码，必须重新 build，浏览器才能看到最新托管版本。</li>
+<li>如果以后前端需要特别强的开发态代理、HMR、Mock 联调能力，开发时还是得单独跑 <code>npm run dev</code>。</li>
+</ol>
+<p>所以这套方案适合“统一启动、统一部署、统一入口”，不等于替代前端开发服务器。</p>
+<h2 id="最后用一句话收住"><a href="#最后用一句话收住" class="headerlink" title="最后用一句话收住"></a>最后用一句话收住</h2><p><code>npm run build</code> 做的事，不是“把前端服务跑起来”，而是“把前端源码变成浏览器能直接访问的一套静态站点”。后面这套站点可以交给 Nginx、Tomcat、FastAPI，或者任何能托管静态文件的服务。</p>
+<p>你这个场景里，FastAPI 已经有静态挂载能力，也已经有现成输出目录。那最省事、也最稳的方案，就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">build 前端 -&gt; 输出到 static -&gt; FastAPI 挂载 -&gt; 根路径跳到新前端<br></code></pre></td></tr></table></figure>
+
+<p>够直接，也够长期。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Python/" class="print-no-link">#Python</a>
+      
+        <a href="/tags/FastAPI/" class="print-no-link">#FastAPI</a>
+      
+        <a href="/tags/React/" class="print-no-link">#React</a>
+      
+        <a href="/tags/Vite/" class="print-no-link">#Vite</a>
+      
+        <a href="/tags/%E5%89%8D%E7%AB%AF%E5%B7%A5%E7%A8%8B/" class="print-no-link">#前端工程</a>
+      
+        <a href="/tags/%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90/" class="print-no-link">#静态资源</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口</div>
+      <div>https://willfordzhan.github.io/2026/03/23/react-vite-fastapi-static-hosting/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年3月23日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/03/23/ai-sse-messages/" title="把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages">
+                        <span class="hidden-mobile">把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

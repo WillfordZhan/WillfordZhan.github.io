@@ -27,7 +27,7 @@
 <meta property="og:description" content="这次要做的需求不复杂：让 AI 助手的回答从“等几秒后整段出现”，改成“边生成边显示”的打字机效果。 一开始最容易想到的改法，是把现有的 GET &#x2F;messages 改成 SSE。看起来改动小，前端也已经有一个拿消息的入口。但把链路顺下来以后，这个方向很快就卡住了，因为 &#x2F;messages 在当前系统里承担的是历史投影和断线补齐，不是当前这一次提问的实时生成通道。 先把链路看清楚当前链路其实是三段">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-03-23T08:39:32.000Z">
-<meta property="article:modified_time" content="2026-03-23T08:41:54.611Z">
+<meta property="article:modified_time" content="2026-03-23T09:37:40.103Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="FastAPI">
 <meta property="article:tag" content="SSE">
@@ -575,6 +575,12 @@
                 <div class="post-prevnext my-3">
                   <article class="post-prev col-6">
                     
+                    
+                      <a href="/2026/03/23/react-vite-fastapi-static-hosting/" title="React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
                     
                   </article>
                   <article class="post-next col-6">

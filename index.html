@@ -241,6 +241,56 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/23/react-vite-fastapi-static-hosting/" target="_self">
+          React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/23/react-vite-fastapi-static-hosting/" target="_self">
+        <div>
+          项目里有一个 app_manage，前端是 React + Vite，后端是 Python + FastAPI。最开始的问题很直接：service.sh 启动时，能不能把前端也一起拉起来，并且把 Python 服务的默认首页切到这个前端。 这类需求第一次看，很容易顺手想到 service.sh 里再后台起一个 npm run dev。它能跑，但不太像一个稳定的服务发布方案。真正要先分清的是，这个前
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-23 17:23" pubdate>
+              2026-03-23
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Python/">#Python</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
+            
+              <a href="/tags/React/">#React</a>
+            
+              <a href="/tags/Vite/">#Vite</a>
+            
+              <a href="/tags/%E5%89%8D%E7%AB%AF%E5%B7%A5%E7%A8%8B/">#前端工程</a>
+            
+              <a href="/tags/%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90/">#静态资源</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/23/ai-sse-messages/" target="_self">
           把 AI 助手改成 SSE 打字机输出，这次我没有去改 messages
         </a>
@@ -363,11 +413,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
               <a href="/tags/Prompt/">#Prompt</a>
             
               <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86/">#上下文管理</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
             
           </div>
         
@@ -785,9 +835,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/Prompt/">#Prompt</a>
-            
               <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
+              <a href="/tags/Prompt/">#Prompt</a>
             
               <a href="/tags/MCP/">#MCP</a>
             
@@ -863,79 +913,6 @@
               <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
               <a href="/tags/Tool-Calling/">#Tool Calling</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/15/rag-vs-dify-native-assistant/" target="_self">
-          为什么我们的 RAG 还打不过 Dify 原生助手
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/15/rag-vs-dify-native-assistant/" target="_self">
-        <div>
-          最近在做一条自建 RAG 链路：Java 负责知识库工具调用，Python 负责编排和回答生成。链路能跑，双知识库也已经接上了，但同一个问题丢给 Dify 原生聊天助手，回答还是更稳，引用也更像“已经把资料看明白了再说话”。 这个差距一开始看着像模型问题，后来排下来，主要不是模型本身，而是检索编排层差得比较多。Dify 用的是一条完整的问答链路，我们现在更像是“从知识库捞几段文本出来，再让模型自己
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-15 18:59" pubdate>
-              2026-03-15
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
-              <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/RAG/">#RAG</a>
-            
-              <a href="/tags/Dify/">#Dify</a>
-            
-              <a href="/tags/DashScope/">#DashScope</a>
-            
-              <a href="/tags/%E6%A3%80%E7%B4%A2/">#检索</a>
             
           </div>
         

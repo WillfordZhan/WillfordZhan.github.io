@@ -241,6 +241,79 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/15/rag-vs-dify-native-assistant/" target="_self">
+          为什么我们的 RAG 还打不过 Dify 原生助手
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/15/rag-vs-dify-native-assistant/" target="_self">
+        <div>
+          最近在做一条自建 RAG 链路：Java 负责知识库工具调用，Python 负责编排和回答生成。链路能跑，双知识库也已经接上了，但同一个问题丢给 Dify 原生聊天助手，回答还是更稳，引用也更像“已经把资料看明白了再说话”。 这个差距一开始看着像模型问题，后来排下来，主要不是模型本身，而是检索编排层差得比较多。Dify 用的是一条完整的问答链路，我们现在更像是“从知识库捞几段文本出来，再让模型自己
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-15 18:59" pubdate>
+              2026-03-15
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
+              <a href="/tags/Python/">#Python</a>
+            
+              <a href="/tags/RAG/">#RAG</a>
+            
+              <a href="/tags/Dify/">#Dify</a>
+            
+              <a href="/tags/DashScope/">#DashScope</a>
+            
+              <a href="/tags/%E6%A3%80%E7%B4%A2/">#检索</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/15/ai-tool-notlogin/" target="_self">
           AI Tool 调用里的 NotLogin 排查与线程级登录态注入
         </a>
@@ -720,11 +793,11 @@
             
               <a href="/tags/LangGraph/">#LangGraph</a>
             
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
               <a href="/tags/ReAct/">#ReAct</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E9%87%8D%E6%9E%84/">#架构重构</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
             
           </div>
         
@@ -867,83 +940,6 @@
               <a href="/tags/pip/">#pip</a>
             
               <a href="/tags/%E8%BF%90%E7%BB%B4/">#运维</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/09/prompt-json-structured-outputs-function-calling/" target="_self">
-          别再靠 Prompt 硬劝模型吐 JSON：Structured Outputs、Function Calling 与国产模型能力盘点
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/09/prompt-json-structured-outputs-function-calling/" target="_self">
-        <div>
-          前言很多团队第一次做结构化输出，都会写出一句极其熟悉的咒语： 1请严格输出 JSON，不要解释  然后几轮之后，程序收到的内容往往是：  一坨长得像 JSON 但少了逗号的文本 一个合法 JSON，但字段缺了一半 一个字段结构没问题，但值一本正经地胡说八道  这不是模型跟你作对，这是你把三件不同的事混在了一起：  Prompt 约束 Structured Outputs / JSON mode F
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-09 09:52" pubdate>
-              2026-03-09
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Function-Calling/">#Function Calling</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Qwen/">#Qwen</a>
-            
-              <a href="/tags/JSON-Schema/">#JSON Schema</a>
-            
-              <a href="/tags/Structured-Outputs/">#Structured Outputs</a>
-            
-              <a href="/tags/Prompt-Engineering/">#Prompt Engineering</a>
-            
-              <a href="/tags/Kimi/">#Kimi</a>
-            
-              <a href="/tags/GLM/">#GLM</a>
-            
-              <a href="/tags/DeepSeek/">#DeepSeek</a>
             
           </div>
         
