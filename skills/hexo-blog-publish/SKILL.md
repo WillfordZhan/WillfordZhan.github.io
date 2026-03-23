@@ -14,7 +14,7 @@ This skill automates the workflow for the blog repo at `~/Desktop/Project/blog`:
 
 - Create a new post: run `bin/new_post.py`.
 - Create an AI worklog post for AI tab: run `bin/new_post.py --ai-log ...`.
-- Publish: run `bin/publish.sh`.
+- Publish: first inspect tracked + untracked changes, then choose `bin/publish.sh` or a minimal manual `git add/commit/push`.
 
 ## Workflow
 
@@ -309,6 +309,37 @@ Before any build, commit, or push:
 - `npm ci`
 - `npm run build`
 
+### 2.5) Mandatory publish-scope check before commit/push
+
+Before running `bin/publish.sh` or any manual git command, inspect both tracked and untracked files:
+
+- `git status --short`
+- Verify the target post file exists in status output.
+- Verify the source archive directory exists in status output.
+- Verify there are no unrelated files that would be accidentally staged by `git add -A`.
+
+Important current repo caveat:
+
+- The current blog `bin/publish.sh` uses `git diff --quiet && git diff --cached --quiet` as its "no changes" gate.
+- This does **not** count untracked files.
+- Therefore, a brand new post plus a brand new `source_materials/posts/<archive_id>/` directory can be present, and `bin/publish.sh` may still print `No changes to commit.`
+
+Required decision rule:
+
+- If the publish set includes any untracked files for the current post or archive, do **not** rely on `bin/publish.sh` to perform the commit.
+- In that case, still do local build if needed, then commit the exact files manually with minimal scope.
+- If the publish set is already tracked-only changes, `bin/publish.sh` is acceptable.
+
+Recommended manual minimal-scope publish for new posts:
+
+```bash
+git add source/_posts/<post>.md source_materials/posts/<archive_id>
+git commit -m "post: ..."
+git push origin hexo-src
+```
+
+Do not stage unrelated pending files unless the user explicitly asks to publish them together.
+
 ### 3) Publish (commit + push to `hexo-src`)
 
 - `bash bin/publish.sh -m "post: ..."`
@@ -319,6 +350,8 @@ This script:
 - Runs `npm ci` + `npm run build`
 - Commits changes to `hexo-src`
 - Pushes to `origin/hexo-src`
+
+But for new posts with untracked files, treat it as a build helper, not a reliable commit gate. The skill must fall back to the manual minimal-scope publish path above.
 
 GitHub Actions should then deploy to `master` automatically.
 
