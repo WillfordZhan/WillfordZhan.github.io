@@ -1,0 +1,10 @@
+{
+  "archive_id": "20260504-playwright-cdp-yuque-crawler",
+  "post_name": "从 Playwright 到 CDP：一次语雀文档同步爬虫的登录态踩坑",
+  "post_rel_path": "source/_posts/playwright-cdp-yuque-crawler.md",
+  "conversation_file": "conversation.jsonl",
+  "source_file": "/Users/<user>/.codex/sessions/2026/05/03/rollout-2026-05-03T22-47-37-019dee4f-233c-7b03-a607-e9892a38ac58.jsonl",
+  "redacted": true,
+  "redaction_reason": "public repo source archive keeps only redacted user/assistant messages; tool outputs and runtime instructions are omitted",
+  "archived_at": "2026-05-04T00:35:23+08:00"
+}
