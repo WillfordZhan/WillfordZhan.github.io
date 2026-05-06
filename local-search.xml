@@ -4,6 +4,31 @@
   
   
   <entry>
+    <title>一次 SQLite 超时排查：测点缓存、单连接和先监测再优化</title>
+    <link href="/2026/05/06/sqlite/"/>
+    <url>/2026/05/06/sqlite/</url>
+    
+    <content type="html"><![CDATA[<p>这次排查的是边缘端 Java 服务的一次现场 CPU 飙高。</p><p>现象很直接：某天 15:30 到 16:00 左右，Java 进程 CPU 很高，日志里持续报 SQLite&#x2F;JDBC 连接获取失败。现场关闭“测点缓存”功能并重启后，服务恢复。这个功能之前一直开着，只有那天爆了一次，后面也没有再打开。</p><p>一开始很容易把问题归到测点缓存上：关了它就好了，那是不是缓存库坏了？但日志和库文件检查对不上这个判断。更接近事实的是：测点缓存增加了主库 <code>app.db</code> 的读取频率，而主库连接池只有一个连接。当天现场压力叠上来以后，这个单连接先变成排队点，后面才出现连接超时、异常日志刷屏和 CPU 被拖高。</p><h2 id="日志里真正关键的一行"><a href="#日志里真正关键的一行" class="headerlink" title="日志里真正关键的一行"></a>日志里真正关键的一行</h2><p>当时最重要的报错是这一类：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">CannotGetJdbcConnectionException:<br>Failed to obtain JDBC Connection;<br>nested exception is java.sql.SQLTransientConnectionException:<br>file - Connection is not available, request timed out after 30000ms.<br></code></pre></td></tr></table></figure><p>这里的 <code>file</code> 是主数据源，也就是 <code>app.db</code>。<code>request timed out after 30000ms</code> 也不是说某条 SQL 执行了 30 秒，而是线程等了 30 秒都没有从连接池拿到连接。</p><p>这个区别很重要。</p><p>如果是 SQL 慢，重点要看执行计划、索引、表大小。如果是连接拿不到，重点要看谁在占连接、连接池有多大、是不是大量线程一起进来排队。</p><p>当时异常也不是只出现在某一个业务点。子设备状态上报、设备轮询、语音播报、WebSocket 推送、系统配置读取都能撞上这个问题。它更像一个共享资源被挤爆了，而不是某个单独任务写错了。</p><p>简化一下链路：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">后台任务 / 推送 / 设备轮询<br>        |<br>        v<br>读取配置或业务状态<br>        |<br>        v<br>Hikari 连接池<br>        |<br>        v<br>app.db<br></code></pre></td></tr></table></figure><p>如果连接池只有一个连接，所有读写主库的线程都要从这一扇门过。某个线程还没还连接，其他线程只能等。</p><h2 id="测点缓存库本身没有坏"><a href="#测点缓存库本身没有坏" class="headerlink" title="测点缓存库本身没有坏"></a>测点缓存库本身没有坏</h2><p>测点缓存写的是按天生成的本地库，例如：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">metric-20260415.sqlite<br></code></pre></td></tr></table></figure><p>这次检查下来，这个库的完整性是正常的：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">integrity_check = ok<br></code></pre></td></tr></table></figure><p>当天库里也有正常数据，不像是文件损坏或表结构损坏。并且日志里超时的数据源不是这个 <code>metric-*.sqlite</code>，而是主数据源 <code>file</code>。</p><p>所以这次不能简单写成“测点缓存 SQLite 坏了”。更准确的说法是：测点缓存打开后，会增加一部分对主库的访问；主库连接池太窄时，这部分访问会放大已有压力。</p><h2 id="单连接到底卡在哪里"><a href="#单连接到底卡在哪里" class="headerlink" title="单连接到底卡在哪里"></a>单连接到底卡在哪里</h2><p>当时主库连接池大致是这样的配置：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">spring:</span><br>  <span class="hljs-attr">datasource:</span><br>    <span class="hljs-attr">dynamic:</span><br>      <span class="hljs-attr">primary:</span> <span class="hljs-string">file</span><br>      <span class="hljs-attr">datasource:</span><br>        <span class="hljs-attr">file:</span><br>          <span class="hljs-attr">driver-class-name:</span> <span class="hljs-string">org.sqlite.JDBC</span><br>          <span class="hljs-attr">url:</span> <span class="hljs-string">jdbc:sqlite:db/app.db</span><br>      <span class="hljs-attr">hikari:</span><br>        <span class="hljs-attr">max-pool-size:</span> <span class="hljs-number">1</span><br></code></pre></td></tr></table></figure><p><code>max-pool-size: 1</code> 的意思是，整个 Java 进程访问主库时，最多只有一个连接。</p><p>SQLite 是文件数据库，但不等于一个应用只能开一个连接。多个连接可以访问同一个 SQLite 文件，尤其是读操作，不是天然只能串行。这里真正把并发读挡住的，是应用层连接池。</p><p>可以这样理解：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">线程 A: 读系统配置  ----\<br>线程 B: 上报设备状态 -----\<br>线程 C: 推送前查配置 ------&gt; 连接池只有 1 个连接 -&gt; app.db<br>线程 D: 测点缓存检查 -----/<br>线程 E: 设备轮询    ----/<br></code></pre></td></tr></table></figure><p>只要 A 拿着连接，B、C、D、E 都要等。平时每次查询很快，可能看不出问题。但如果某天后台任务多、日志多、CPU 或磁盘也紧张，连接归还变慢，排队就会很快堆起来。</p><p>这也是现场现象比较绕的地方：测点缓存不是新功能，也不是每天都出事；它只是把主库单连接这个弱点暴露出来了。</p><h2 id="测点缓存为什么会读主库"><a href="#测点缓存为什么会读主库" class="headerlink" title="测点缓存为什么会读主库"></a>测点缓存为什么会读主库</h2><p>测点缓存本身写的是 <code>metric-YYYYMMDD.sqlite</code>，但它的开关存在主库系统配置里：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">SIMPLE.ENABLE_LOCAL_METRIC_CACHE<br></code></pre></td></tr></table></figure><p>也就是说，缓存写入链路里会先读主库判断“功能是否打开”。</p><p>简化后的链路大概是这样：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><code class="hljs text">MetricCacheSampler.sample()<br>  |<br>  v<br>MetricCacheToggle.isEnabled()<br>  |<br>  v<br>SystemConfigMapper.getValByKey(...)<br>  |<br>  v<br>app.db<br><br>采集到测点后入队<br>  |<br>  v<br>MetricCacheWriter.offer()<br>  |<br>  v<br>再次判断开关<br>  |<br>  v<br>app.db<br><br>后台写线程消费队列<br>  |<br>  v<br>写入前再判断开关<br>  |<br>  v<br>app.db -&gt; metric-YYYYMMDD.sqlite<br></code></pre></td></tr></table></figure><p>这里有一个很实际的问题：缓存写到一个库，但控制开关读另一个库。只要开关判断足够频繁，就会持续打到主库。</p><p>单看一次 <code>select config</code> 不重。真正麻烦的是它在后台调度里反复出现，而且和其他任务共用同一个主库连接池。</p><h2 id="SQLite-并发读强，不代表这个服务就强"><a href="#SQLite-并发读强，不代表这个服务就强" class="headerlink" title="SQLite 并发读强，不代表这个服务就强"></a>SQLite 并发读强，不代表这个服务就强</h2><p>排查时我也问过一个问题：SQLite 的并发读不是挺强吗，为什么会这样？</p><p>这里要把几层拆开：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">业务线程<br>  |<br>  v<br>Hikari 连接池<br>  |<br>  v<br>SQLite JDBC 连接<br>  |<br>  v<br>SQLite 文件<br></code></pre></td></tr></table></figure><p>SQLite 支持多个读连接，不代表连接池一定会给业务线程多个连接。当前连接池只有一个连接时，线程还没到 SQLite 那一层，已经在 Hikari 外面排队了。</p><p>所以这次不是在证明“SQLite 并发读不行”。它说明的是：应用层配置把 SQLite 的读并发能力限制住了。</p><h2 id="WAL-和-busy-timeout-不是一回事"><a href="#WAL-和-busy-timeout-不是一回事" class="headerlink" title="WAL 和 busy_timeout 不是一回事"></a>WAL 和 busy_timeout 不是一回事</h2><p>这次讨论里还有两个容易混在一起的配置：WAL 和 <code>busy_timeout</code>。</p><p>WAL 主要改善 SQLite 文件层面的读写并发。启用 WAL 后，读连接通常可以读一个稳定快照，写连接把新变更写到 WAL 文件里。读不会看到写到一半的数据，也不是靠脏读换性能。</p><p>但 WAL 解决不了“连接池只有一个连接”的问题。因为线程连连接都拿不到时，还没走到 SQLite 文件锁那一层。</p><p><code>busy_timeout</code> 也是 SQLite 文件锁层面的等待时间。它处理的是：已经拿到连接了，但 SQLite 文件暂时被锁住，要不要等一会儿再报 <code>SQLITE_BUSY</code>。</p><p>这和 Hikari 的连接等待超时不同：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Hikari connectionTimeout:<br>线程等连接池里的连接。<br><br>SQLite busy_timeout:<br>连接已经拿到了，SQLite 等文件锁。<br></code></pre></td></tr></table></figure><p>这次日志里更明显的是 Hikari 连接池等待超时。所以 <code>busy_timeout</code> 可以作为后续调优的一部分，但不是这次现象的直接答案。</p><h2 id="连接数能不能直接调大"><a href="#连接数能不能直接调大" class="headerlink" title="连接数能不能直接调大"></a>连接数能不能直接调大</h2><p>可以试，但不应该盲调。</p><p>如果实际瓶颈是大量读请求堵在 Hikari 外面，把主库连接数从 1 提到 2 或 4，大概率会改善读等待。尤其是系统配置、设备状态这类短查询，多连接能让它们不要全挤在一条路上。</p><p>但 SQLite 的写仍然是串行的。连接数调大以后，如果没有 WAL、没有合理的 <code>busy_timeout</code>，或者有长事务，问题可能从“等连接”变成“等文件锁”。</p><p>所以连接数不是越大越好。比较稳的做法是先看数据：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">pending 很高，SQL 耗时不高<br>  -&gt; 更像连接池太小<br><br>SQLITE_BUSY 很多<br>  -&gt; 更像 SQLite 文件锁竞争<br><br>某几个 Mapper 调用特别频繁<br>  -&gt; 先看调用点和缓存策略<br></code></pre></td></tr></table></figure><p>没有这些数据时，改配置只能算猜。</p><h2 id="缓存可以做，但不是第一刀"><a href="#缓存可以做，但不是第一刀" class="headerlink" title="缓存可以做，但不是第一刀"></a>缓存可以做，但不是第一刀</h2><p>系统配置确实很适合缓存。比如测点缓存开关、系统音量、功能开关，这些 key 的特点是读很多、变很少。</p><p>但这次我不想马上把结论落到“加缓存”。原因是现在还不知道主库日常到底有多少读写、哪些 Mapper 最热、连接池等待有多严重。直接加缓存可能会让症状消失，但也会把真实压力藏起来。</p><p>如果后面要做缓存，我更倾向先把系统配置读写收敛到一个统一入口，而不是在各个业务点零散加缓存：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs text">业务代码<br>  |<br>  v<br>SystemConfigStore.getBool(key)<br>  |<br>  v<br>本地缓存<br>  |<br>  v<br>SystemConfigMapper<br>  |<br>  v<br>app.db<br></code></pre></td></tr></table></figure><p>写入也要走同一个入口：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">SystemConfigStore.put(key, value)<br>  |<br>  v<br>写 app.db<br>  |<br>  v<br>刷新或失效本地缓存<br></code></pre></td></tr></table></figure><p>这样做有两个好处。</p><p>第一个是应用内修改可以马上刷新缓存。比如系统音量这种配置，平时不变，但一变就要立刻生效，不能只靠几分钟 TTL。</p><p>第二个是以后排查更简单。业务代码不直接到处调 Mapper，而是统一从 <code>SystemConfigStore</code> 进出，缓存、监测、兜底都能放在这里。</p><p>不过缓存也有一个边界：如果有人绕过应用，直接改 SQLite 文件，应用内事件是感知不到的。这种场景只能靠短 TTL、版本号、<code>PRAGMA data_version</code> 或配置变更表去兜底。想做到“任何外部直接改库都立刻感知”，代价会明显变高。</p><h2 id="现在更值得先做的是-SQLite-监测"><a href="#现在更值得先做的是-SQLite-监测" class="headerlink" title="现在更值得先做的是 SQLite 监测"></a>现在更值得先做的是 SQLite 监测</h2><p>这次真正缺的是观测数据。</p><p>我们现在只能根据日志判断：当时连接池拿不到连接，测点缓存关闭后恢复。但还不知道日常状态是什么样：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">app.db 每秒多少次 select？<br>多少次 insert/update？<br>哪些 Mapper 调用最多？<br>慢调用集中在哪？<br>Hikari active/idle/pending 是多少？<br>有没有 SQLITE_BUSY？<br>打开测点缓存后，系统配置读取量增加多少？<br></code></pre></td></tr></table></figure><p>第一版不需要很重。可以加一个 MyBatis Interceptor，按 Mapper 统计调用次数、耗时、异常类型；再定时读取 Hikari 的连接池状态。每 30 秒打一条聚合日志就够用。</p><p>类似这样：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">sqlite-monitor<br>total=3200 select=2950 update=230 insert=20<br>avg=3ms p95=18ms max=420ms errors=2 busy=0<br>top=SystemConfigMapper.selectById:1800, DeviceStatusMapper.selectList:500<br>hikari active=1 idle=0 pending=12 total=1<br></code></pre></td></tr></table></figure><p>注意不要在现场日志里打印完整 SQL 参数。聚合数据足够判断方向，也更安全。</p><p>配置上默认关闭，排查时打开：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">sqlite:</span><br>  <span class="hljs-attr">monitor:</span><br>    <span class="hljs-attr">enabled:</span> <span class="hljs-literal">false</span><br>    <span class="hljs-attr">report-interval-ms:</span> <span class="hljs-number">30000</span><br>    <span class="hljs-attr">slow-threshold-ms:</span> <span class="hljs-number">200</span><br>    <span class="hljs-attr">top-n:</span> <span class="hljs-number">20</span><br></code></pre></td></tr></table></figure><p>有了这些数据，再决定怎么改会踏实很多：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">先部署监测<br>  |<br>  v<br>采 1 到 3 天数据<br>  |<br>  v<br>看连接池等待、SQL 耗时、SQLITE_BUSY、热点 Mapper<br>  |<br>  v<br>再决定连接池、WAL、busy_timeout、缓存的优先级<br></code></pre></td></tr></table></figure><h2 id="这次排查后的判断"><a href="#这次排查后的判断" class="headerlink" title="这次排查后的判断"></a>这次排查后的判断</h2><p>这次不是一个“SQLite 坏了”的问题，也不能简单写成“测点缓存导致 CPU 高”。</p><p>更准确的链路是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs text">测点缓存高频检查开关<br>        |<br>        v<br>主库 app.db 读取变多<br>        |<br>        v<br>主库连接池只有 1 个连接<br>        |<br>        v<br>后台任务开始排队等连接<br>        |<br>        v<br>30 秒后连接获取超时<br>        |<br>        v<br>异常日志、线程等待、CPU/IO 压力继续放大<br></code></pre></td></tr></table></figure><p>关闭测点缓存后恢复，说明它和事故强相关。但从证据看，它更像放大器，不一定是唯一根因。</p><p>下一步我会先补 SQLite 调用监测。等知道主库真实读写量级、连接池 pending、慢 Mapper 和 <code>SQLITE_BUSY</code> 分布后，再决定是提高连接池、开启 WAL、设置 <code>busy_timeout</code>，还是把系统配置读取收敛后加 Guava Cache。</p><p>这比直接上缓存慢一点，但排障不是把症状压下去就结束。先看清楚系统平时怎么跑，后面的优化才不容易改偏。</p>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>Java</tag>
+      
+      <tag>SQLite</tag>
+      
+      <tag>线上排障</tag>
+      
+      <tag>性能监测</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>一次 SSH 隧道报错背后的 Docker 镜像层损坏排查</title>
     <link href="/2026/05/06/docker-overlay-nginx-empty-conf/"/>
     <url>/2026/05/06/docker-overlay-nginx-empty-conf/</url>
@@ -148,11 +173,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>Prompt</tag>
       
       <tag>上下文管理</tag>
+      
+      <tag>复盘</tag>
       
     </tags>
     
@@ -354,9 +379,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>Prompt</tag>
+      
+      <tag>复盘</tag>
       
       <tag>MCP</tag>
       
@@ -601,13 +626,13 @@
       
       <tag>Java</tag>
       
-      <tag>AI</tag>
-      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
+      
+      <tag>AI</tag>
       
     </tags>
     
@@ -673,11 +698,11 @@
       
       <tag>LangGraph</tag>
       
+      <tag>复盘</tag>
+      
       <tag>ReAct</tag>
       
       <tag>架构重构</tag>
-      
-      <tag>复盘</tag>
       
     </tags>
     

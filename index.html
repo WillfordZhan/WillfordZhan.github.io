@@ -241,6 +241,52 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/05/06/sqlite/" target="_self">
+          一次 SQLite 超时排查：测点缓存、单连接和先监测再优化
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/06/sqlite/" target="_self">
+        <div>
+          这次排查的是边缘端 Java 服务的一次现场 CPU 飙高。 现象很直接：某天 15:30 到 16:00 左右，Java 进程 CPU 很高，日志里持续报 SQLite&#x2F;JDBC 连接获取失败。现场关闭“测点缓存”功能并重启后，服务恢复。这个功能之前一直开着，只有那天爆了一次，后面也没有再打开。 一开始很容易把问题归到测点缓存上：关了它就好了，那是不是缓存库坏了？但日志和库文件检查对不
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-05-06 17:26" pubdate>
+              2026-05-06
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/SQLite/">#SQLite</a>
+            
+              <a href="/tags/%E7%BA%BF%E4%B8%8A%E6%8E%92%E9%9A%9C/">#线上排障</a>
+            
+              <a href="/tags/%E6%80%A7%E8%83%BD%E7%9B%91%E6%B5%8B/">#性能监测</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/05/06/docker-overlay-nginx-empty-conf/" target="_self">
           一次 SSH 隧道报错背后的 Docker 镜像层损坏排查
         </a>
@@ -530,11 +576,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
               <a href="/tags/Prompt/">#Prompt</a>
             
               <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86/">#上下文管理</a>
+            
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
             
           </div>
         
@@ -819,75 +865,6 @@
               <a href="/tags/Python/">#Python</a>
             
               <a href="/tags/LLM/">#LLM</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/17/general-multi-hop-planning-for-agents/" target="_self">
-          别再让 Agent 靠感觉停下来了：聊聊通用多跳规划能力怎么做
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/17/general-multi-hop-planning-for-agents/" target="_self">
-        <div>
-          最近在调一条生产计划问答链时，碰到一个很典型的问题。 用户问的是“今天计划炉次有多少”，系统却在第一跳 production_plan_search 后就停了，直接把计划列表里的 count/total 当成了答案。真正需要的链路其实是：  先查计划，定位目标计划。 再查计划详情。 最后基于详情里的计划炉次做汇总。  这个问题看起来像“模型不够聪明”，但本质不是。更准确地说，是系统没有把“当前要回
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-17 20:35" pubdate>
-              2026-03-17
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/Function-Calling/">#Function Calling</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/AI/">#AI</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84/">#架构</a>
             
           </div>
         
