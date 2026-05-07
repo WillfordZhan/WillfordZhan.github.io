@@ -4,6 +4,37 @@
   
   
   <entry>
+    <title>把构建、部署和 Agent 调试闭环接起来</title>
+    <link href="/2026/05/07/ai-agent-build-deploy-debug-loop/"/>
+    <url>/2026/05/07/ai-agent-build-deploy-debug-loop/</url>
+    
+    <content type="html"><![CDATA[<p>这次主要补的是 Agent 编码之后的下一段路：代码可以自动改了，但构建完成、镜像确认、部署调试机这几步还断在人工操作里。结果就是 Agent 写完代码以后，仍然不知道什么时候可以部署，也不知道应该拿哪一个镜像去跑调试。</p><p>最后落下来的方案没有做成一套很重的发布平台，而是先把调试闭环打通：构建脚本上报状态，后台服务记录构建产物，Agent 查询成功镜像，再调用仓库里的受控部署脚本更新调试机。</p><h2 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h2><p>当前工作流大致是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">开发仓库 push -&gt; CI 触发构建 -&gt; 构建机 build/push 镜像 -&gt; 人工收到通知 -&gt; 人工部署调试机<br></code></pre></td></tr></table></figure><p>编码阶段已经能交给 Agent，但“构建完成之后发生了什么”对 Agent 是不可见的。企业微信通知对人有用，对 Agent 没有稳定结构；镜像仓库里虽然能看到 tag 和 digest，但用 registry 反推“这次构建产物”并不可靠，尤其是分支 tag 会覆盖。</p><p>所以这次的目标很窄：</p><ol><li>构建阶段把 <code>RUNNING</code> &#x2F; <code>SUCCESS</code> 上报到云端服务。</li><li>上报失败不能影响原构建。</li><li>Agent 能按 <code>repo + branch + service + commitId</code> 查询完整镜像。</li><li>调试机部署继续走受控脚本，不手工拼 SSH 命令。</li></ol><h2 id="构建上报"><a href="#构建上报" class="headerlink" title="构建上报"></a>构建上报</h2><p>第一版只做成功链路，不处理失败日志，也不引入复杂流水线模型。构建机在两个时机上报：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">RUNNING: 代码目录切到目标分支，并拿到 commit 之后<br>SUCCESS: docker push 成功之后<br></code></pre></td></tr></table></figure><p>云端接口收敛成一个 upsert 入口：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">POST /ci/build-report<br></code></pre></td></tr></table></figure><p>唯一键是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">repo + branch + commitId + service<br></code></pre></td></tr></table></figure><p>这样同一个提交重复构建时不会插出多条互相竞争的记录；同一个分支的新提交构建成功后，也能明确区分“当前提交产物”和“分支最新成功产物”。</p><p>构建脚本里的上报逻辑没有直接铺在业务脚本里，而是抽成一个公共 helper。业务构建脚本只保留两次调用：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">report-build.sh RUNNING<br>report-build.sh SUCCESS<br></code></pre></td></tr></table></figure><p>这个 helper 的约束比功能更重要：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">connect timeout: 1s<br>max time: 3s<br>failure: warn only<br>exit code: never breaks build<br></code></pre></td></tr></table></figure><p>也就是说，云端服务挂了、网络慢了、token 配错了，都只能影响 Agent 感知，不能影响镜像构建本身。</p><h2 id="云端记录"><a href="#云端记录" class="headerlink" title="云端记录"></a>云端记录</h2><p>云端先只加了最小表：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">repo<br>branch<br>commitId<br>service<br>status<br>image<br>digest<br>startedTime<br>finishedTime<br></code></pre></td></tr></table></figure><p>接口也只保留两个核心动作：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">POST /ci/build-report<br>GET  /ci/build-report/latest<br></code></pre></td></tr></table></figure><p>其中 <code>latest</code> 查询默认服务于 Agent：</p><ul><li>带 <code>commitId</code>：查询当前提交对应的成功镜像。</li><li>不带 <code>commitId</code>：查询该分支最新成功镜像，但必须是用户明确接受这个语义。</li></ul><p>这里没有把 digest 当成 v0 的强依赖。digest 有价值，能确认 tag 当前指向的不可变内容，但部署调试机需要的是完整 image。第一阶段先让 Agent 拿到正确 image，后面再补 digest 校验也来得及。</p><h2 id="部署脚本"><a href="#部署脚本" class="headerlink" title="部署脚本"></a>部署脚本</h2><p>部署脚本没有放进 skill 里，而是保留在产品仓库的 <code>bin/</code> 目录下。原因很简单：它会改调试机上的 <code>compose.yml</code>，还会执行远端 <code>update.sh</code>，这是实际运维入口，不应该藏在 Agent 私有目录里。</p><p>脚本做的事很克制：</p><ol><li>根据 <code>j</code>、<code>f</code>、<code>both</code> 三种模式选择服务。</li><li>备份远端 <code>compose.yml</code>。</li><li>精确替换对应 service 的 image 行。</li><li>只保留最近两个 Agent 创建的备份。</li><li>执行远端已有的 <code>update.sh</code>。</li><li>验证容器正在用预期镜像运行。</li></ol><p>这里没有做额外元数据块，也没有设计新的部署协议。调试机本来就是人和 Agent 并行使用的环境，保持“像人一样改 compose 再 update”反而更容易和现有习惯兼容。</p><h2 id="Agent-Skill"><a href="#Agent-Skill" class="headerlink" title="Agent Skill"></a>Agent Skill</h2><p>最后补的是 Agent 侧 skill。这个 skill 的重点不是把所有命令写进去，而是把低 HITL 的边界写清楚。</p><p>默认场景是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">编码完成 -&gt; 构建 -&gt; 查询构建产物 -&gt; 部署调试机 -&gt; 继续查日志调试<br></code></pre></td></tr></table></figure><p>所以它不应该每一步都问用户。只要上下文能判断影响范围，就直接推断部署模式：</p><ul><li>后端变更：部署 <code>j</code></li><li>前端变更：部署 <code>f</code></li><li>两边都有变更：部署 <code>both</code></li></ul><p>但也不能因为低 HITL 就模糊部署。这里补了两个硬约束：</p><ol><li>默认必须带 <code>commitId</code> 查询构建产物。</li><li><code>both</code> 模式必须先分别拿到两个服务的完整 image，全部成功后再部署一次，不能自动降级成单服务部署。</li></ol><p>如果用户明确说“部署该分支最新成功构建”，skill 才允许不带 <code>commitId</code>。这个区分很关键，否则 Agent 漏传参数就可能静默部署到同分支更新的镜像。</p><h2 id="结果"><a href="#结果" class="headerlink" title="结果"></a>结果</h2><p>这次跑通之后，链路变成：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">git push<br>-&gt; CI 构建<br>-&gt; 构建机上报 RUNNING / SUCCESS<br>-&gt; 云端记录 image<br>-&gt; Agent 查询成功产物<br>-&gt; Agent 调用受控部署脚本<br>-&gt; 调试机验证<br></code></pre></td></tr></table></figure><p>现在至少解决了三个问题：</p><ol><li>Agent 不再靠猜 registry tag 判断构建结果。</li><li>构建上报失败不会拖垮原来的构建流程。</li><li>调试机部署有了固定入口，既能自动跑，也方便人审计。</li></ol><h2 id="还没做的事"><a href="#还没做的事" class="headerlink" title="还没做的事"></a>还没做的事</h2><p>这还不是完整发布系统。当前只适合调试机闭环，不适合生产发布。</p><p>后面可以继续补：</p><ul><li>失败构建的日志链接上报。</li><li>部署后的更完整健康检查。</li><li>digest 校验。</li><li>token 从脚本默认值迁到安全配置。</li><li>部署记录和验证结果也进入同一个控制面。</li></ul><p>但这一步已经让 Agent 从“只能改代码”往前走了一段：它现在能等构建、拿镜像、部署调试机，并继续进入日志排查。对日常开发来说，这比一开始就设计完整发布平台更有用。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
+      
+      <tag>自动化部署</tag>
+      
+      <tag>DevOps</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>一次 SQLite 超时排查：测点缓存、单连接和先监测再优化</title>
     <link href="/2026/05/06/sqlite/"/>
     <url>/2026/05/06/sqlite/</url>
@@ -173,11 +204,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>复盘</tag>
+      
       <tag>Prompt</tag>
       
       <tag>上下文管理</tag>
-      
-      <tag>复盘</tag>
       
     </tags>
     
@@ -272,9 +303,9 @@
       
       <tag>LangGraph</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Workflow</tag>
       
@@ -379,9 +410,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Prompt</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>Prompt</tag>
       
       <tag>MCP</tag>
       
@@ -698,11 +729,11 @@
       
       <tag>LangGraph</tag>
       
-      <tag>复盘</tag>
-      
       <tag>ReAct</tag>
       
       <tag>架构重构</tag>
+      
+      <tag>复盘</tag>
       
     </tags>
     

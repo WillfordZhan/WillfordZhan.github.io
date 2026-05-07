@@ -241,6 +241,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/05/07/ai-agent-build-deploy-debug-loop/" target="_self">
+          把构建、部署和 Agent 调试闭环接起来
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/07/ai-agent-build-deploy-debug-loop/" target="_self">
+        <div>
+          这次主要补的是 Agent 编码之后的下一段路：代码可以自动改了，但构建完成、镜像确认、部署调试机这几步还断在人工操作里。结果就是 Agent 写完代码以后，仍然不知道什么时候可以部署，也不知道应该拿哪一个镜像去跑调试。 最后落下来的方案没有做成一套很重的发布平台，而是先把调试闭环打通：构建脚本上报状态，后台服务记录构建产物，Agent 查询成功镜像，再调用仓库里的受控部署脚本更新调试机。 目标当
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-05-07 19:27" pubdate>
+              2026-05-07
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">#自动化部署</a>
+            
+              <a href="/tags/DevOps/">#DevOps</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/05/06/sqlite/" target="_self">
           一次 SQLite 超时排查：测点缓存、单连接和先监测再优化
         </a>
@@ -576,11 +643,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
+              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
+            
               <a href="/tags/Prompt/">#Prompt</a>
             
               <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86/">#上下文管理</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
             
           </div>
         
@@ -783,9 +850,9 @@
             
               <a href="/tags/LangGraph/">#LangGraph</a>
             
-              <a href="/tags/ReAct/">#ReAct</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/ReAct/">#ReAct</a>
             
               <a href="/tags/Workflow/">#Workflow</a>
             
@@ -794,77 +861,6 @@
               <a href="/tags/Subagents/">#Subagents</a>
             
               <a href="/tags/%E8%B0%83%E7%A0%94/">#调研</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/17/ai-agent-python-agent/" target="_self">
-          从顶级 AI Agent 架构视角看这套 Python Agent 项目
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/17/ai-agent-python-agent/" target="_self">
-        <div>
-          我先给结论。 这个项目现在不是“做不成事”，而是已经到了一个很典型的拐点：  作为单智能体、少量工具、强业务约束的企业 Agent，它已经能跑通主链。 但它的可靠性主要靠 prompt + 少量 runtime 约束 + MCP 双视图 顶住。 一旦继续加工具、加查询类型、加多跳深度，复杂度会明显上升，而且会越来越依赖 prompt 特判。  从顶级 AI Agent 架构视角看，当前最值得做的不
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-17 21:09" pubdate>
-              2026-03-17
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AF%84%E5%AE%A1/">#架构评审</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/LLM/">#LLM</a>
             
           </div>
         

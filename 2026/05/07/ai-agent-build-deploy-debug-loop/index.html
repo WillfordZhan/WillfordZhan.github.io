@@ -1,0 +1,789 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="这次主要补的是 Agent 编码之后的下一段路：代码可以自动改了，但构建完成、镜像确认、部署调试机这几步还断在人工操作里。结果就是 Agent 写完代码以后，仍然不知道什么时候可以部署，也不知道应该拿哪一个镜像去跑调试。 最后落下来的方案没有做成一套很重的发布平台，而是先把调试闭环打通：构建脚本上报状态，后台服务记录构建产物，Agent 查询成功镜像，再调用仓库里的受控部署脚本更新调试机。 目标当">
+<meta property="og:type" content="article">
+<meta property="og:title" content="把构建、部署和 Agent 调试闭环接起来">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/05/07/ai-agent-build-deploy-debug-loop/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="这次主要补的是 Agent 编码之后的下一段路：代码可以自动改了，但构建完成、镜像确认、部署调试机这几步还断在人工操作里。结果就是 Agent 写完代码以后，仍然不知道什么时候可以部署，也不知道应该拿哪一个镜像去跑调试。 最后落下来的方案没有做成一套很重的发布平台，而是先把调试闭环打通：构建脚本上报状态，后台服务记录构建产物，Agent 查询成功镜像，再调用仓库里的受控部署脚本更新调试机。 目标当">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-07T11:27:40.000Z">
+<meta property="article:modified_time" content="2026-05-07T14:44:31.924Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="AI Agent">
+<meta property="article:tag" content="自动化部署">
+<meta property="article:tag" content="DevOps">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>把构建、部署和 Agent 调试闭环接起来 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="把构建、部署和 Agent 调试闭环接起来"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-07 19:27" pubdate>
+          2026年5月7日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          13 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">把构建、部署和 Agent 调试闭环接起来</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>这次主要补的是 Agent 编码之后的下一段路：代码可以自动改了，但构建完成、镜像确认、部署调试机这几步还断在人工操作里。结果就是 Agent 写完代码以后，仍然不知道什么时候可以部署，也不知道应该拿哪一个镜像去跑调试。</p>
+<p>最后落下来的方案没有做成一套很重的发布平台，而是先把调试闭环打通：构建脚本上报状态，后台服务记录构建产物，Agent 查询成功镜像，再调用仓库里的受控部署脚本更新调试机。</p>
+<h2 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h2><p>当前工作流大致是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">开发仓库 push -&gt; CI 触发构建 -&gt; 构建机 build/push 镜像 -&gt; 人工收到通知 -&gt; 人工部署调试机<br></code></pre></td></tr></table></figure>
+
+<p>编码阶段已经能交给 Agent，但“构建完成之后发生了什么”对 Agent 是不可见的。企业微信通知对人有用，对 Agent 没有稳定结构；镜像仓库里虽然能看到 tag 和 digest，但用 registry 反推“这次构建产物”并不可靠，尤其是分支 tag 会覆盖。</p>
+<p>所以这次的目标很窄：</p>
+<ol>
+<li>构建阶段把 <code>RUNNING</code> &#x2F; <code>SUCCESS</code> 上报到云端服务。</li>
+<li>上报失败不能影响原构建。</li>
+<li>Agent 能按 <code>repo + branch + service + commitId</code> 查询完整镜像。</li>
+<li>调试机部署继续走受控脚本，不手工拼 SSH 命令。</li>
+</ol>
+<h2 id="构建上报"><a href="#构建上报" class="headerlink" title="构建上报"></a>构建上报</h2><p>第一版只做成功链路，不处理失败日志，也不引入复杂流水线模型。构建机在两个时机上报：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">RUNNING: 代码目录切到目标分支，并拿到 commit 之后<br>SUCCESS: docker push 成功之后<br></code></pre></td></tr></table></figure>
+
+<p>云端接口收敛成一个 upsert 入口：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">POST /ci/build-report<br></code></pre></td></tr></table></figure>
+
+<p>唯一键是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">repo + branch + commitId + service<br></code></pre></td></tr></table></figure>
+
+<p>这样同一个提交重复构建时不会插出多条互相竞争的记录；同一个分支的新提交构建成功后，也能明确区分“当前提交产物”和“分支最新成功产物”。</p>
+<p>构建脚本里的上报逻辑没有直接铺在业务脚本里，而是抽成一个公共 helper。业务构建脚本只保留两次调用：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">report-build.sh RUNNING<br>report-build.sh SUCCESS<br></code></pre></td></tr></table></figure>
+
+<p>这个 helper 的约束比功能更重要：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">connect timeout: 1s<br>max time: 3s<br>failure: warn only<br>exit code: never breaks build<br></code></pre></td></tr></table></figure>
+
+<p>也就是说，云端服务挂了、网络慢了、token 配错了，都只能影响 Agent 感知，不能影响镜像构建本身。</p>
+<h2 id="云端记录"><a href="#云端记录" class="headerlink" title="云端记录"></a>云端记录</h2><p>云端先只加了最小表：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">repo<br>branch<br>commitId<br>service<br>status<br>image<br>digest<br>startedTime<br>finishedTime<br></code></pre></td></tr></table></figure>
+
+<p>接口也只保留两个核心动作：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">POST /ci/build-report<br>GET  /ci/build-report/latest<br></code></pre></td></tr></table></figure>
+
+<p>其中 <code>latest</code> 查询默认服务于 Agent：</p>
+<ul>
+<li>带 <code>commitId</code>：查询当前提交对应的成功镜像。</li>
+<li>不带 <code>commitId</code>：查询该分支最新成功镜像，但必须是用户明确接受这个语义。</li>
+</ul>
+<p>这里没有把 digest 当成 v0 的强依赖。digest 有价值，能确认 tag 当前指向的不可变内容，但部署调试机需要的是完整 image。第一阶段先让 Agent 拿到正确 image，后面再补 digest 校验也来得及。</p>
+<h2 id="部署脚本"><a href="#部署脚本" class="headerlink" title="部署脚本"></a>部署脚本</h2><p>部署脚本没有放进 skill 里，而是保留在产品仓库的 <code>bin/</code> 目录下。原因很简单：它会改调试机上的 <code>compose.yml</code>，还会执行远端 <code>update.sh</code>，这是实际运维入口，不应该藏在 Agent 私有目录里。</p>
+<p>脚本做的事很克制：</p>
+<ol>
+<li>根据 <code>j</code>、<code>f</code>、<code>both</code> 三种模式选择服务。</li>
+<li>备份远端 <code>compose.yml</code>。</li>
+<li>精确替换对应 service 的 image 行。</li>
+<li>只保留最近两个 Agent 创建的备份。</li>
+<li>执行远端已有的 <code>update.sh</code>。</li>
+<li>验证容器正在用预期镜像运行。</li>
+</ol>
+<p>这里没有做额外元数据块，也没有设计新的部署协议。调试机本来就是人和 Agent 并行使用的环境，保持“像人一样改 compose 再 update”反而更容易和现有习惯兼容。</p>
+<h2 id="Agent-Skill"><a href="#Agent-Skill" class="headerlink" title="Agent Skill"></a>Agent Skill</h2><p>最后补的是 Agent 侧 skill。这个 skill 的重点不是把所有命令写进去，而是把低 HITL 的边界写清楚。</p>
+<p>默认场景是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">编码完成 -&gt; 构建 -&gt; 查询构建产物 -&gt; 部署调试机 -&gt; 继续查日志调试<br></code></pre></td></tr></table></figure>
+
+<p>所以它不应该每一步都问用户。只要上下文能判断影响范围，就直接推断部署模式：</p>
+<ul>
+<li>后端变更：部署 <code>j</code></li>
+<li>前端变更：部署 <code>f</code></li>
+<li>两边都有变更：部署 <code>both</code></li>
+</ul>
+<p>但也不能因为低 HITL 就模糊部署。这里补了两个硬约束：</p>
+<ol>
+<li>默认必须带 <code>commitId</code> 查询构建产物。</li>
+<li><code>both</code> 模式必须先分别拿到两个服务的完整 image，全部成功后再部署一次，不能自动降级成单服务部署。</li>
+</ol>
+<p>如果用户明确说“部署该分支最新成功构建”，skill 才允许不带 <code>commitId</code>。这个区分很关键，否则 Agent 漏传参数就可能静默部署到同分支更新的镜像。</p>
+<h2 id="结果"><a href="#结果" class="headerlink" title="结果"></a>结果</h2><p>这次跑通之后，链路变成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">git push<br>-&gt; CI 构建<br>-&gt; 构建机上报 RUNNING / SUCCESS<br>-&gt; 云端记录 image<br>-&gt; Agent 查询成功产物<br>-&gt; Agent 调用受控部署脚本<br>-&gt; 调试机验证<br></code></pre></td></tr></table></figure>
+
+<p>现在至少解决了三个问题：</p>
+<ol>
+<li>Agent 不再靠猜 registry tag 判断构建结果。</li>
+<li>构建上报失败不会拖垮原来的构建流程。</li>
+<li>调试机部署有了固定入口，既能自动跑，也方便人审计。</li>
+</ol>
+<h2 id="还没做的事"><a href="#还没做的事" class="headerlink" title="还没做的事"></a>还没做的事</h2><p>这还不是完整发布系统。当前只适合调试机闭环，不适合生产发布。</p>
+<p>后面可以继续补：</p>
+<ul>
+<li>失败构建的日志链接上报。</li>
+<li>部署后的更完整健康检查。</li>
+<li>digest 校验。</li>
+<li>token 从脚本默认值迁到安全配置。</li>
+<li>部署记录和验证结果也进入同一个控制面。</li>
+</ul>
+<p>但这一步已经让 Agent 从“只能改代码”往前走了一段：它现在能等构建、拿镜像、部署调试机，并继续进入日志排查。对日常开发来说，这比一开始就设计完整发布平台更有用。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/AI-Agent/" class="print-no-link">#AI Agent</a>
+      
+        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/" class="print-no-link">#自动化部署</a>
+      
+        <a href="/tags/DevOps/" class="print-no-link">#DevOps</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>把构建、部署和 Agent 调试闭环接起来</div>
+      <div>https://willfordzhan.github.io/2026/05/07/ai-agent-build-deploy-debug-loop/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月7日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/05/06/sqlite/" title="一次 SQLite 超时排查：测点缓存、单连接和先监测再优化">
+                        <span class="hidden-mobile">一次 SQLite 超时排查：测点缓存、单连接和先监测再优化</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
