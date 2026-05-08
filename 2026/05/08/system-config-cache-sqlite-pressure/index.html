@@ -27,7 +27,7 @@
 <meta property="og:description" content="端侧 Java 服务里有一类配置读写很容易被忽略：系统配置表看起来很小，单次 selectById 也很快，但高频轮询、状态推送、版本上报叠在一起后，会把 SQLite 打成持续背景负载。 这次要处理的不是一次慢 SQL，而是低价值的高频读写。目标也很明确：不改变业务配置语义，减少系统配置读写次数，把优化开关做成可回退能力。 现场数据监控窗口是 30 秒。某台端侧设备上的数据库监控大致是这样： 1">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-08T06:39:51.000Z">
-<meta property="article:modified_time" content="2026-05-08T06:45:33.669Z">
+<meta property="article:modified_time" content="2026-05-08T08:18:42.488Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="开发回顾">
@@ -241,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.9k 字
+          2.4k 字
         
       </span>
     
@@ -252,7 +252,7 @@
         
         
         
-          17 分钟
+          21 分钟
         
       </span>
     
@@ -410,6 +410,18 @@
 
 <p>读缓存开启后，<code>selectById</code> 应该明显下降；同值写跳过后，版本号这类重复写应该接近消失。</p>
 <p>这不是为了证明单条 SQL 变快，而是为了减少低价值调用次数。对端侧设备来说，这类优化的价值在于长期运行时少一点 SQLite 写锁、少一点对象分配、少一点线程等待。单台机器看起来只是背景负载，设备规模上来后，这些背景负载就会变成稳定成本。</p>
+<h2 id="上线后观测"><a href="#上线后观测" class="headerlink" title="上线后观测"></a>上线后观测</h2><p>实际部署后，先看真实 SQL 次数，结果比较直接。开启优化后，<code>selectById</code> 和 <code>updateById</code> 都从高频背景调用降到了低频调用：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">TbSystemConfigMapper.selectById<br>  开启优化：约   429 次 / 30s<br>  关闭优化：约 22840 次 / 30s<br>  下降：约 98%<br><br>TbSystemConfigMapper.updateById<br>  开启优化：约   4.6 次 / 30s<br>  关闭优化：约 132.8 次 / 30s<br>  下降：约 96%<br></code></pre></td></tr></table></figure>
+
+<p>这里要特别注意一个监控口径：<code>sysconfig read/write</code> 统计的是 mapper 入口调用，不等于真实 SQLite 读写。缓存命中也会记一次 <code>sysconfig read</code>，所以它不会跟着下降。判断数据库压力要看 MyBatis 维度里的 <code>selectById</code> &#x2F; <code>updateById</code>。</p>
+<p>CPU 这块也做了开关对照。第一次 8 分钟窗口里，排除后续部署导致的容器重建后，有效区间大致是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">开启优化：约 32% of 1 core<br>关闭优化：约 48% of 1 core<br></code></pre></td></tr></table></figure>
+
+<p>这个结果说明 CPU 有下降，但窗口里仍可能混有现场业务波动。为了看静息状态，又按接近 <code>top</code> 的口径做了一轮短窗口：同一个进程、同一个容器、每段约 96 秒，用 <code>/proc/&lt;pid&gt;/stat</code> 的 CPU tick 差值算平均值，再折算到 4 核整机。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">开启优化：<br>  one-core 口径：38.29%<br>  4 核整机口径： 9.57%<br><br>关闭优化：<br>  one-core 口径：44.29%<br>  4 核整机口径：11.07%<br><br>恢复开启：<br>  one-core 口径：33.84%<br>  4 核整机口径： 8.46%<br></code></pre></td></tr></table></figure>
+
+<p>如果只看 <code>top</code> 常见的单核口径，静息时 Java 进程大约少了 6 到 10 个百分点；如果折算到 4 核整机，平均占用大约少 1.5 到 2.6 个百分点。这个数字不算夸张，但它是持续背景负载上的下降。</p>
+<p>更关键的结论还是数据库压力：CPU 收益会受业务峰值、部署、现场设备通信影响，短窗口里会抖；但系统配置打 SQLite 的次数下降了两个数量级，这个结果更稳定，也更能说明这次优化的价值。</p>
 <p>这次实现刻意没有做更多东西：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">不做 app-monitor 指标<br>不做 cache hit/miss 指标<br>不做全表预热<br>不做分片刷新<br>不缓存 missing/null<br>不提前改变 null 入参行为<br></code></pre></td></tr></table></figure>
 
