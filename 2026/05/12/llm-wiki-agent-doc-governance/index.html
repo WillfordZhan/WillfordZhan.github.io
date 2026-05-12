@@ -1,0 +1,768 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近在设计一个给 coding agent 使用的业务文档自管理系统。问题不是“要不要写文档”，而是：代码已经是运行行为的第一事实源，文档如果只是人工补充说明，很快会漂移；但如果完全不写文档，很多业务前提、取舍和禁区又不会自然出现在代码里。 这套系统最后收敛成一个比较小的模型：代码负责表达当前怎么跑；wiki 负责表达代码之外的业务语义和设计取舍；脚本负责稳定发现影响范围；agent 只处理语义判">
+<meta property="og:type" content="article">
+<meta property="og:title" content="给 Agent 读的 LLM-wiki：业务文档自管理系统设计">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/05/12/llm-wiki-agent-doc-governance/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="最近在设计一个给 coding agent 使用的业务文档自管理系统。问题不是“要不要写文档”，而是：代码已经是运行行为的第一事实源，文档如果只是人工补充说明，很快会漂移；但如果完全不写文档，很多业务前提、取舍和禁区又不会自然出现在代码里。 这套系统最后收敛成一个比较小的模型：代码负责表达当前怎么跑；wiki 负责表达代码之外的业务语义和设计取舍；脚本负责稳定发现影响范围；agent 只处理语义判">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-12T10:40:48.000Z">
+<meta property="article:modified_time" content="2026-05-12T10:45:38.721Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="架构设计">
+<meta property="article:tag" content="LLM-wiki">
+<meta property="article:tag" content="文档治理">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>给 Agent 读的 LLM-wiki：业务文档自管理系统设计 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="给 Agent 读的 LLM-wiki：业务文档自管理系统设计"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-05-12 18:40" pubdate>
+          2026年5月12日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          17 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">给 Agent 读的 LLM-wiki：业务文档自管理系统设计</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>最近在设计一个给 coding agent 使用的业务文档自管理系统。问题不是“要不要写文档”，而是：代码已经是运行行为的第一事实源，文档如果只是人工补充说明，很快会漂移；但如果完全不写文档，很多业务前提、取舍和禁区又不会自然出现在代码里。</p>
+<p>这套系统最后收敛成一个比较小的模型：代码负责表达当前怎么跑；wiki 负责表达代码之外的业务语义和设计取舍；脚本负责稳定发现影响范围；agent 只处理语义判断和文档聚合，不把所有事情都交给模型猜。</p>
+<h2 id="为什么不是普通文档库"><a href="#为什么不是普通文档库" class="headerlink" title="为什么不是普通文档库"></a>为什么不是普通文档库</h2><p>普通文档库的问题是没有生命周期。</p>
+<p>一篇设计文档写完之后，代码可能经历多次提交、返工、合并和交付。交付之后，设计文档里长期有效的内容应该进入稳定的业务主题页；临时的任务清单、调研过程、开发蓝图则不应该继续污染长期知识库。</p>
+<p>所以这个系统一开始就区分两个事实源：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">code<br>  当前运行行为事实源<br><br>llm-wiki<br>  代码之外的业务语义、边界、取舍和稳定入口<br></code></pre></td></tr></table></figure>
+
+<p>文档漂移也不定义成“文字和代码不一致”。更准确的定义是：文档里的业务判断已经无法被当前代码事实支撑，或者代码新增了业务能力但没有被长期 wiki 承接。</p>
+<h2 id="最小文档类型"><a href="#最小文档类型" class="headerlink" title="最小文档类型"></a>最小文档类型</h2><p>讨论中一开始出现过很多类型：business、design、decision、research、development、runbook。后来全部收掉，只保留两个正式类型：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">doc_type:</span> <span class="hljs-string">topic</span> <span class="hljs-string">|</span> <span class="hljs-string">change</span><br></code></pre></td></tr></table></figure>
+
+<p><code>topic</code> 是长期主题页，保存当前有效的业务语义、领域边界、稳定规则和代码入口。</p>
+<p><code>change</code> 是阶段性变更档案，保存某次 feature、fix、upgrade 或设计调整的背景、方案、取舍和影响范围。它交付后不再作为当前事实源，而是被聚合到相关 topic，自己变成历史档案。</p>
+<p>没有单独保留 <code>decision</code>，因为大多数决策放在 change 的 <code>## Decisions</code> 就够了。只有难回退、未来读者会困惑、确实存在取舍的决策，才需要提升成 ADR。</p>
+<p>没有保留 <code>research</code> 和 <code>development</code>。代码链路调研是 agent 从代码事实生成的临时证据；如果调研发现在业务语义上缺文档，就直接创建或更新 topic。开发 TODO、落地蓝图、临时任务状态也不进正式 wiki，它们的最终产物应该是代码、测试和被聚合后的 topic。</p>
+<h2 id="状态机"><a href="#状态机" class="headerlink" title="状态机"></a>状态机</h2><p><code>topic</code> 和 <code>change</code> 的生命周期不同，不能用一套 status 硬套。</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-comment"># doc_type: topic</span><br><span class="hljs-attr">status:</span> <span class="hljs-string">active</span> <span class="hljs-string">|</span> <span class="hljs-string">superseded</span> <span class="hljs-string">|</span> <span class="hljs-string">retired</span><br><br><span class="hljs-comment"># doc_type: change</span><br><span class="hljs-attr">status:</span> <span class="hljs-string">active</span> <span class="hljs-string">|</span> <span class="hljs-string">pending_topic_merge</span> <span class="hljs-string">|</span> <span class="hljs-string">archived</span><br></code></pre></td></tr></table></figure>
+
+<p><code>change: active</code> 表示还在设计、开发、返工或验证中。同一个 change 可以覆盖多次 commit，不需要每次提交都创建一篇文档。</p>
+<p><code>change: pending_topic_merge</code> 表示人已经确认功能交付，并且对应代码进入目标集成分支。这个判断不应该由 agent 自己做，因为“是否交付”是项目状态，不是代码文本能完全推出的结论。</p>
+<p><code>change: archived</code> 表示长期内容已经聚合到 topic，这篇 change 只作为历史档案保留。</p>
+<p>并行开发时有一个关键约束：多个 change 同时影响同一个 topic 时，不能各自随意改 topic。聚合任务必须按 topic 分组串行执行，每次写入前都重新读取当前 topic、相关 change 和目标集成分支上的代码事实。</p>
+<h2 id="路径就是身份"><a href="#路径就是身份" class="headerlink" title="路径就是身份"></a>路径就是身份</h2><p>一开始考虑过 <code>doc_id</code>，比如 <code>业务主题.business</code> 或 <code>业务主题-设计</code>。后面放弃了。</p>
+<p>原因是 <code>doc_id</code> 和文件路径会变成两套身份系统。人改文件名、移动目录、调整引用时，很容易漏改其中一套。既然目标是人机共读，而且希望兼容 Obsidian 双链，就让路径直接成为身份。</p>
+<p>最终规则是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">docs/ 是 Obsidian vault root<br>文档身份 = docs/ 下的 vault-relative refPath<br>refs 使用 Obsidian wikilink<br></code></pre></td></tr></table></figure>
+
+<p>目录保持简单：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">docs/<br>  topics/      # 长期主题页<br>  changes/     # 变更档案<br>  guides/      # 给人读的导航页<br></code></pre></td></tr></table></figure>
+
+<p>引用长这样：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">refs:</span><br>  <span class="hljs-attr">related_topics:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;[[topics/业务主题]]&quot;</span><br>  <span class="hljs-attr">archived_changes:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;[[changes/业务主题-某次改造]]&quot;</span><br></code></pre></td></tr></table></figure>
+
+<p><code>guides/</code> 只服务人类阅读路径，比如按业务层级组织“子设备”“报表”“成本”等入口。它不承担事实源职责，也不应该决定 topic 的身份。</p>
+<h2 id="元数据边界"><a href="#元数据边界" class="headerlink" title="元数据边界"></a>元数据边界</h2><p>topic 示例：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-meta">---</span><br><span class="hljs-attr">doc_type:</span> <span class="hljs-string">topic</span><br><span class="hljs-attr">status:</span> <span class="hljs-string">active</span><br><span class="hljs-attr">description:</span> <span class="hljs-string">某个长期业务主题的语义、边界、规则和稳定代码入口。</span><br><span class="hljs-attr">tags:</span> [<span class="hljs-string">业务标签</span>, <span class="hljs-string">配置</span>, <span class="hljs-string">设备</span>]<br><span class="hljs-attr">refs:</span><br>  <span class="hljs-attr">related_topics:</span> []<br>  <span class="hljs-attr">archived_changes:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;[[changes/业务主题-某次改造]]&quot;</span><br><span class="hljs-attr">code:</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-attr">path:</span> <span class="hljs-string">src/domain/example/</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-attr">path:</span> <span class="hljs-string">src/config/BusinessConfig.java</span><br>    <span class="hljs-attr">symbols:</span> [<span class="hljs-string">IMPORTANT_CONFIG_KEY</span>]<br><span class="hljs-meta">---</span><br></code></pre></td></tr></table></figure>
+
+<p>change 示例：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-meta">---</span><br><span class="hljs-attr">doc_type:</span> <span class="hljs-string">change</span><br><span class="hljs-attr">status:</span> <span class="hljs-string">pending_topic_merge</span><br><span class="hljs-attr">description:</span> <span class="hljs-string">某次变更的背景、方案、取舍和交付验证。</span><br><span class="hljs-attr">refs:</span><br>  <span class="hljs-attr">related_topics:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;[[topics/业务主题]]&quot;</span><br><span class="hljs-attr">code:</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-attr">path:</span> <span class="hljs-string">src/domain/example/</span><br><span class="hljs-meta">---</span><br></code></pre></td></tr></table></figure>
+
+<p><code>refs.related_topics</code> 只在 <code>pending_topic_merge</code> 阶段成为强约束，表示这篇 change 必须聚合到哪些 topic。<code>refs.archived_changes</code> 是 topic 上的历史档案入口。</p>
+<p><code>code</code> 是反向索引的基础。代码变更后，脚本可以通过 <code>code.path</code> 找到可能受影响的 topic 或 change，再把候选交给 agent 判断是否漂移。</p>
+<p>这里刻意不区分 <code>owned_code</code> 和 <code>referenced_code</code>。这类归属很容易变成主观维护负担。第一版只保留一个中性字段 <code>code</code>。</p>
+<p><code>symbols</code> 也不默认强制。领域相关代码通常写到 path 就够了；只有通用类、配置类或特别宽的文件，才用 symbols 缩小阅读范围。</p>
+<h2 id="聚合不是摘要"><a href="#聚合不是摘要" class="headerlink" title="聚合不是摘要"></a>聚合不是摘要</h2><p>change 聚合到 topic，不是把 change 摘要复制过去。</p>
+<p>聚合时 agent 至少要同时看三类输入：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">change.code<br>topic.code<br>target branch diff<br></code></pre></td></tr></table></figure>
+
+<p><code>change.code</code> 是本次变更的证据范围，可以比 topic 更宽。<code>topic.code</code> 只保留长期稳定入口。聚合的目标是把长期有效的业务语义、边界、关键取舍和稳定代码入口吸收到 topic，临时开发细节不应该留下。</p>
+<p>这也是为什么不能让 hook 直接唤起模型自动改文档。hook 更适合做确定性事情：扫描 frontmatter、解析 Obsidian refs、校验 status、根据 changed files 生成影响清单。真正的语义判断和聚合可以交给 agent，但入口要由脚本约束。</p>
+<p>第一版 harness 可以很小：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs bash">scripts/wiki check<br>scripts/wiki index<br>scripts/wiki impact --changed-file-list &lt;file&gt;<br>scripts/wiki pending-topic-merge<br>scripts/wiki validate-ref <span class="hljs-string">&quot;[[topics/业务主题]]&quot;</span><br></code></pre></td></tr></table></figure>
+
+<p>hook &#x2F; cron &#x2F; agent workflow 都只调用这个统一 CLI，不把逻辑散在各个 hook 里。</p>
+<h2 id="这套-wiki-到底解决什么"><a href="#这套-wiki-到底解决什么" class="headerlink" title="这套 wiki 到底解决什么"></a>这套 wiki 到底解决什么</h2><p>它的价值不是“让人少读代码”。强一点的 coding agent 本来就能搜代码、读调用链、跑测试。</p>
+<p>真正重要的是三件事。</p>
+<p>第一，保存代码外事实。代码能说明当前系统怎么跑，但很难说明为什么业务上必须这样、哪些词不能混用、哪些方案被否过、哪些边界是人确认过的。</p>
+<p>第二，给 agent 一个语义控制面。topic、change、refs、code refs、status 这些结构让 hook、RAG、diff 分析和文档聚合有稳定入口，而不是每次靠全库搜索和 prompt 临时发挥。</p>
+<p>第三，降低错误检索和上下文噪声。省 token 是收益之一，但不是第一目标。更关键的是让 agent 先读对材料，知道哪些文档是当前事实源，哪些只是历史档案。</p>
+<p>人类阅读仍然重要，但不应该主导身份设计。人类阅读路径交给 <code>guides/</code>；机器身份交给 Obsidian refPath；生命周期交给 <code>doc_type</code> 和 <code>status</code>；语义判断交给 agent；确定性约束交给脚本。</p>
+<p>这个边界清楚之后，llm-wiki 就不再是“多写一些文档”，而是一套围绕代码事实、业务语义和变更归档的轻量治理系统。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/RAG/" class="print-no-link">#RAG</a>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" class="print-no-link">#架构设计</a>
+      
+        <a href="/tags/LLM-wiki/" class="print-no-link">#LLM-wiki</a>
+      
+        <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/" class="print-no-link">#文档治理</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>给 Agent 读的 LLM-wiki：业务文档自管理系统设计</div>
+      <div>https://willfordzhan.github.io/2026/05/12/llm-wiki-agent-doc-governance/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年5月12日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/05/08/system-config-cache-sqlite-pressure/" title="端侧 Java 服务的系统配置读写降压设计">
+                        <span class="hidden-mobile">端侧 Java 服务的系统配置读写降压设计</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
