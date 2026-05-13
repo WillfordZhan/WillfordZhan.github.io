@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>把 LLM-wiki 从设计稿推进到可跑的治理脚手架</title>
+    <link href="/2026/05/13/llm-wiki-governance-cli-mvp/"/>
+    <url>/2026/05/13/llm-wiki-governance-cli-mvp/</url>
+    
+    <content type="html"><![CDATA[<p>上一篇文章先把 LLM-wiki 的文档模型收住了：<code>topic</code> 保存长期业务事实，<code>change</code> 保存一次变更过程，代码通过 <code>code.path</code> 反向索引文档。这次没有继续加概念，而是把它落成一个能跑的 Python CLI，然后拿真实提交试了一次。</p><p>试跑结果很直接：基础校验能跑，代码影响分析也能跑，但一笔多加料终端、多吊钩秤的提交没有命中任何正式 wiki 文档。工具只返回了一批 <code>uncovered_files</code>，还没有把它提升成“这次提交缺少对应业务文档”的强告警。这个缺口比脚手架本身更重要。</p><h2 id="从文档模型到-CLI"><a href="#从文档模型到-CLI" class="headerlink" title="从文档模型到 CLI"></a>从文档模型到 CLI</h2><p>这版 MVP 只保留两个核心文档类型：</p><ul><li><code>topic</code>：长期存在的业务知识页，描述稳定的业务概念、规则、边界和相关代码入口。</li><li><code>change</code>：一次需求、修复或设计调整的过程记录，交付后应该内化到相关 <code>topic</code>，再归档。</li></ul><p>文档身份不再单独维护 <code>doc_id</code> 字段，而是使用 Obsidian 风格的 vault-relative wikilink：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">refs:</span><br>  <span class="hljs-attr">related_topics:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;[[topics/炉前加料多终端]]&quot;</span><br>  <span class="hljs-attr">archived_changes:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;[[changes/多加料终端配置能力]]&quot;</span><br></code></pre></td></tr></table></figure><p>目录也故意压得很少：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">docs/topics/<br>docs/changes/<br>docs/guides/<br></code></pre></td></tr></table></figure><p><code>topic</code> 和 <code>change</code> 都可以声明 <code>code</code> 索引：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">code:</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-attr">path:</span> <span class="hljs-string">src/main/java/.../ChargeTerminalService.java</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-attr">path:</span> <span class="hljs-string">src/main/java/.../hook_scale/</span><br></code></pre></td></tr></table></figure><p>这里没有要求精确到方法。大部分业务代码只需要到路径级别，只有通用类、公共工具类或特别宽泛的文件，才需要补 <code>symbols</code>。这个选择是为了降低维护成本：文档索引要能稳定辅助定位，而不是变成另一套脆弱的代码镜像。</p><p>基于这个模型，先做了一版 <code>scripts/wiki.py</code>。它不是一个内置 LLM 的系统，而是给 agent 用的确定性治理工具：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">wiki validate<br>wiki index<br>wiki calc-impact<br>wiki detect-merge<br>wiki lint<br>wiki status<br>wiki new-change<br></code></pre></td></tr></table></figure><p><code>drift-review</code> 和 <code>merge-topic</code> 先保留为显式 LLM harness 的入口，但没有在搜索、校验、索引这些基础命令里调用模型。</p><p>这个边界很关键。wiki CLI 的第一职责不是“代替 agent 思考”，而是稳定地产出可解析的结构化信号。真正要不要读哪篇文档、要不要继续 drill down、要不要触发文档更新，应该交给上层 coding agent 决策。</p><h2 id="MVP-先闭合确定性链路"><a href="#MVP-先闭合确定性链路" class="headerlink" title="MVP 先闭合确定性链路"></a>MVP 先闭合确定性链路</h2><p>第一版先做了几个低争议能力。</p><p><code>validate</code> 检查 frontmatter、<code>doc_type</code>、<code>status</code>、wikilink、<code>code.path</code> 是否符合约定。</p><p><code>index</code> 把 <code>docs/topics/</code> 和 <code>docs/changes/</code> 下的文档解析成结构化索引，后续 search、impact、merge 都基于这个索引走。</p><p><code>calc-impact</code> 根据代码变更文件反向匹配文档里的 <code>code.path</code>，返回可能受影响的 topics 和 changes。</p><p><code>detect-merge</code> 找出 <code>pending_topic_merge</code> 状态的 change，并检查它是否声明了 <code>refs.related_topics</code>。</p><p><code>lint</code> 做一些治理层面的约束，比如 topic 的状态是否合法、change 进入待内化阶段前是否有目标 topic、是否有 code refs。</p><p><code>new-change</code> 用于快速创建一份符合 schema 的 change 文档草稿。</p><p>这套能力先不追求“聪明”，只追求稳定、可重复、适合挂 hook。因为文档治理最怕的问题不是模型不会写，而是系统没有确定性边界，最后每次都靠人临时想起要补文档。</p><h2 id="拿真实提交试跑"><a href="#拿真实提交试跑" class="headerlink" title="拿真实提交试跑"></a>拿真实提交试跑</h2><p>脚手架跑通后，正好有一笔多加料终端、多吊钩秤相关的代码提交。用 <code>calc-impact</code> 对这次提交做检测，核心结果是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">matched_topics: []<br>matched_changes: []<br>uncovered_files: 16<br></code></pre></td></tr></table></figure><p>代表性文件集中在几个区域：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">comm_v2/hook_scale/<br>service2/ChargeTerminalService.java<br>service2/feature/<br>service2/furnace_charge/<br>socket/udp_broadcast/UdpBroadcastPayload.java<br></code></pre></td></tr></table></figure><p>这个结果不是脚本失败，反而是第一轮治理最有价值的信号：正式 wiki 里还没有覆盖这块业务，也没有一份 change 文档承接这次提交。</p><p>换句话说，代码已经前进了，业务文档系统没有跟上。</p><h2 id="真正暴露的问题"><a href="#真正暴露的问题" class="headerlink" title="真正暴露的问题"></a>真正暴露的问题</h2><p>第一版 <code>calc-impact</code> 的输出还不够强。</p><p>它能列出 <code>uncovered_files</code>，但没有把这些文件组织成文档治理动作。对 agent 来说，<code>uncovered_files: 16</code> 只是事实；更高质量的输出应该直接告诉它：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">documentation_warnings:<br>  - type: missing_wiki_coverage<br>    severity: warn<br>    files: [...]<br>    suggested_actions:<br>      - create_change_doc<br>      - create_or_update_topic_doc<br></code></pre></td></tr></table></figure><p>这就是这次试跑后得到的第一个明确改进点：当一批代码提交没有命中任何 <code>change</code> 或 <code>topic</code> 时，wiki 系统必须 warn 创建文档。否则系统只是在“发现漂移”，没有真正“治理漂移”。</p><p>这里也能看出 <code>topic</code> 和 <code>change</code> 的分工。影响分析不应该只看长期 topic，因为新功能在交付前本来就可能还没有内化到 topic。它也不应该只看 change，因为 change 最终会归档。合理的判断是：</p><ul><li>已有代码区域命中 topic：说明长期知识已有入口。</li><li>本次改动命中 active change：说明当前变更有过程文档承接。</li><li>两者都没有命中：说明 wiki 覆盖缺口，需要创建文档。</li></ul><h2 id="当前边界"><a href="#当前边界" class="headerlink" title="当前边界"></a>当前边界</h2><p>这版 MVP 还没有解决所有问题，边界需要明确。</p><p>搜索还没有做。后续可以做纯 CLI search，先走 frontmatter、description、tags、code path、全文关键词的打分排序，再考虑 BM25 和向量混合检索。search 本身不需要调用 LLM，它只负责返回候选文档和命中理由。</p><p>漂移审查还没有真正自动化。<code>drift-review</code> 应该是一个显式、可控、可计费的 LLM harness，而不是每次 diff 都全量扫所有文档。初期更适合从 impacted change 开始，再逐步扩展到指定 topic 或全量 topic。</p><p>topic 的人工编辑暂时不纳入治理闭环。人直接补 topic 是现实存在的，但第一版先不为它设计复杂同步机制，避免过早把系统做重。</p><p>change 到 topic 的内化也还没自动做。原因很简单：功能是否已经交付，很多时候需要人判断。工具可以发现 <code>pending_topic_merge</code>，可以提示 related topics，可以辅助合并，但不应该擅自决定业务已经完成。</p><h2 id="下一步"><a href="#下一步" class="headerlink" title="下一步"></a>下一步</h2><p>下一步不是马上做 RAG，也不是把 LLM 塞进每个命令。</p><p>更优先的是把 <code>calc-impact</code> 的缺口信号做扎实：当 diff 文件无法映射到任何 wiki 文档时，输出明确的 <code>documentation_warnings</code>，同时按目录聚合出建议的 <code>code.path</code>，让 agent 能直接创建一份 change 草稿。</p><p>然后再为这次多加料终端、多吊钩秤的提交补一份 change 文档，并判断是否需要创建长期 topic。这样 wiki 系统才真正进入闭环：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">代码变更<br>  -&gt; impact 发现受影响文档或覆盖缺口<br>  -&gt; 缺口触发 change/topic 创建<br>  -&gt; 交付后 change 内化到 topic<br>  -&gt; topic 继续作为下一轮代码影响分析的业务索引<br></code></pre></td></tr></table></figure><p>LLM-wiki 的重点不在“多写一些文档”，而在让文档进入工程系统。它必须能被脚本验证、被 diff 反向索引、被 hook 触发、被 agent 读取和更新。只有这样，业务知识才不会只是某次讨论之后留下的一堆 markdown。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>Agent</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>开发回顾</tag>
+      
+      <tag>LLM-wiki</tag>
+      
+      <tag>文档治理</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>给 Agent 读的 LLM-wiki：业务文档自管理系统设计</title>
     <link href="/2026/05/12/llm-wiki-agent-doc-governance/"/>
     <url>/2026/05/12/llm-wiki-agent-doc-governance/</url>
@@ -371,9 +404,9 @@
       
       <tag>LangGraph</tag>
       
-      <tag>AI Agent</tag>
-      
       <tag>ReAct</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>Workflow</tag>
       
@@ -725,13 +758,13 @@
       
       <tag>Java</tag>
       
-      <tag>AI</tag>
-      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
+      
+      <tag>AI</tag>
       
     </tags>
     

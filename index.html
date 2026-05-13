@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/05/13/llm-wiki-governance-cli-mvp/" target="_self">
+          把 LLM-wiki 从设计稿推进到可跑的治理脚手架
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/13/llm-wiki-governance-cli-mvp/" target="_self">
+        <div>
+          上一篇文章先把 LLM-wiki 的文档模型收住了：topic 保存长期业务事实，change 保存一次变更过程，代码通过 code.path 反向索引文档。这次没有继续加概念，而是把它落成一个能跑的 Python CLI，然后拿真实提交试了一次。 试跑结果很直接：基础校验能跑，代码影响分析也能跑，但一笔多加料终端、多吊钩秤的提交没有命中任何正式 wiki 文档。工具只返回了一批 uncovere
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-05-13 17:47" pubdate>
+              2026-05-13
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
+            
+              <a href="/tags/LLM-wiki/">#LLM-wiki</a>
+            
+              <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/">#文档治理</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/05/12/llm-wiki-agent-doc-governance/" target="_self">
           给 Agent 读的 LLM-wiki：业务文档自管理系统设计
         </a>
@@ -788,75 +857,6 @@
               <a href="/tags/Prompt/">#Prompt</a>
             
               <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86/">#上下文管理</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/20/mdc-logback-ai-chain-routing/" target="_self">
-          AI 日志单独落盘这件事，MDC 到底在做什么
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/20/mdc-logback-ai-chain-routing/" target="_self">
-        <div>
-          最近在收一条 AI 日志链路。诉求不复杂：AI 相关日志要单独落到 ai-chain.log，但每行日志尾巴上那串 [aiChain= aiConversationId= aiToolCallId= aiToolName=] 太重了，想砍掉大部分字段，最好日志正文里连 aiChain=true 都不要看到。 这类问题很容易改着改着偏成“怎么把日志打印得更短”，但代码顺下来以后会发现，核心不在展示，
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-20 14:55" pubdate>
-              2026-03-20
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/Logback/">#Logback</a>
-            
-              <a href="/tags/MDC/">#MDC</a>
-            
-              <a href="/tags/AI%E6%97%A5%E5%BF%97/">#AI日志</a>
             
           </div>
         
