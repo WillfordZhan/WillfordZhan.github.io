@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/06/langgraph-schema-driven-retrospective-20260306/" target="_self">
+          LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/06/langgraph-schema-driven-retrospective-20260306/" target="_self">
+        <div>
+          这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：  到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。  答案很明确：后者。 下面按真实时间线复盘，尽量给可复现证据，不讲玄学。 1. 讨论分歧：要不要用 fallback 快速过 case中途一度出现典型诱惑：  用户说“1号炉”，那就直接从 query 里正则提
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-06 18:01" pubdate>
+              2026-03-06
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/">#重构复盘</a>
+            
+              <a href="/tags/Tool-Schema/">#Tool Schema</a>
+            
+              <a href="/tags/%E8%81%94%E8%B0%83%E5%AE%9E%E6%88%98/">#联调实战</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/06/langgraph-messagesstate/" target="_self">
           LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口
         </a>
@@ -845,52 +914,6 @@
               <a href="/tags/ats-iot-ai/">#ats_iot_ai</a>
             
               <a href="/tags/AI%E9%87%8D%E6%9E%84/">#AI重构</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/04/shiftbeginat-shiftdate/" target="_self">
-          踩坑复盘：ObjectMapper 被覆盖引发 shiftBeginAt/shiftDate 连锁异常
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/04/shiftbeginat-shiftdate/" target="_self">
-        <div>
-          这次排障最核心的坑，不是某个 DTO 字段写错，而是 ObjectMapper 被覆盖后出现多实例分叉。shiftBeginAt 返回数组、shiftDate 反序列化报错，是同一个根因触发的两个表象。 关联提交（按你本地排障记录）：  8ba6d3c5914c23f29cd52f5326c79af4a0e8eced 49957ccc62e80014546bf5a62685e9c73f0d8000
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-04 17:21" pubdate>
-              2026-03-04
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/%E6%88%90%E6%9C%AC%E7%AE%A1%E7%90%86/">#成本管理</a>
-            
-              <a href="/tags/Jackson/">#Jackson</a>
-            
-              <a href="/tags/%E8%B8%A9%E5%9D%91%E8%AE%B0%E5%BD%95/">#踩坑记录</a>
-            
-              <a href="/tags/iot-framework/">#iot-framework</a>
             
           </div>
         

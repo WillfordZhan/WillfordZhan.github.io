@@ -19,30 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="动态范式 Orchestrator 改造完成，本文记录本轮里程碑的目标、交付、兼容性与下一步计划。 1) 里程碑目标 将单路径编排升级为“按意图动态选择策略”的多范式执行框架。 在不破坏既有事件契约的前提下，引入 Plan-and-Solve &#x2F; ReAct &#x2F; Reflection 三类策略能力。 补齐可观测链路，支撑后续运行质量评估与策略演进。  2) 本次完成内容（按模块">
+    <meta name="description" content="前两篇把 LLM-wiki 的文档模型和治理 CLI 跑起来了：topic 承接长期业务知识，change 承接一次需求或修复过程，code.path 让代码变更可以反向找到文档。今天继续往前推了一步，主要解决一个更细的问题：change.code 到底是不是交付事实源。 结论是：不是。change.code 应该只是索引快照，真正证明一个 change 已经交付的事实源应该是 commit。基于">
 <meta property="og:type" content="article">
-<meta property="og:title" content="里程碑进展：Orchestrator 动态范式编排（Plan-and-Solve &#x2F; ReAct &#x2F; Reflection）落地">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/02/20/orchestrator-plan-and-solve-react-reflection/index.html">
+<meta property="og:title" content="LLM-wiki：把交付事实从 code ref 里拆出来">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/05/14/llm-wiki-change-delivered/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="动态范式 Orchestrator 改造完成，本文记录本轮里程碑的目标、交付、兼容性与下一步计划。 1) 里程碑目标 将单路径编排升级为“按意图动态选择策略”的多范式执行框架。 在不破坏既有事件契约的前提下，引入 Plan-and-Solve &#x2F; ReAct &#x2F; Reflection 三类策略能力。 补齐可观测链路，支撑后续运行质量评估与策略演进。  2) 本次完成内容（按模块">
+<meta property="og:description" content="前两篇把 LLM-wiki 的文档模型和治理 CLI 跑起来了：topic 承接长期业务知识，change 承接一次需求或修复过程，code.path 让代码变更可以反向找到文档。今天继续往前推了一步，主要解决一个更细的问题：change.code 到底是不是交付事实源。 结论是：不是。change.code 应该只是索引快照，真正证明一个 change 已经交付的事实源应该是 commit。基于">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-20T16:19:23.000Z">
-<meta property="article:modified_time" content="2026-05-14T10:57:31.044Z">
+<meta property="article:published_time" content="2026-05-14T10:44:46.000Z">
+<meta property="article:modified_time" content="2026-05-14T10:57:31.043Z">
 <meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="Agent">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="ReAct">
-<meta property="article:tag" content="MCP">
-<meta property="article:tag" content="Orchestrator">
-<meta property="article:tag" content="Plan-and-Solve">
-<meta property="article:tag" content="Reflection">
-<meta property="article:tag" content="里程碑">
+<meta property="article:tag" content="开发回顾">
+<meta property="article:tag" content="LLM-wiki">
+<meta property="article:tag" content="文档治理">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>里程碑进展：Orchestrator 动态范式编排（Plan-and-Solve / ReAct / Reflection）落地 - 味儿福德詹的小站</title>
+  <title>LLM-wiki：把交付事实从 code ref 里拆出来 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -220,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="里程碑进展：Orchestrator 动态范式编排（Plan-and-Solve / ReAct / Reflection）落地"></span>
+            <span id="subtitle" data-typed-text="LLM-wiki：把交付事实从 code ref 里拆出来"></span>
           
         </div>
 
@@ -231,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-21 00:19" pubdate>
-          2026年2月21日 凌晨
+        <time datetime="2026-05-14 18:44" pubdate>
+          2026年5月14日 晚上
         </time>
       </span>
     
@@ -243,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          706 字
+          1.5k 字
         
       </span>
     
@@ -254,7 +252,7 @@
         
         
         
-          6 分钟
+          13 分钟
         
       </span>
     
@@ -300,82 +298,88 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">里程碑进展：Orchestrator 动态范式编排（Plan-and-Solve / ReAct / Reflection）落地</h1>
+            <h1 id="seo-header">LLM-wiki：把交付事实从 code ref 里拆出来</h1>
             
             
               <div class="markdown-body">
                 
-                <p>动态范式 Orchestrator 改造完成，本文记录本轮里程碑的目标、交付、兼容性与下一步计划。</p>
-<h2 id="1-里程碑目标"><a href="#1-里程碑目标" class="headerlink" title="1) 里程碑目标"></a>1) 里程碑目标</h2><ul>
-<li>将单路径编排升级为“按意图动态选择策略”的多范式执行框架。</li>
-<li>在不破坏既有事件契约的前提下，引入 Plan-and-Solve &#x2F; ReAct &#x2F; Reflection 三类策略能力。</li>
-<li>补齐可观测链路，支撑后续运行质量评估与策略演进。</li>
-</ul>
-<h2 id="2-本次完成内容（按模块）"><a href="#2-本次完成内容（按模块）" class="headerlink" title="2) 本次完成内容（按模块）"></a>2) 本次完成内容（按模块）</h2><h3 id="Intent-Router-Policy-Engine"><a href="#Intent-Router-Policy-Engine" class="headerlink" title="Intent Router + Policy Engine"></a>Intent Router + Policy Engine</h3><ul>
-<li>新增意图识别层：将输入路由为 <code>TOOL_CALL</code> &#x2F; <code>TRACE_DIAGNOSIS</code> &#x2F; <code>GENERAL_QA</code> 等意图。</li>
-<li>新增策略决策层：基于意图映射到执行策略（如 ReAct、Plan-and-Solve），并输出决策原因与元数据。</li>
-<li>支持工具调用意图中 <code>tool:&lt;name&gt; &lt;json&gt;</code> 结构化参数解析，并保留失败兜底语义。</li>
-</ul>
-<h3 id="Strategy-Executors-Runtime-Guard-Eval-Loop"><a href="#Strategy-Executors-Runtime-Guard-Eval-Loop" class="headerlink" title="Strategy Executors + Runtime Guard + Eval Loop"></a>Strategy Executors + Runtime Guard + Eval Loop</h3><ul>
-<li>新增策略执行器集合：按策略统一实现 <code>run(context)</code>，输出标准化结果。</li>
-<li>新增 Runtime Guard：对策略结果做运行期约束校验（字段完整性、状态一致性、失败传播）。</li>
-<li>新增 Eval Loop：支持策略链路尝试、trace 记录与终止条件控制，为 Reflection 回退提供基础。</li>
-</ul>
-<h3 id="Orchestrator-主流程集成"><a href="#Orchestrator-主流程集成" class="headerlink" title="Orchestrator 主流程集成"></a>Orchestrator 主流程集成</h3><ul>
-<li>将 Intent Router、Policy Engine、Strategy Executors、Eval Loop 组装进主流程。</li>
-<li>在主流程中新增意图&#x2F;策略&#x2F;trace 事件发射，并保持终态收敛逻辑一致。</li>
-<li>打通策略输出到 <code>tool_call/tool_result/final</code> 的统一落库路径，确保事件序列可重放、可追踪。</li>
-</ul>
-<h2 id="3-关键代码路径（带文件路径）"><a href="#3-关键代码路径（带文件路径）" class="headerlink" title="3) 关键代码路径（带文件路径）"></a>3) 关键代码路径（带文件路径）</h2><ul>
-<li><code>app/strategy_runtime/intent_router.py</code></li>
-<li><code>app/strategy_runtime/policy_engine.py</code></li>
-<li><code>app/strategy_runtime/strategies.py</code></li>
-<li><code>app/strategy_runtime/runtime_guard.py</code></li>
-<li><code>app/strategy_runtime/eval_loop.py</code></li>
-<li><code>app/strategy_runtime/types.py</code></li>
-<li><code>app/runtime_engine.py</code></li>
-<li><code>tests/strategy_runtime/test_intent_policy.py</code></li>
-<li><code>tests/strategy_runtime/test_strategies.py</code></li>
-<li><code>tests/strategy_runtime/test_runtime_integration.py</code></li>
-</ul>
-<h2 id="4-行为兼容性说明"><a href="#4-行为兼容性说明" class="headerlink" title="4) 行为兼容性说明"></a>4) 行为兼容性说明</h2><p>本次改造严格保留既有关键事件语义与可消费性，不破坏下游 SSE&#x2F;UI&#x2F;存储侧处理逻辑。保留事件包括：</p>
+                <p>前两篇把 LLM-wiki 的文档模型和治理 CLI 跑起来了：<code>topic</code> 承接长期业务知识，<code>change</code> 承接一次需求或修复过程，<code>code.path</code> 让代码变更可以反向找到文档。今天继续往前推了一步，主要解决一个更细的问题：<code>change.code</code> 到底是不是交付事实源。</p>
+<p>结论是：不是。<code>change.code</code> 应该只是索引快照，真正证明一个 change 已经交付的事实源应该是 commit。基于这个判断，新增了 <code>delivery</code> 和 <code>wiki change-delivered</code>，把“交付事实”和“代码索引”拆开。</p>
+<h2 id="原来的问题"><a href="#原来的问题" class="headerlink" title="原来的问题"></a>原来的问题</h2><p>之前的规则是：<code>change: pending_topic_merge</code> 必须声明 <code>refs.related_topics</code> 和 <code>code</code>。</p>
+<p>这在简单场景下够用，但一旦 change 横跨多个 domain，<code>code</code> 的粒度就会变得别扭。</p>
+<p>如果 <code>change.code</code> 直接 ref 整个文件，后续这个文件任何地方变更都会被 <code>calc-impact</code> 命中，哪怕这次 change 只轻触碰了其中一个方法。这样会带来噪音。</p>
+<p>如果 <code>change.code</code> 强行细到 symbol，又会依赖 Agent 判断“这次到底算核心改造还是轻触碰”。模型能力不同，判断就可能不稳定。</p>
+<p>更麻烦的是，<code>change.code</code> 和 git diff 的职责开始重叠。一个 change 最终由哪些文件改出来，Git 本来就知道；文档再维护一份细粒度列表，容易变成第二份不完全同步的 diff。</p>
+<p>所以问题需要重新拆开：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">commit<br>  证明这次 change 最终交付了什么<br><br>change.code<br>  帮 Agent 在开发期、检查期、聚合期快速定位代码<br><br>topic.code<br>  长期 wiki 的稳定代码入口<br></code></pre></td></tr></table></figure>
+
+<p>这三个东西不能混成一个字段。</p>
+<h2 id="delivery-成为交付事实源"><a href="#delivery-成为交付事实源" class="headerlink" title="delivery 成为交付事实源"></a>delivery 成为交付事实源</h2><p>新的 change frontmatter 增加 <code>delivery</code>：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">delivery:</span><br>  <span class="hljs-attr">target_branch:</span> <span class="hljs-string">integration</span><br>  <span class="hljs-attr">commits:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">abc12345</span><br></code></pre></td></tr></table></figure>
+
+<p><code>target_branch</code> 说明这次 change 交付到了哪条长期基线。单独记录 commit id 还不够，因为一个 commit 在 feature 分支上存在，不等于它已经进入要维护的业务知识基线。</p>
+<p><code>commits</code> 记录最终交付提交。第一版先按普通 commit 或 squash commit 处理。merge commit、冲突解决、source commits 这些更复杂的归因先不展开，等真的遇到案例再做。</p>
+<p>这样 <code>pending_topic_merge</code> 的硬条件变成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">refs.related_topics 必填<br>delivery.target_branch 必填<br>delivery.commits 必填<br>code 可为空<br></code></pre></td></tr></table></figure>
+
+<p><code>related_topics</code> 维持原规则不变。没有它，pending 队列无法按 topic 分组，也不知道要把长期知识聚合到哪里。</p>
+<p><code>code</code> 则降级为可选。它仍然有价值，但不是交付事实源。</p>
+<h2 id="change-delivered-只做交付门禁"><a href="#change-delivered-只做交付门禁" class="headerlink" title="change-delivered 只做交付门禁"></a>change-delivered 只做交付门禁</h2><p>新增命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">python3 scripts/wiki.py change-delivered docs/changes/xxx.md \<br>  --target-branch integration \<br>  --commits abc12345<br></code></pre></td></tr></table></figure>
+
+<p>这个命令默认 dry-run，只输出报告，不写文件：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">will_update:<br>  status: active -&gt; pending_topic_merge<br>  delivery.target_branch: integration<br>  delivery.commits: [abc12345]<br><br>code_validation:<br>  existing_code_refs: 2<br>  unsupported_refs: []<br></code></pre></td></tr></table></figure>
+
+<p>确认无误后，加 <code>--write</code> 才真正写入：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash">python3 scripts/wiki.py change-delivered docs/changes/xxx.md \<br>  --target-branch integration \<br>  --commits abc12345 \<br>  --write<br></code></pre></td></tr></table></figure>
+
+<p>它只回答一个问题：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">这个 active change 是否已经由这些 commits 交付到目标分支？<br></code></pre></td></tr></table></figure>
+
+<p>它不负责把 topic 写好，也不负责生成 code refs。</p>
+<h2 id="不自动补-code-ref"><a href="#不自动补-code-ref" class="headerlink" title="不自动补 code ref"></a>不自动补 code ref</h2><p>讨论中一度考虑过让 <code>change-delivered</code> 根据 commit diff 自动生成 code refs。后来砍掉了。</p>
+<p>原因很简单：这个命令是交付门禁，不是 code ref 生成器。它应该越稳定越好。</p>
+<p>第一版规则收敛成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">如果已有 code:<br>  每个 code.path 必须能被 delivery.commits 的 diff 支撑<br>  不支撑就失败，不自动修<br><br>如果 code 为空:<br>  不失败<br>  输出 warning，提示 merge-topic 前需要从 commits 生成候选<br></code></pre></td></tr></table></figure>
+
+<p>这里故意只校验到 path 粒度。<code>symbols</code> 仍然可以保留在文档里，帮助 Agent 缩小阅读上下文，但第一版不做方法级 diff 证明。</p>
+<p>这种设计保留了两条线：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">delivery.commits<br>  可审计、可验证、可长期保存<br><br>change.code<br>  可为空、可重算、可被人工调整<br></code></pre></td></tr></table></figure>
+
+<h2 id="drift-review-的默认范围"><a href="#drift-review-的默认范围" class="headerlink" title="drift review 的默认范围"></a>drift review 的默认范围</h2><p>今天也顺带明确了 drift review 的默认口径。</p>
+<p>默认不应该全量扫所有 topic，也不应该只扫 change。更合理的是先通过 diff 或 commit 找出 impacted topics，再审查这些 topic 是否漂移。</p>
+<p>也就是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">calc-impact / delivery commits<br>  -&gt; impacted topics<br>  -&gt; drift-review impacted topics<br></code></pre></td></tr></table></figure>
+
+<p>全量 topic drift review 成本太高，第一版不默认做。<code>change</code> 的 drift 检查则更多发生在进入 <code>pending_topic_merge</code> 前：已有 <code>change.code</code> 必须能被 commits 证明，否则说明文档和交付事实之间已经不一致。</p>
+<h2 id="code-ref-粒度先别过度设计"><a href="#code-ref-粒度先别过度设计" class="headerlink" title="code ref 粒度先别过度设计"></a>code ref 粒度先别过度设计</h2><p>围绕 <code>code.path</code> 和 <code>symbols</code> 也讨论了很久。</p>
+<p>一个直觉方案是做打分机制：分数高就 ref 整文件，分数低就 ref symbols。这个方向长期是对的，但第一版不急着落。因为真正的问题不是“分数公式怎么写”，而是 <code>change.code</code> 的职责有没有摆正。</p>
+<p>现在先定一个更朴素的原则：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">active change:<br>  code 可作为开发期索引，允许不完美<br><br>pending_topic_merge:<br>  commit 是事实源<br>  code 如果存在，必须被 commit diff 支撑<br><br>topic merge:<br>  基于 delivery.commits、change.code、topic.code 重新生成候选<br></code></pre></td></tr></table></figure>
+
+<p>后续如果要做精细的 ref 粒度打分，应该放到 topic 聚合前，而不是让 <code>change-delivered</code> 提前承担这件事。</p>
+<h2 id="这次落地的边界"><a href="#这次落地的边界" class="headerlink" title="这次落地的边界"></a>这次落地的边界</h2><p>这次实现主要包含几件事：</p>
 <ul>
-<li><code>run_started</code></li>
-<li><code>user_message</code></li>
-<li><code>tool_call</code></li>
-<li><code>tool_result</code></li>
-<li><code>final</code></li>
-<li><code>run_failed</code></li>
+<li><code>scripts/wiki.py</code> 支持 <code>delivery</code> 字段校验。</li>
+<li><code>pending_topic_merge</code> 不再强制要求 <code>code</code>。</li>
+<li>新增 <code>wiki change-delivered</code>，默认 dry-run，<code>--write</code> 才改文档。</li>
+<li>已有 <code>change.code</code> 会被 commits diff 校验，不匹配则阻止状态切换。</li>
+<li><code>raise-a-change</code> skill 仍然只登记 active change，不手动改 pending 状态。</li>
 </ul>
-<p>兼容性原则：</p>
+<p>这个版本没有做：</p>
 <ul>
-<li>新能力在原契约上“增量扩展”，而非重定义。</li>
-<li>终态事件仍以 <code>final</code> &#x2F; <code>run_failed</code> 收敛。</li>
-<li><code>tool_call</code> 与 <code>tool_result</code> 的关联字段（如 <code>toolCallId</code>）持续可用。</li>
+<li>自动生成 code refs。</li>
+<li>symbol 级 diff 证明。</li>
+<li>merge commit 的复杂归因。</li>
+<li>generated&#x2F;manual code provenance。</li>
+<li>topic 聚合时的 ref 粒度打分。</li>
 </ul>
-<h2 id="5-新增可观测事件"><a href="#5-新增可观测事件" class="headerlink" title="5) 新增可观测事件"></a>5) 新增可观测事件</h2><p>在兼容原有事件的基础上，新增以下可观测事件用于策略链路诊断：</p>
-<ul>
-<li><code>intent_determined</code>：记录识别出的意图、判定原因与辅助元数据。</li>
-<li><code>policy_decision</code>：记录策略选择结果、选择理由与策略元信息。</li>
-<li><code>trace</code>：记录每步策略执行轨迹（<code>strategy</code>、<code>ok</code>、<code>reason</code>、<code>durationMs</code>、<code>metadata</code>）。</li>
-</ul>
-<h2 id="6-测试与验收结果"><a href="#6-测试与验收结果" class="headerlink" title="6) 测试与验收结果"></a>6) 测试与验收结果</h2><ul>
-<li><code>pytest</code> 全量：<code>36 passed, 1 warning</code></li>
-<li>覆盖范围包含：</li>
-<li>意图解析与策略决策单测</li>
-<li>策略执行器 &#x2F; Guard &#x2F; Eval Loop 行为单测</li>
-<li>Orchestrator 端到端集成测试（含事件顺序与关联字段校验）</li>
-</ul>
-<h2 id="7-关联-commit-列表"><a href="#7-关联-commit-列表" class="headerlink" title="7) 关联 commit 列表"></a>7) 关联 commit 列表</h2><ul>
-<li><code>7c51a83 feat(orchestrator): add intent router and policy engine</code></li>
-<li><code>2ade778 feat(orchestrator): add strategy executors and runtime guard</code></li>
-<li><code>54359f4 feat(orchestrator): integrate dynamic strategy pipeline</code></li>
-</ul>
-<h2 id="8-下一步计划（v2）"><a href="#8-下一步计划（v2）" class="headerlink" title="8) 下一步计划（v2）"></a>8) 下一步计划（v2）</h2><ul>
-<li>policy 可配置化（tenant 级）</li>
-<li>trace 指标沉淀到可视化面板</li>
-<li>真实 LLM planner 接入</li>
-</ul>
+<p>这些都可以后续加，但不应该挡住第一版闭环。</p>
+<h2 id="结果"><a href="#结果" class="headerlink" title="结果"></a>结果</h2><p>现在 LLM-wiki 的 change 生命周期更清楚了：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">raise-a-change<br>  创建 active change<br><br>change-delivered<br>  写入 delivery<br>  active -&gt; pending_topic_merge<br><br>merge-topic<br>  把长期内容聚合到 topic<br>  change -&gt; archived<br></code></pre></td></tr></table></figure>
+
+<p>关键变化是：文档不再假装自己是 Git。Git 提供交付事实，wiki 维护业务语义和可检索索引，Agent 在二者之间做语义聚合。</p>
+<p>这比继续加字段更重要。字段可以慢慢补，但事实源的边界一旦混了，后面的 drift 检查和 topic 聚合都会变得不稳。</p>
 
                 
               </div>
@@ -409,19 +413,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/ReAct/" class="print-no-link">#ReAct</a>
+        <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/" class="print-no-link">#开发回顾</a>
       
-        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+        <a href="/tags/LLM-wiki/" class="print-no-link">#LLM-wiki</a>
       
-        <a href="/tags/Orchestrator/" class="print-no-link">#Orchestrator</a>
-      
-        <a href="/tags/Plan-and-Solve/" class="print-no-link">#Plan-and-Solve</a>
-      
-        <a href="/tags/Reflection/" class="print-no-link">#Reflection</a>
-      
-        <a href="/tags/%E9%87%8C%E7%A8%8B%E7%A2%91/" class="print-no-link">#里程碑</a>
+        <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/" class="print-no-link">#文档治理</a>
       
     </div>
   
@@ -433,8 +433,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>里程碑进展：Orchestrator 动态范式编排（Plan-and-Solve / ReAct / Reflection）落地</div>
-      <div>https://willfordzhan.github.io/2026/02/20/orchestrator-plan-and-solve-react-reflection/</div>
+      <div>LLM-wiki：把交付事实从 code ref 里拆出来</div>
+      <div>https://willfordzhan.github.io/2026/05/14/llm-wiki-change-delivered/</div>
     </div>
     <div class="license-meta">
       
@@ -446,7 +446,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月21日</div>
+          <div>2026年5月14日</div>
         </div>
       
       
@@ -478,18 +478,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/21/customized-spec-ai-po-agent/" title="Customized Spec：我的 AI 开发流程规范（PO/架构师监管 + 多Agent并行）">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Customized Spec：我的 AI 开发流程规范（PO/架构师监管 + 多Agent并行）</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/02/20/dify-rag-mes-erp/" title="Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划">
-                        <span class="hidden-mobile">Dify 还是自研 RAG：铸造 MES/ERP 场景的架构共创与落地计划</span>
+                      <a href="/2026/05/13/llm-wiki-governance-cli-mvp/" title="把 LLM-wiki 从设计稿推进到可跑的治理脚手架">
+                        <span class="hidden-mobile">把 LLM-wiki 从设计稿推进到可跑的治理脚手架</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

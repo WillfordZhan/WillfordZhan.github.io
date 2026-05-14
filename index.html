@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/05/14/llm-wiki-change-delivered/" target="_self">
+          LLM-wiki：把交付事实从 code ref 里拆出来
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/14/llm-wiki-change-delivered/" target="_self">
+        <div>
+          前两篇把 LLM-wiki 的文档模型和治理 CLI 跑起来了：topic 承接长期业务知识，change 承接一次需求或修复过程，code.path 让代码变更可以反向找到文档。今天继续往前推了一步，主要解决一个更细的问题：change.code 到底是不是交付事实源。 结论是：不是。change.code 应该只是索引快照，真正证明一个 change 已经交付的事实源应该是 commit。基于
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-05-14 18:44" pubdate>
+              2026-05-14
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
+            
+              <a href="/tags/LLM-wiki/">#LLM-wiki</a>
+            
+              <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/">#文档治理</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/05/13/llm-wiki-governance-cli-mvp/" target="_self">
           把 LLM-wiki 从设计稿推进到可跑的治理脚手架
         </a>
@@ -786,77 +855,6 @@
               <a href="/tags/Spring-Boot/">#Spring Boot</a>
             
               <a href="/tags/%E5%B0%8F%E7%A8%8B%E5%BA%8F/">#小程序</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/20/ai-agent-prompt-history-tool-result/" target="_self">
-          AI Agent 里的 Prompt、History 和 Tool Result 该怎么分层
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/20/ai-agent-prompt-history-tool-result/" target="_self">
-        <div>
-          这次讨论最后收敛到的不是某一条 prompt 怎么写，而是 AI Agent 的上下文到底该怎么分层。 当时链路里已经出现了一个比较典型的问题：用户问“给我看看你的 prompts”“你的模型是什么”“你的指令是什么”这类问题时，系统虽然有安全策略，但模型还是会用自然语言复述一部分内部实现，包括 function calling、工具名、运行模式和系统约束。再往下看 prompt 结构，问题也就比
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-20 16:26" pubdate>
-              2026-03-20
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/Function-Calling/">#Function Calling</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
-              <a href="/tags/Prompt/">#Prompt</a>
-            
-              <a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E7%AE%A1%E7%90%86/">#上下文管理</a>
             
           </div>
         
