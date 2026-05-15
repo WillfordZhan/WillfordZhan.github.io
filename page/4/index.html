@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/03/09/ai-agent-security/" target="_self">
+          AI Agent Security 实现实践：对话阶段防泄露、防工具暴露与审计
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/09/ai-agent-security/" target="_self">
+        <div>
+          这次改的是一个 FastAPI + LangGraph + MCP 的 AI 控制平面。问题起点很朴素：用户问了一句“你有哪些工具”“你的执行流程是什么”，模型老老实实把内部工具和编排动作抖出来了。系统没崩，脸先丢了。 这篇记录只写本次已经提交的 security 补丁，不展开下一阶段的 ContextBuilder 重构。换句话说，这是一篇 pre-context-builder 版本的安全落地
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-03-09 09:49" pubdate>
+              2026-03-09
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/LangGraph/">#LangGraph</a>
+            
+              <a href="/tags/Security/">#Security</a>
+            
+              <a href="/tags/Prompt-Injection/">#Prompt Injection</a>
+            
+              <a href="/tags/FastAPI/">#FastAPI</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/03/06/langgraph-schema-driven-retrospective-20260306/" target="_self">
           LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战
         </a>
@@ -845,75 +916,6 @@
               <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
             
               <a href="/tags/%E7%BC%96%E6%8E%92/">#编排</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/" target="_self">
-          ats_iot_ai 重构复盘：从旧编排到 LangGraph 节点化拆分
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/05/ats-iot-ai-refactor-retrospective-20260305/" target="_self">
-        <div>
-          这篇文章复盘 ats_iot_ai 这一轮重构的关键路径，重点覆盖三部分：  重构记录（发生了什么、按什么顺序推进） 工程收益（稳定性、可维护性、协作成本） 风险与后续计划（哪些问题还在，下一步怎么收敛）  文中时间线和提交号均来自本地仓库历史；敏感信息（内部域名、token、账号、绝对路径）已全部脱敏。 一、重构背景：为什么必须从“旧编排”走向节点化旧阶段的核心问题并不是“功能不工作”，而是“功
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-05 10:35" pubdate>
-              2026-03-05
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/LangGraph/">#LangGraph</a>
-            
-              <a href="/tags/%E5%A4%8D%E7%9B%98/">#复盘</a>
-            
-              <a href="/tags/ats-iot-ai/">#ats_iot_ai</a>
-            
-              <a href="/tags/AI%E9%87%8D%E6%9E%84/">#AI重构</a>
             
           </div>
         
