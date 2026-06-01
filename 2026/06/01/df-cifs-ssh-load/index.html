@@ -1,0 +1,748 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="一台现场小电脑的远程操作一度很卡，连接也容易断。第一眼看 CPU 又没有打满：4 核机器，CPU 总负载四成左右，温度正常。但 load average 明显偏高，1 分钟负载接近 5，5 分钟和 15 分钟更高。 排查过程中抓到一个真实异常：远程监控周期性执行的 df 卡在一个 CIFS&#x2F;SMB 网络共享上，多个 df 进入 D 状态，把 load average 抬高。后续复测又补了">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一次 df 卡在 CIFS 上造成 load 虚高的排障">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/06/01/df-cifs-ssh-load/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="一台现场小电脑的远程操作一度很卡，连接也容易断。第一眼看 CPU 又没有打满：4 核机器，CPU 总负载四成左右，温度正常。但 load average 明显偏高，1 分钟负载接近 5，5 分钟和 15 分钟更高。 排查过程中抓到一个真实异常：远程监控周期性执行的 df 卡在一个 CIFS&#x2F;SMB 网络共享上，多个 df 进入 D 状态，把 load average 抬高。后续复测又补了">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-06-01T08:36:25.000Z">
+<meta property="article:modified_time" content="2026-06-01T08:47:54.994Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="Linux">
+<meta property="article:tag" content="排障">
+<meta property="article:tag" content="SSH">
+<meta property="article:tag" content="CIFS">
+<meta property="article:tag" content="含金量不高">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>一次 df 卡在 CIFS 上造成 load 虚高的排障 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="一次 df 卡在 CIFS 上造成 load 虚高的排障"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-06-01 16:36" pubdate>
+          2026年6月1日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.9k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          16 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">一次 df 卡在 CIFS 上造成 load 虚高的排障</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>一台现场小电脑的远程操作一度很卡，连接也容易断。第一眼看 CPU 又没有打满：4 核机器，CPU 总负载四成左右，温度正常。但 load average 明显偏高，1 分钟负载接近 5，5 分钟和 15 分钟更高。</p>
+<p>排查过程中抓到一个真实异常：远程监控周期性执行的 <code>df</code> 卡在一个 CIFS&#x2F;SMB 网络共享上，多个 <code>df</code> 进入 D 状态，把 load average 抬高。后续复测又补了一条重要证据：即使还有 9 个 D 状态 <code>df</code>，命令行 SSH 和 iShell 也都能保持顺畅。所以这次更准确的结论不是“<code>df</code> 一定导致 SSH 卡死”，而是：<code>df</code> 卡网络挂载会制造高 load 和监控误导，但 SSH 卡顿必须单独按链路验证。</p>
+<h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><p>最初对比两台机器时，现象很不一致：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">对照机器：<br>  CPU 总负载约三成<br>  load average 大约 1.x<br>  SSH 登录和命令返回都比较顺<br><br>问题机器：<br>  CPU 总负载约四成<br>  load average 一度到 8、10 以上<br>  SSH banner 偶发超时<br>  登录后命令回显慢，连接容易断<br></code></pre></td></tr></table></figure>
+
+<p>如果只看 CPU，很容易误判。CPU 没满不代表系统没堵；但反过来也成立，load 高也不等于交互一定卡死。Linux 的 load average 统计的是正在等待 CPU 的任务，以及 D 状态的不可中断 I&#x2F;O 等待任务。后者不一定吃 CPU，但会把 load 拉高。</p>
+<h2 id="第一轮判断"><a href="#第一轮判断" class="headerlink" title="第一轮判断"></a>第一轮判断</h2><p>先把问题从应用层拆出去。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">本机 SSH 客户端<br>  -&gt; 跳板机<br>  -&gt; 目标机器 SSH 端口<br>  -&gt; SSH banner<br>  -&gt; 用户认证<br>  -&gt; shell<br></code></pre></td></tr></table></figure>
+
+<p>对照机器能稳定返回 SSH banner，完整命令两三秒返回。问题机器有时能返回，有时在 banner 阶段就超时。这个阶段还没有进入业务服务，Java 和前端都不是第一嫌疑。这里先得到一个阶段性判断：远程链路和 SSH 握手需要单独观察，不能只靠 CPU 或 load 判断。</p>
+<p>随后进到机器里看系统状态：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">uptime</span><br>vmstat 1 8<br>ps -eo pid,ppid,<span class="hljs-built_in">stat</span>,wchan:32,pcpu,pmem,<span class="hljs-built_in">comm</span>,args --<span class="hljs-built_in">sort</span>=-pcpu | <span class="hljs-built_in">head</span><br>ps -eo pid,ppid,<span class="hljs-built_in">stat</span>,wchan:32,<span class="hljs-built_in">comm</span>,args | awk <span class="hljs-string">&#x27;NR==1 || $3 ~ /^D/&#x27;</span><br></code></pre></td></tr></table></figure>
+
+<p>关键输出不是 CPU 排名，而是进程状态：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">load average: 8.19, 7.47, 13.13<br>D 状态进程数量明显异常<br>其中大部分是 df<br>wchan = wait_for_response<br>父进程命令里带有远程监控采集脚本的分段标记<br></code></pre></td></tr></table></figure>
+
+<p>这说明至少有一类异常不是业务进程，而是监控采集脚本拉起的 <code>df</code> 卡住了。</p>
+<h2 id="为什么-df-会卡"><a href="#为什么-df-会卡" class="headerlink" title="为什么 df 会卡"></a>为什么 df 会卡</h2><p><code>df</code> 查的不是一个本地缓存数字。它会遍历挂载表，对每个挂载点调用 <code>statfs/statvfs</code>，向对应文件系统查询容量。</p>
+<p>本地盘通常很快：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">df<br>  -&gt; 本地 ext4 / nvme<br>  -&gt; 内核直接返回容量<br></code></pre></td></tr></table></figure>
+
+<p>但网络盘不一样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">df<br>  -&gt; 扫到 /mnt/share<br>  -&gt; 这是 CIFS/SMB 网络共享<br>  -&gt; 内核 CIFS 客户端向远端文件服务器请求容量信息<br>  -&gt; 远端响应慢、会话异常或网络抖动<br>  -&gt; df 卡在内核等待 wait_for_response<br>  -&gt; 进程进入 D 状态<br></code></pre></td></tr></table></figure>
+
+<p>当时问题机器上有一个类似这样的挂载：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">/mnt/share //fileserver/reports cifs rw,...<br></code></pre></td></tr></table></figure>
+
+<p>这里的共享容量显示几百 GB，不代表本机真的有这么大空间，也不是目录实际文件大小。<code>df</code> 显示的是这个 SMB 共享所在卷返回的文件系统容量。要看目录实际占用应使用 <code>du</code>，但对网络共享跑递归 <code>du</code> 风险更高，可能比 <code>df</code> 更容易拖慢系统。</p>
+<h2 id="D-状态会不会拖慢-SSH"><a href="#D-状态会不会拖慢-SSH" class="headerlink" title="D 状态会不会拖慢 SSH"></a>D 状态会不会拖慢 SSH</h2><p>D 状态不是“占满 CPU”。它通常不怎么消耗 CPU，但它有几个麻烦点：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">1. 计入 load average<br>2. 普通 kill 不一定立即生效<br>3. 占着进程、文件描述符、父进程等待关系和内核 I/O 等待链路<br>4. 如果监控持续拉起新 df，会不断堆积<br></code></pre></td></tr></table></figure>
+
+<p>单个 <code>df</code> 卡住不一定会让机器不可用。真正危险的是周期性采集没有超时、没有去重：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">第 1 次采集 -&gt; df 卡住<br>第 2 次采集 -&gt; 又启动一个 df，也卡住<br>第 3 次采集 -&gt; 再启动一个 df<br>...<br></code></pre></td></tr></table></figure>
+
+<p>几分钟后，D 状态 <code>df</code> 可能堆到十几个。4 核机器上，CPU 可能还只有四成，但 load 已经十几。</p>
+<p>不过这一步不能直接推出“SSH 一定卡”。SSH 的交互需要 <code>sshd</code> 调度、PTY 读写、shell fork、日志写入和网络收发。只有当 D 状态等待影响到这些关键路径，或者监控采集在客户端&#x2F;服务端持续堆积，交互才会明显变慢。后来复测时，问题机器仍然有 9 个 D 状态 <code>df</code>，但命令行 SSH 和 iShell 都能顺畅使用，这说明 <code>df</code> 更像是 load 虚高和监控噪音的来源，而不是 SSH 卡顿的充分条件。</p>
+<p>这也是这次排障里最需要修正的地方：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">错误简化：<br>  D 状态 df 多 -&gt; SSH 一定卡<br><br>更准确：<br>  D 状态 df 多 -&gt; load 会虚高，系统存在网络文件系统等待<br>  SSH 是否卡 -&gt; 还要看 banner、登录耗时、命令返回耗时、客户端采集是否堆积<br></code></pre></td></tr></table></figure>
+
+<h2 id="清理动作"><a href="#清理动作" class="headerlink" title="清理动作"></a>清理动作</h2><p>这次只清理采集进程，不动挂载。</p>
+<p>先看卡住的采集：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">ps -eo pid,ppid,<span class="hljs-built_in">stat</span>,wchan:32,<span class="hljs-built_in">comm</span>,args \<br>  | awk <span class="hljs-string">&#x27;NR==1 || /---MONITOR_SECTION---/ || ($5 == &quot;df&quot; &amp;&amp; /df -P -B1/)&#x27;</span><br></code></pre></td></tr></table></figure>
+
+<p>再按特征杀掉监控脚本和它拉起的 <code>df</code>：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash">ps -eo pid=,<span class="hljs-built_in">comm</span>=,args= | awk <span class="hljs-string">&#x27;</span><br><span class="hljs-string">  $2 == &quot;sh&quot; &amp;&amp; index($0, &quot;---MONITOR_SECTION---&quot;) &gt; 0 &#123;print $1&#125;</span><br><span class="hljs-string">  $2 == &quot;df&quot; &amp;&amp; index($0, &quot;df -P -B1&quot;) &gt; 0 &#123;print $1&#125;</span><br><span class="hljs-string">&#x27;</span> | xargs -r <span class="hljs-built_in">kill</span> -TERM<br><br><span class="hljs-built_in">sleep</span> 2<br><br>ps -eo pid=,<span class="hljs-built_in">comm</span>=,args= | awk <span class="hljs-string">&#x27;</span><br><span class="hljs-string">  $2 == &quot;sh&quot; &amp;&amp; index($0, &quot;---MONITOR_SECTION---&quot;) &gt; 0 &#123;print $1&#125;</span><br><span class="hljs-string">  $2 == &quot;df&quot; &amp;&amp; index($0, &quot;df -P -B1&quot;) &gt; 0 &#123;print $1&#125;</span><br><span class="hljs-string">&#x27;</span> | xargs -r <span class="hljs-built_in">kill</span> -KILL<br></code></pre></td></tr></table></figure>
+
+<p>清理前后变化：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">清理前：<br>  D_total=14<br>  D_df=13<br>  collector_shell=13<br>  collector_df=13<br><br>清理后：<br>  D_total=1<br>  D_df=0<br>  collector_shell=0<br>  collector_df=0<br></code></pre></td></tr></table></figure>
+
+<p>复查挂载仍然存在：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">findmnt -rno TARGET,SOURCE,FSTYPE,OPTIONS /mnt/share<br></code></pre></td></tr></table></figure>
+
+<p>这一步只清理进程，不卸载 CIFS 共享。load average 会按 1&#x2F;5&#x2F;15 分钟窗口慢慢回落，不会立刻归零。</p>
+<p>后续又观察到，这些 <code>df</code> 会重新由监控采集拉起并进入 D 状态，但在同一时间 SSH 和 iShell 可以很顺。这证明清理动作只能作为临时止血或降低 load 噪音，不能当作“修复 SSH 卡顿”的充分证据。</p>
+<h2 id="后续改法"><a href="#后续改法" class="headerlink" title="后续改法"></a>后续改法</h2><p>临时止血是清理卡住的采集进程。长期应该改监控采集策略，避免让 load 指标被网络挂载污染。</p>
+<p>安全一些的磁盘采集方式：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-comment"># 排除网络文件系统</span><br><span class="hljs-built_in">timeout</span> 3 <span class="hljs-built_in">df</span> -hT -x cifs -x smb3 -x nfs -x fuse<br><br><span class="hljs-comment"># 或者只查本地关键挂载点</span><br><span class="hljs-built_in">timeout</span> 3 <span class="hljs-built_in">df</span> -h /<br><span class="hljs-built_in">timeout</span> 3 <span class="hljs-built_in">df</span> -h /home<br></code></pre></td></tr></table></figure>
+
+<p>监控侧还应该保证：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">上一轮采集没结束，不启动下一轮<br>所有外部命令都有 timeout<br>默认排除 cifs/nfs/fuse/smb 等网络或用户态文件系统<br>采集失败返回降级数据，而不是无限堆进程<br></code></pre></td></tr></table></figure>
+
+<p>这次问题的核心不是 <code>df</code> 危险，也不是“看到 D 状态就认定机器卡死”。更准确的经验是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">周期性监控 + 全量 df + 网络挂载 + 无超时/无去重<br>  -&gt; 容易制造 D 状态进程<br>  -&gt; 容易让 load average 失真<br>  -&gt; 可能放大交互问题，但不必然导致 SSH 卡死<br></code></pre></td></tr></table></figure>
+
+<p>CPU 不高但 load 高时，第一反应不该只盯业务进程，也不该直接下结论。先看 D 状态和 <code>wchan</code>，再单独测 SSH banner、登录耗时和命令返回耗时。指标解释和链路验证要分开做。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/Linux/" class="print-no-link">#Linux</a>
+      
+        <a href="/tags/%E6%8E%92%E9%9A%9C/" class="print-no-link">#排障</a>
+      
+        <a href="/tags/SSH/" class="print-no-link">#SSH</a>
+      
+        <a href="/tags/CIFS/" class="print-no-link">#CIFS</a>
+      
+        <a href="/tags/%E5%90%AB%E9%87%91%E9%87%8F%E4%B8%8D%E9%AB%98/" class="print-no-link">#含金量不高</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>一次 df 卡在 CIFS 上造成 load 虚高的排障</div>
+      <div>https://willfordzhan.github.io/2026/06/01/df-cifs-ssh-load/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年6月1日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/05/15/nps-ssh-tunnel-mux-timeout/" title="一次 NPS SSH 隧道变卡排查：从 banner timeout 到 mux 心跳超时">
+                        <span class="hidden-mobile">一次 NPS SSH 隧道变卡排查：从 banner timeout 到 mux 心跳超时</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

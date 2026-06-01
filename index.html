@@ -241,6 +241,54 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/06/01/df-cifs-ssh-load/" target="_self">
+          一次 df 卡在 CIFS 上造成 load 虚高的排障
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/06/01/df-cifs-ssh-load/" target="_self">
+        <div>
+          一台现场小电脑的远程操作一度很卡，连接也容易断。第一眼看 CPU 又没有打满：4 核机器，CPU 总负载四成左右，温度正常。但 load average 明显偏高，1 分钟负载接近 5，5 分钟和 15 分钟更高。 排查过程中抓到一个真实异常：远程监控周期性执行的 df 卡在一个 CIFS&#x2F;SMB 网络共享上，多个 df 进入 D 状态，把 load average 抬高。后续复测又补了
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-06-01 16:36" pubdate>
+              2026-06-01
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Linux/">#Linux</a>
+            
+              <a href="/tags/%E6%8E%92%E9%9A%9C/">#排障</a>
+            
+              <a href="/tags/SSH/">#SSH</a>
+            
+              <a href="/tags/CIFS/">#CIFS</a>
+            
+              <a href="/tags/%E5%90%AB%E9%87%91%E9%87%8F%E4%B8%8D%E9%AB%98/">#含金量不高</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/05/15/nps-ssh-tunnel-mux-timeout/" target="_self">
           一次 NPS SSH 隧道变卡排查：从 banner timeout 到 mux 心跳超时
         </a>
@@ -267,11 +315,11 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
+              <a href="/tags/%E6%8E%92%E9%9A%9C/">#排障</a>
+            
               <a href="/tags/SSH/">#SSH</a>
             
               <a href="/tags/NPS/">#NPS</a>
-            
-              <a href="/tags/%E6%8E%92%E9%9A%9C/">#排障</a>
             
               <a href="/tags/%E7%BD%91%E7%BB%9C/">#网络</a>
             
@@ -334,9 +382,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/Agent/">#Agent</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
             
               <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
             
@@ -403,9 +451,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/Agent/">#Agent</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
             
               <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
             
@@ -472,9 +520,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/Agent/">#Agent</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
             
               <a href="/tags/RAG/">#RAG</a>
             
@@ -725,13 +773,13 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
+              <a href="/tags/SSH/">#SSH</a>
+            
               <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/">#故障排查</a>
             
               <a href="/tags/Docker/">#Docker</a>
             
               <a href="/tags/Nginx/">#Nginx</a>
-            
-              <a href="/tags/SSH/">#SSH</a>
             
               <a href="/tags/%E8%BF%9C%E7%A8%8B%E6%8E%92%E9%9A%9C/">#远程排障</a>
             
@@ -782,56 +830,6 @@
               <a href="/tags/Chrome/">#Chrome</a>
             
               <a href="/tags/%E7%88%AC%E8%99%AB/">#爬虫</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/03/23/react-vite-fastapi-static-hosting/" target="_self">
-          React/Vite 前端如何交给 Python/FastAPI 托管：从 npm run build 到默认首页入口
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/03/23/react-vite-fastapi-static-hosting/" target="_self">
-        <div>
-          项目里有一个 app_manage，前端是 React + Vite，后端是 Python + FastAPI。最开始的问题很直接：service.sh 启动时，能不能把前端也一起拉起来，并且把 Python 服务的默认首页切到这个前端。 这类需求第一次看，很容易顺手想到 service.sh 里再后台起一个 npm run dev。它能跑，但不太像一个稳定的服务发布方案。真正要先分清的是，这个前
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-03-23 17:23" pubdate>
-              2026-03-23
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Python/">#Python</a>
-            
-              <a href="/tags/FastAPI/">#FastAPI</a>
-            
-              <a href="/tags/React/">#React</a>
-            
-              <a href="/tags/Vite/">#Vite</a>
-            
-              <a href="/tags/%E5%89%8D%E7%AB%AF%E5%B7%A5%E7%A8%8B/">#前端工程</a>
-            
-              <a href="/tags/%E9%9D%99%E6%80%81%E8%B5%84%E6%BA%90/">#静态资源</a>
             
           </div>
         
