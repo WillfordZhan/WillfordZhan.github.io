@@ -1,0 +1,796 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="最近重新梳理了一遍 DDD 里几个容易混在一起的概念：领域对象、实体、值对象、聚合、应用服务、领域服务、限界上下文和领域事件。 真正难的不是背定义，而是在代码里判断：一段逻辑到底该放在实体里、聚合根里、领域服务里，还是应用服务里？两个服务之间到底该直接调用，还是用事件解耦？ 1) 领域对象不是只有实体领域对象是一个统称。实体和值对象都属于领域对象，只是它们用来表达不同类型的业务概念。 实体关注的是">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从领域对象到领域事件：一次 DDD 概念梳理">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/06/04/ddd-domain-object-domain-service-events/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="最近重新梳理了一遍 DDD 里几个容易混在一起的概念：领域对象、实体、值对象、聚合、应用服务、领域服务、限界上下文和领域事件。 真正难的不是背定义，而是在代码里判断：一段逻辑到底该放在实体里、聚合根里、领域服务里，还是应用服务里？两个服务之间到底该直接调用，还是用事件解耦？ 1) 领域对象不是只有实体领域对象是一个统称。实体和值对象都属于领域对象，只是它们用来表达不同类型的业务概念。 实体关注的是">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-06-04T16:31:19.000Z">
+<meta property="article:modified_time" content="2026-06-04T16:39:23.548Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="架构">
+<meta property="article:tag" content="DDD">
+<meta property="article:tag" content="领域驱动设计">
+<meta property="article:tag" content="微服务">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>从领域对象到领域事件：一次 DDD 概念梳理 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="从领域对象到领域事件：一次 DDD 概念梳理"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-06-05 00:31" pubdate>
+          2026年6月5日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          20 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">从领域对象到领域事件：一次 DDD 概念梳理</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>最近重新梳理了一遍 DDD 里几个容易混在一起的概念：领域对象、实体、值对象、聚合、应用服务、领域服务、限界上下文和领域事件。</p>
+<p>真正难的不是背定义，而是在代码里判断：一段逻辑到底该放在实体里、聚合根里、领域服务里，还是应用服务里？两个服务之间到底该直接调用，还是用事件解耦？</p>
+<h2 id="1-领域对象不是只有实体"><a href="#1-领域对象不是只有实体" class="headerlink" title="1) 领域对象不是只有实体"></a>1) 领域对象不是只有实体</h2><p>领域对象是一个统称。实体和值对象都属于领域对象，只是它们用来表达不同类型的业务概念。</p>
+<p>实体关注的是“是谁”。它有稳定身份标识，有生命周期，属性可以变化，但只要身份没变，它仍然是同一个对象。比如两个用户即使姓名、年龄、头像完全一样，只要用户 ID 不同，在业务上就是两个不同用户。</p>
+<p>值对象关注的是“是什么”。它没有独立身份，通常由属性组合定义等价性，也更适合设计成不可变对象。比如两个收货地址的省、市、街道、门牌号完全一致，在发货业务里就可以被理解为同一个地址值。</p>
+<p>所以可以先用一个简单判断：</p>
+<ul>
+<li>业务关心对象的连续身份和生命周期，用实体。</li>
+<li>业务只关心属性值本身，用值对象。</li>
+</ul>
+<h2 id="2-聚合是保护业务规则的边界"><a href="#2-聚合是保护业务规则的边界" class="headerlink" title="2) 聚合是保护业务规则的边界"></a>2) 聚合是保护业务规则的边界</h2><p>聚合不是一个随便把对象放在一起的集合，它是“保证业务规则一致性的最小边界”。</p>
+<p>以订单为例，订单和订单明细不是两个可以被外部随意操作的对象。订单明细属于订单这个完整业务概念的一部分。外部不应该直接 <code>new OrderItem</code> 然后塞进数据库，而应该通过订单这个聚合根完成操作：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">order.addItem(productId, quantity, price);<br></code></pre></td></tr></table></figure>
+
+<p>如果业务规定“一个订单最多只能有 50 件商品”，这个不变量也应该由订单聚合根守住。原因很简单：所有添加商品的入口都经过 <code>order.addItem(...)</code>，规则写在这里，外部应用服务、Controller、任务调度都绕不过去。</p>
+<p>这也是聚合根的核心价值：它不只是数据容器，而是对外暴露业务动作，并保护聚合内部的一致性。</p>
+<h2 id="3-应用服务和领域服务不能混成一个大-Service"><a href="#3-应用服务和领域服务不能混成一个大-Service" class="headerlink" title="3) 应用服务和领域服务不能混成一个大 Service"></a>3) 应用服务和领域服务不能混成一个大 Service</h2><p>最容易混淆的是应用服务和领域服务。</p>
+<p>应用服务负责一个用例的流程编排。它可以开事务、查仓储、拿领域对象、调用领域对象或领域服务、保存结果。它应该尽量“笨”，不承载核心业务判断。</p>
+<p>领域服务负责那些不适合放进单个实体或值对象里的业务规则。尤其是当一条核心业务规则天然跨越多个领域对象或多个聚合，而且放在任何一个对象里都别扭时，才需要领域服务。</p>
+<p>比如提交订单并扣减库存，通常是一个应用服务用例：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">提交订单应用服务<br>  -&gt; 查询订单相关数据<br>  -&gt; 查询库存聚合<br>  -&gt; 调用订单聚合生成订单<br>  -&gt; 调用库存聚合扣减库存<br>  -&gt; 保存并提交事务<br></code></pre></td></tr></table></figure>
+
+<p>这里的重点是“流程串联”和“事务边界”，所以它更像应用服务。</p>
+<p>但如果要根据会员等级和促销活动计算最终折扣，这个计算规则同时依赖会员聚合和促销聚合，而且本身是纯业务规则，就更适合放在领域服务里：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">应用服务<br>  -&gt; 读取会员聚合<br>  -&gt; 读取促销聚合<br>  -&gt; 调用折扣领域服务计算折扣<br>  -&gt; 用折扣结果继续生成订单<br></code></pre></td></tr></table></figure>
+
+<p>一个实用判断是：如果代码在回答“这个用例下一步做什么”，多半是应用服务；如果代码在回答“这个业务规则如何成立”，多半是领域对象或领域服务。</p>
+<h2 id="4-限界上下文解决同名概念的歧义"><a href="#4-限界上下文解决同名概念的歧义" class="headerlink" title="4) 限界上下文解决同名概念的歧义"></a>4) 限界上下文解决同名概念的歧义</h2><p>限界上下文是战略设计概念，它解决的是语义边界问题。</p>
+<p>同一个词在不同业务里可能不是同一个模型。比如“商品”：</p>
+<ul>
+<li>在交易上下文里，商品关注名称、价格、上下架状态、活动信息。</li>
+<li>在仓储上下文里，商品关注重量、体积、库位、易碎品标记。</li>
+</ul>
+<p>如果强行建一个超级大的 <code>Product</code>，把交易字段、仓储字段、营销字段都塞进去，短期看是复用，长期看就是模型污染。每个团队都往里面加字段，最后谁也说不清这个对象到底代表什么。</p>
+<p>更合理的做法是拆出各自上下文内的模型：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">商品主 ID<br>  -&gt; 交易上下文：TradeProduct<br>  -&gt; 仓储上下文：WarehouseProduct<br></code></pre></td></tr></table></figure>
+
+<p>它们可以通过同一个商品主 ID 产生关联，但在代码、表结构和业务语言上保持独立。这样每个上下文里的模型都只服务自己的业务规则。</p>
+<h2 id="5-领域事件用于弱依赖，不是替代所有同步调用"><a href="#5-领域事件用于弱依赖，不是替代所有同步调用" class="headerlink" title="5) 领域事件用于弱依赖，不是替代所有同步调用"></a>5) 领域事件用于弱依赖，不是替代所有同步调用</h2><p>当交易上下文里的商品下架后，仓储上下文可能也要调整相关状态。最直接的做法是交易服务同步调用仓储服务。但如果大促期间仓储服务很慢甚至短暂不可用，交易服务的下架流程就会被拖住，原本能独立完成的业务反而被下游拖死。</p>
+<p>这种“我自己的核心动作已经完成，下游只是基于这个结果做后续反应”的场景，更适合领域事件：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">交易上下文<br>  -&gt; 商品已下架<br>  -&gt; 发布 ProductUnpublishedEvent<br><br>仓储上下文<br>  -&gt; 订阅 ProductUnpublishedEvent<br>  -&gt; 调整仓储侧商品状态<br></code></pre></td></tr></table></figure>
+
+<p>事件表达的是已经发生的业务事实，所以命名通常是过去时。它不是“请你修改仓储状态”的命令，而是“商品已经下架了”的事实。</p>
+<p>事件消息体也要克制。只带 ID 的通知事件最轻，但下游可能需要反查，流量大时会造成 API 风暴。把上游所有字段都塞进去则会形成胖事件，浪费资源，也让下游偷偷依赖上游内部结构。</p>
+<p>更稳妥的边界是：事件只包含描述这个历史事实所必需的上下文信息。</p>
+<p>以商品下架为例，可以包含：</p>
+<ul>
+<li>商品主 ID</li>
+<li>下架时间</li>
+<li>下架原因</li>
+<li>操作人</li>
+</ul>
+<p>这些字段是在描述“商品下架”这个事实，而不是把交易商品对象完整复制给下游。</p>
+<h2 id="6-同步调用仍然合理"><a href="#6-同步调用仍然合理" class="headerlink" title="6) 同步调用仍然合理"></a>6) 同步调用仍然合理</h2><p>DDD 并不禁止同步调用。领域事件适合弱依赖，不适合强行替代所有跨服务交互。</p>
+<p>判断标准是：A 服务的核心流程是否必须依赖 B 服务的返回结果。</p>
+<p>如果用户提交订单时输入了优惠券码，交易服务必须知道券码是否有效、能抵扣多少钱，才能生成真实正确的订单价格。订单价格是订单创建时的核心字段，这一步被优惠券校验结果阻塞，所以同步调用营销服务是合理的。</p>
+<p>可以粗略分成两类：</p>
+<table>
+<thead>
+<tr>
+<th>交互类型</th>
+<th>场景</th>
+<th>常见方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>强依赖 Query &#x2F; Command</td>
+<td>A 没有 B 的结果，自己的核心流程走不下去</td>
+<td>同步 HTTP &#x2F; RPC</td>
+</tr>
+<tr>
+<td>弱依赖 Reaction</td>
+<td>A 的核心动作已经完成，B 只是后续联动</td>
+<td>异步领域事件</td>
+</tr>
+</tbody></table>
+<p>所以 DDD 不是要求所有服务都发布订阅，也不是要求所有对象都不能直接调用。它真正要求的是：把业务规则放在正确的边界里，把不该强耦合的联动解开，把必须同步获得结果的地方明确承认下来。</p>
+<h2 id="7-一个落地判断表"><a href="#7-一个落地判断表" class="headerlink" title="7) 一个落地判断表"></a>7) 一个落地判断表</h2><p>最后可以把这次梳理收敛成几条判断规则：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>优先落点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>逻辑只影响单个实体自身状态</td>
+<td>实体方法</td>
+</tr>
+<tr>
+<td>逻辑需要保护聚合内不变量</td>
+<td>聚合根方法</td>
+</tr>
+<tr>
+<td>规则跨多个领域对象，且不适合放进任一对象</td>
+<td>领域服务</td>
+</tr>
+<tr>
+<td>用例流程、事务、仓储读写、权限校验入口</td>
+<td>应用服务</td>
+</tr>
+<tr>
+<td>同名概念在不同业务里含义不同</td>
+<td>拆限界上下文</td>
+</tr>
+<tr>
+<td>上游事实发生后，下游只是后续反应</td>
+<td>领域事件</td>
+</tr>
+<tr>
+<td>当前流程必须拿到另一个服务的结果才能继续</td>
+<td>同步调用</td>
+</tr>
+</tbody></table>
+<p>这套判断不保证每次都能一步到位，但能避免两个常见问题：一是把所有业务都塞进应用服务，退回贫血模型；二是把所有服务交互都事件化，让系统复杂度失控。</p>
+<p>DDD 的价值不在于术语，而在于边界判断。对象边界、聚合边界、上下文边界和服务交互边界理顺了，代码结构才会开始变得稳定。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84/" class="print-no-link">#架构</a>
+      
+        <a href="/tags/DDD/" class="print-no-link">#DDD</a>
+      
+        <a href="/tags/%E9%A2%86%E5%9F%9F%E9%A9%B1%E5%8A%A8%E8%AE%BE%E8%AE%A1/" class="print-no-link">#领域驱动设计</a>
+      
+        <a href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/" class="print-no-link">#微服务</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>从领域对象到领域事件：一次 DDD 概念梳理</div>
+      <div>https://willfordzhan.github.io/2026/06/04/ddd-domain-object-domain-service-events/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年6月5日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/06/01/df-cifs-ssh-load/" title="一次 df 卡在 CIFS 上造成 load 虚高的排障">
+                        <span class="hidden-mobile">一次 df 卡在 CIFS 上造成 load 虚高的排障</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
