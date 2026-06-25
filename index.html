@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/06/25/cloud-deploy-agent-skill/" target="_self">
+          把云端部署写成 Agent Skill
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/06/25/cloud-deploy-agent-skill/" target="_self">
+        <div>
+          这次做的是一个云端部署 Skill。目标不是再造一套发布平台，而是把已经存在的人工发布流程拆成 Agent 能稳定执行、能停在正确位置、能把事实说清楚的几段能力。 最后落地的形态很克制：一份服务拓扑 YAML，一份 Skill 说明，三个面向 Agent 的 Python 脚本，再加一组 Nginx 文本切流测试。部署、验证、切流仍然尊重现有服务器和脚本，不把生产发布变成一个模型自由发挥的动作。
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-06-25 21:05" pubdate>
+              2026-06-25
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">#自动化部署</a>
+            
+              <a href="/tags/DevOps/">#DevOps</a>
+            
+              <a href="/tags/Skill/">#Skill</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/06/12/db-query-skill-iteration/" target="_self">
           一次数据库查询 Skill 的小步优化
         </a>
@@ -778,52 +847,6 @@
               <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">#自动化部署</a>
             
               <a href="/tags/DevOps/">#DevOps</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/05/06/sqlite/" target="_self">
-          一次 SQLite 超时排查：测点缓存、单连接和先监测再优化
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/06/sqlite/" target="_self">
-        <div>
-          这次排查的是边缘端 Java 服务的一次现场 CPU 飙高。 现象很直接：某天 15:30 到 16:00 左右，Java 进程 CPU 很高，日志里持续报 SQLite&#x2F;JDBC 连接获取失败。现场关闭“测点缓存”功能并重启后，服务恢复。这个功能之前一直开着，只有那天爆了一次，后面也没有再打开。 一开始很容易把问题归到测点缓存上：关了它就好了，那是不是缓存库坏了？但日志和库文件检查对不
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-05-06 17:26" pubdate>
-              2026-05-06
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/SQLite/">#SQLite</a>
-            
-              <a href="/tags/%E7%BA%BF%E4%B8%8A%E6%8E%92%E9%9A%9C/">#线上排障</a>
-            
-              <a href="/tags/%E6%80%A7%E8%83%BD%E7%9B%91%E6%B5%8B/">#性能监测</a>
             
           </div>
         
