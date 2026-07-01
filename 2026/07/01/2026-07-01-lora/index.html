@@ -1,0 +1,791 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="今天主要是在收口一个 LoRa 相关项目的现场稳定性和配置体验。不是只修一个点，而是把几个长期摩擦放到同一条链路里整理：现场 LoRa 轮询被异常设备拖慢、转发模式开关和运行态保活互相打架、LR 配置页信息太散、子设备卡片缺少运行来源，以及 Codex 自身的 worktree、skill、commit scope 规则需要整理。 从本地 Codex 原始会话看，今天 2026-07-01 一共有">
+<meta property="og:type" content="article">
+<meta property="og:title" content="2026-07-01 LoRa 项目整理开发记录">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/07/01/2026-07-01-lora/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="今天主要是在收口一个 LoRa 相关项目的现场稳定性和配置体验。不是只修一个点，而是把几个长期摩擦放到同一条链路里整理：现场 LoRa 轮询被异常设备拖慢、转发模式开关和运行态保活互相打架、LR 配置页信息太散、子设备卡片缺少运行来源，以及 Codex 自身的 worktree、skill、commit scope 规则需要整理。 从本地 Codex 原始会话看，今天 2026-07-01 一共有">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-07-01T13:43:05.000Z">
+<meta property="article:modified_time" content="2026-07-01T13:47:44.650Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="LoRa">
+<meta property="article:tag" content="项目整理">
+<meta property="article:tag" content="开发回顾">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>2026-07-01 LoRa 项目整理开发记录 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="2026-07-01 LoRa 项目整理开发记录"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-07-01 21:43" pubdate>
+          2026年7月1日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          28 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">2026-07-01 LoRa 项目整理开发记录</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>今天主要是在收口一个 LoRa 相关项目的现场稳定性和配置体验。不是只修一个点，而是把几个长期摩擦放到同一条链路里整理：现场 LoRa 轮询被异常设备拖慢、转发模式开关和运行态保活互相打架、LR 配置页信息太散、子设备卡片缺少运行来源，以及 Codex 自身的 worktree、skill、commit scope 规则需要整理。</p>
+<p>从本地 Codex 原始会话看，今天 2026-07-01 一共有 9 个 Codex 会话文件，其中 8 个是开发&#x2F;排查&#x2F;整理会话，最后 1 个是这篇日志整理会话。可核验的提交记录里，后端项目当天有 19 条 commit（含 merge），前端项目当天有 9 条 commit。下面记录只写机制和脱敏后的链路，不放真实设备编号、内网地址、SSH 用户、镜像仓库和本地绝对路径。</p>
+<h2 id="先整理开发现场"><a href="#先整理开发现场" class="headerlink" title="先整理开发现场"></a>先整理开发现场</h2><p>第一件事是工作区整理。定时 Codex 会话检查了 10 个项目的 worktree，只移除满足三个条件的登记工作区：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">worktree 已登记<br>  -&gt; 工作区干净<br>  -&gt; HEAD 已经被对应基线分支包含<br>  -&gt; 不是主工作区、不是 dirty 工作区、不是未合入分支<br>  -&gt; remove<br></code></pre></td></tr></table></figure>
+
+<p>最后移除了 3 个已合入基线的 worktree。没有用目录名猜测，也没有全盘扫描；判断依据是 <code>git worktree list --porcelain</code>、<code>git status --porcelain</code> 和 <code>merge-base --is-ancestor</code>。这个清理本身不大，但它把后面一天的开发环境先降噪了：真正还在进行中的 worktree 被保留，已合入且干净的工作区被清掉。</p>
+<p>同一天还整理了两个 Codex 使用规则。</p>
+<p>一个是 SSH 排查 skill 的目标解析。之前用户明确说要连某个现场别名，agent 还是优先去了默认测试机。修正后的规则是：只要用户给了 SSH alias、现场设备编号或显式 host，这就是最高优先级目标，默认小电脑只能在没有显式目标时使用。对应文档也补了 <code>ssh -G &quot;$HOST&quot;</code> 这种预检模板，先确认解析结果，再进入排查。</p>
+<p>另一个是 commit scope 规则。旧规则强调“提交前看最近 10 条 commit，如果有同义 scope 就沿用”，这容易让 agent 把入口现象当 scope。比如问题入口是 LoRa 扫描失败，但根因可能是系统配置兼容。规则被压缩成两行：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">scope 按本次变更的根因和实际代码责任边界命名。<br>最近 10 条 commit 只用于复用同义 scope；语义不一致就新建更准确的中文 scope。<br></code></pre></td></tr></table></figure>
+
+<p>这个改动很小，但能减少后续提交历史里的“症状型 scope”。</p>
+<h2 id="LoRa-现场稳定性"><a href="#LoRa-现场稳定性" class="headerlink" title="LoRa 现场稳定性"></a>LoRa 现场稳定性</h2><p>上午的核心问题是：某类大报文设备不应该进入 LoRa2，却曾经在 LoRa2 上持续收发，拖慢同信道上的其他设备。排查后确认这不是日志误判，而是真实收发。原始会话里统计到异常期间有大量 LoRa2 报文，且包含较大的设备报文。为了脱敏，这里不贴 PID 和现场编号，只保留机制：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">设备从 LoRa2 发 SYN<br>  -&gt; 通信层按收到 SYN 的串口标记 holder.isLora2 = true<br>  -&gt; reject 判断当时没有挡住<br>  -&gt; holder 进入全局在线设备表<br>  -&gt; lora2Poller 只看 holder.isLora2 &amp;&amp; isTarget(holder)<br>  -&gt; 设备类型又在可轮询 target 范围内<br>  -&gt; LoRa2 开始持续轮询它<br></code></pre></td></tr></table></figure>
+
+<p>修正方向不是给某个 PID 打补丁，而是把“设备类型与 LoRa 归属”做成更硬的通用约束。某些设备类型默认只能在 LoRa1 归属下被接纳；即使历史运行态里误登记成 LoRa2，后续接入和轮询也要再次收口，避免一个错误 holder 存活很久。</p>
+<p>简化后的核心代码逻辑是这样：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">boolean</span> <span class="hljs-title function_">shouldReject</span><span class="hljs-params">(DeviceHolder holder)</span> &#123;<br>    <span class="hljs-keyword">if</span> (!lora2Enabled()) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">false</span>;<br>    &#125;<br><br>    <span class="hljs-keyword">if</span> (holder.isFromLora2() &amp;&amp; devicePolicy.isLora1Only(holder.type())) &#123;<br>        <span class="hljs-keyword">return</span> <span class="hljs-literal">true</span>;<br>    &#125;<br><br>    <span class="hljs-keyword">return</span> !channelOwnership.allows(holder.type(), holder.pid(), holder.channel());<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这段示例不是原始代码，只表达机制：通道归属不是按单个 PID 黑名单判断，而是先用设备类型的归属策略兜住，再进入业务槽位判断。</p>
+<h2 id="轻量运行态快照"><a href="#轻量运行态快照" class="headerlink" title="轻量运行态快照"></a>轻量运行态快照</h2><p>另一个现场问题更隐蔽。某次 LoRa2 轮询里，DGC 类设备约 10 秒没有更新，随后被离线检测移除。继续追日志后发现，无线收发本身没有耗时 8 秒，真正的空窗出现在发包前的应用链路。</p>
+<p>可核验的数字是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">应用层发包前空窗：约 8.007s<br>当时打印的运行态 ctx：约 7.5KB<br>ctx 里的 map entry：951 个<br>实时离线阈值：10s<br></code></pre></td></tr></table></figure>
+
+<p>旧链路大概是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">加料终端轮询<br>  -&gt; 读取吊钩秤运行态<br>  -&gt; getCtx().safeCopy()<br>  -&gt; 在读锁下复制完整 Context<br>  -&gt; 连 lockWeightCntMap 也一起复制<br>  -&gt; 打印完整 ctx<br>  -&gt; 再发送 LoRa 报文<br></code></pre></td></tr></table></figure>
+
+<p>业务上真正需要的只是当前重量、锁重状态、休眠状态、电量、更新时间等轻量字段，不需要把计数 map 复制到实时轮询线程里。于是把“完整 Context”拆出一个轻量只读投影：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">final</span> <span class="hljs-keyword">class</span> <span class="hljs-title class_">HookScaleRuntimeSnapshot</span> &#123;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> currentWeight;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> lockWeight;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">boolean</span> dormant;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">boolean</span> locked;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> Instant updatedAt;<br>    <span class="hljs-keyword">private</span> <span class="hljs-keyword">final</span> <span class="hljs-type">int</span> batteryPercentage;<br>&#125;<br><br><span class="hljs-keyword">public</span> HookScaleRuntimeSnapshot <span class="hljs-title function_">runtimeSnapshot</span><span class="hljs-params">(<span class="hljs-type">int</span> subDeviceNo)</span> &#123;<br>    lock.readLock().lock();<br>    <span class="hljs-keyword">try</span> &#123;<br>        <span class="hljs-type">Context</span> <span class="hljs-variable">ctx</span> <span class="hljs-operator">=</span> getOrCreateMutableCtx(subDeviceNo);<br>        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">HookScaleRuntimeSnapshot</span>(<br>            ctx.getCurrWeight(),<br>            ctx.getLockWeight(),<br>            ctx.isDormant(),<br>            ctx.isLock(),<br>            ctx.getUpdatedAt(),<br>            ctx.getBatteryLevelPercentage()<br>        );<br>    &#125; <span class="hljs-keyword">finally</span> &#123;<br>        lock.readLock().unlock();<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这里的重点不是少复制几 KB，而是把实时轮询链路从“完整业务上下文”改成“最小运行态投影”。这类接口应该服务轮询稳定性，不应该顺手暴露页面统计、锁重分布、holder 等重量级对象。</p>
+<h2 id="转发模式和运行态生命周期"><a href="#转发模式和运行态生命周期" class="headerlink" title="转发模式和运行态生命周期"></a>转发模式和运行态生命周期</h2><p>下午对 LoRa 转发服务做了一轮结构整理。旧代码里，转发模式、LoRa 开关、串口运行态、host 配置释放转发层几个概念混在多个地方。实际问题表现为：关闭转发模式时，Java runtime 的保活线程可能又把 systemd 转发层拉起来，导致用户看到“关闭超时”或“关闭后又启动”。</p>
+<p>旧链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">前端关闭转发模式<br>  -&gt; stop/disable serial-forward-0/1<br>  -&gt; Java LoRa runtime 仍在运行<br>  -&gt; 保活线程检测到串口不通<br>  -&gt; 又尝试 start 转发层<br></code></pre></td></tr></table></figure>
+
+<p>整理后的顺序是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">切换转发模式<br>  -&gt; 先停止 LoRa1/LoRa2 runtime<br>  -&gt; 切断 Java 保活重开入口<br>  -&gt; 再 stop/disable systemd 转发层<br>  -&gt; 最后落库 ENABLE_LORA_FORWARD_MODE<br></code></pre></td></tr></table></figure>
+
+<p>脱敏后的代码形态大概是：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">switchForwardMode</span><span class="hljs-params">(<span class="hljs-type">boolean</span> enabled)</span> &#123;<br>    <span class="hljs-keyword">if</span> (!enabled) &#123;<br>        runtimeLifecycle.disableAll();<br>        forwardService.stopAndDisableAll();<br>        configService.setForwardMode(<span class="hljs-literal">false</span>);<br>        <span class="hljs-keyword">return</span>;<br>    &#125;<br><br>    forwardService.enableAndStartAll();<br>    configService.setForwardMode(<span class="hljs-literal">true</span>);<br>    runtimeLifecycle.reopenAll();<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>随后又继续重构了运行时边界：把 LoRa1&#x2F;LoRa2 原来类似复制的 manager 收口到 slot runtime、runtime registry、lifecycle service 这一组对象里。收益是后续关闭、重启、转发模式切换、host LoRa config 前释放转发层，都能走同一个运行态入口，而不是散落在 controller、service、manager 之间。</p>
+<p>这轮重构不是为了抽象而抽象。它解决的是一个很具体的职责错位：systemd 转发层是底层资源，Java runtime 是使用者，业务配置只是期望状态。关闭底层资源前，必须先让使用者停下来。</p>
+<h2 id="1-秒保活和防重入"><a href="#1-秒保活和防重入" class="headerlink" title="1 秒保活和防重入"></a>1 秒保活和防重入</h2><p>后面还补了一版 LoRa 运行时健康保活。现场有一种情况：关闭 LR2、写配置、再开启 LR2 后，LR1 可能进入无响应状态，直到人工重开 LR1 才恢复。讨论后没有让外部 activity sampler 暴露更多细节，而是让 LoRa runtime 内部维护自己的端口健康状态。</p>
+<p>核心机制是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">LoRa 数据监听器 / 轮询器<br>  -&gt; 更新 LoraPortHealthState<br>  -&gt; 记录 lastActiveAt、lastOpenState、recovering<br>  -&gt; 保活每 1s 检查<br>  -&gt; 如果端口长时间无响应且不在 recovering<br>       -&gt; 触发一次 reopen<br>       -&gt; recovering=true 防止下一秒重复叠加<br>  -&gt; reopen 完成后清理 recovering<br></code></pre></td></tr></table></figure>
+
+<p>测试时分了 RAW 和 FORWARD 两种模式。RAW 模式下，关闭 LR2、读写配置、再开启 LR2，LR1 没进入 <code>NO_RESP</code>，LR2 触发一次重建后恢复。FORWARD 模式下，重启后转发层首轮打开大约需要 31 到 33 秒，但 <code>recovering=true</code> 挡住了 1 秒保活的重复触发；后续没有出现“触发、完成、再触发”的循环。</p>
+<p>这段机制的关键点是防重入。1 秒保活本身很容易从“兜底”变成“重启风暴”，所以状态机里必须有 recovering 或等价状态，明确表达“当前已经有人在修，不要再派第二个任务”。</p>
+<h2 id="前端配置页整理"><a href="#前端配置页整理" class="headerlink" title="前端配置页整理"></a>前端配置页整理</h2><p>前端主要围绕 LR 设置页做了几轮压缩和信息分层。</p>
+<p>当天的前端提交集中在这些点：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">信道组概览展示收口<br>全局配置卡片收窄<br>一屏显示高度压缩<br>LR 标题行对齐<br>转发模式卡片样式统一<br>LoRa 固件版本展示<br>版本、信道、信道标签位置调整<br></code></pre></td></tr></table></figure>
+
+<p>其中一个比较典型的问题是“当前信道”和“用户正在编辑的信道”混在同一个字段里。旧链路是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">用户选择新信道<br>  -&gt; selectedChannel 改为新值<br>  -&gt; 后端缓存结果回读<br>  -&gt; applyHostLoRaConfResult<br>  -&gt; selectedChannel 又被旧值覆盖<br>  -&gt; 用户看起来无法编辑<br></code></pre></td></tr></table></figure>
+
+<p>修正后把草稿值和已生效值拆开：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">selectedChannel = 用户正在编辑的草稿值<br>activeChannel   = 后端确认已经生效的标题 tag 值<br><br>用户选择新信道<br>  -&gt; 只改 selectedChannel<br>  -&gt; 标题 tag 仍显示 activeChannel<br><br>写设置成功并回读到新配置<br>  -&gt; selectedChannel / activeChannel 一起同步为新值<br></code></pre></td></tr></table></figure>
+
+<p>对应的脱敏前端状态逻辑：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs js"><span class="hljs-keyword">export</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">applyDraftSelection</span>(<span class="hljs-params">state, nextChannel</span>) &#123;<br>  <span class="hljs-keyword">return</span> &#123;<br>    ...state,<br>    <span class="hljs-attr">selectedChannel</span>: nextChannel,<br>    <span class="hljs-attr">hasDraft</span>: nextChannel !== state.<span class="hljs-property">activeChannel</span>,<br>  &#125;;<br>&#125;<br><br><span class="hljs-keyword">export</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">applyConfirmedConfig</span>(<span class="hljs-params">state, config</span>) &#123;<br>  <span class="hljs-keyword">const</span> confirmedChannel = config.<span class="hljs-property">channel</span>;<br>  <span class="hljs-keyword">return</span> &#123;<br>    ...state,<br>    <span class="hljs-attr">selectedChannel</span>: confirmedChannel,<br>    <span class="hljs-attr">activeChannel</span>: confirmedChannel,<br>    <span class="hljs-attr">hasDraft</span>: <span class="hljs-literal">false</span>,<br>  &#125;;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这个改动的边界很清楚：下拉框服务编辑态，标题 tag 服务已生效态。不要用一个字段同时表达“我想写什么”和“现场已经是什么”。</p>
+<h2 id="子设备卡片显示-LR-来源"><a href="#子设备卡片显示-LR-来源" class="headerlink" title="子设备卡片显示 LR 来源"></a>子设备卡片显示 LR 来源</h2><p>晚上又补了一个 UI&#x2F;数据链路问题：子设备管理卡片需要显示当前设备最近由 LR1 还是 LR2 收到。前端共享卡片先做了展示逻辑：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">在线 + LoRa1 -&gt; LR1 蓝色<br>在线 + LoRa2 -&gt; LR2 绿色<br>非在线       -&gt; LR- 弱化置灰<br>未知来源     -&gt; LR- 弱化<br></code></pre></td></tr></table></figure>
+
+<p>随后现场发现某个在线设备仍显示 <code>LR-</code>。继续追后发现不是前端颜色判断错，而是部分设备列表接口的 option 没带 <code>loraWho</code>。</p>
+<p>旧链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">在线状态表<br>  -&gt; 有 loraWho<br><br>某些设备扫描卡片<br>  -&gt; optionList<br>  -&gt; holder.toOption()<br>  -&gt; 没有 loraWho<br>  -&gt; 前端只能显示 LR-<br></code></pre></td></tr></table></figure>
+
+<p>修复后把运行来源下沉到通用 DTO：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">SerialPortSubDeviceHolder.toOption()<br>  -&gt; 从 holder 读取最近接收 LR<br>  -&gt; SubDevicePidHexOption.loraWho<br>  -&gt; 所有设备列表 optionList 统一带字段<br>  -&gt; 前端共享卡片统一显示 LR1 / LR2 / LR-<br></code></pre></td></tr></table></figure>
+
+<p>这里同样避免了“只修某个页面”。主路径、手写 option copy、加料终端已配置吊钩秤列表都补了字段，避免后续其他设备卡片还是缺值。</p>
+<h2 id="验证方式"><a href="#验证方式" class="headerlink" title="验证方式"></a>验证方式</h2><p>今天验证比较杂，但都围绕“改完后现场链路是否真的闭环”。</p>
+<p>后端主要跑了针对性 Maven 测试，例如 LoRa 通道归属、运行时生命周期、串口转发服务、轻量快照、子设备 option 透传等测试。前端主要跑了 LoRa 配置相关的 Node 单测、运行态显示测试，以及 <code>npm run build</code>。现场侧的验证包括：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">LoRa2 静态窗口：<br>  lora2Poller 日志 43940 条<br>  &gt;=1s 轮询间隔 0<br>  &gt;=5s 轮询间隔 0<br>  LoRa2 上异常设备 pause / SynAck 0<br><br>LoRa2 实时窗口：<br>  新增日志 2618 条<br>  &gt;=1s 轮询间隔 0<br>  &gt;=5s 轮询间隔 0<br></code></pre></td></tr></table></figure>
+
+<p>还有多次部署后检查：容器 runtime commit、Java 启动时间、转发层 active 状态、接口返回字段、页面卡片依赖字段。发布链路里也明确避开了一个已经不可用的旧 build flow，改成等待提交触发的 CI 产物，再用部署脚本更新目标服务。</p>
+<h2 id="今天真正沉淀下来的东西"><a href="#今天真正沉淀下来的东西" class="headerlink" title="今天真正沉淀下来的东西"></a>今天真正沉淀下来的东西</h2><p>今天看起来改了很多文件，但核心沉淀其实是几条机制：</p>
+<ol>
+<li>LoRa 归属判断必须是设备类型和业务槽位共同决定，不能只按“从哪个串口收到 SYN”决定。</li>
+<li>实时轮询线程只能依赖轻量运行态投影，不能复制和打印完整业务 Context。</li>
+<li>转发模式切换要先停 Java runtime，再动 systemd 转发层，避免保活线程和关闭流程互相打架。</li>
+<li>1 秒保活必须带 recovering 防重入，否则保活会变成重复重启。</li>
+<li>前端配置页要区分草稿态和已生效态，不能让旧缓存覆盖用户正在编辑的值。</li>
+<li>共享卡片需要共享 DTO 字段兜底，不能只在某个页面上拼展示逻辑。</li>
+<li>Codex 工作流也需要整理：显式目标优先、commit scope 按根因命名、worktree 清理只移除已被基线包含的干净工作区。</li>
+</ol>
+<p>如果只看单点修复，今天像是在修 LoRa 和页面；如果看项目整理，今天实际是在把“现场运行态、配置状态、展示状态、agent 工作流”这几条容易互相污染的链路拆清楚。拆清楚之后，后面的 bug 就更容易定位到具体层级，而不是继续在 controller、manager、页面和部署脚本之间来回猜。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/LoRa/" class="print-no-link">#LoRa</a>
+      
+        <a href="/tags/%E9%A1%B9%E7%9B%AE%E6%95%B4%E7%90%86/" class="print-no-link">#项目整理</a>
+      
+        <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/" class="print-no-link">#开发回顾</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>2026-07-01 LoRa 项目整理开发记录</div>
+      <div>https://willfordzhan.github.io/2026/07/01/2026-07-01-lora/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年7月1日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/06/25/cloud-deploy-agent-skill/" title="把云端部署写成 Agent Skill">
+                        <span class="hidden-mobile">把云端部署写成 Agent Skill</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
