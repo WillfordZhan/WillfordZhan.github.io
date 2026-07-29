@@ -26,8 +26,12 @@
 <meta property="og:site_name" content="味儿福德詹的小站">
 <meta property="og:description" content="自动配料页面最初的问题，不是字段不够，而是把所有字段同时摊在了一张表里：炉内、炉后、浇注三类配料混在一起；重量、比例、容差、固定比例、价格并列出现；目标成分又在另一张横向大表里同时表达炉前和产品目标。 用户面对的不是“制定一个配方”，而是一张需要不断横向滚动、反复确认列含义的配置表。字段本身有业务价值，但页面没有把业务过程表达出来。 这次改造的目标很明确：让页面按照真实工艺流程组织，让用户在每一步">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/before-overview.png">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/before-calculation.png">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/after-overview.png">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/after-cost-estimate.png">
 <meta property="article:published_time" content="2026-07-29T06:19:17.000Z">
-<meta property="article:modified_time" content="2026-07-29T06:21:02.148Z">
+<meta property="article:modified_time" content="2026-07-29T06:38:10.596Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="UX">
 <meta property="article:tag" content="产品设计">
@@ -35,6 +39,7 @@
 <meta property="article:tag" content="工业软件">
 <meta property="article:tag" content="配料计算">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/before-overview.png">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
@@ -241,7 +246,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          2.2k 字
+          2.5k 字
         
       </span>
     
@@ -252,7 +257,7 @@
         
         
         
-          19 分钟
+          21 分钟
         
       </span>
     
@@ -309,6 +314,9 @@
 <h2 id="原页面的问题：信息完整，但没有工作流"><a href="#原页面的问题：信息完整，但没有工作流" class="headerlink" title="原页面的问题：信息完整，但没有工作流"></a>原页面的问题：信息完整，但没有工作流</h2><p>原页面的核心结构是：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">基础字段<br>  ↓<br>一张配料大表<br>  ├─ 炉内字段<br>  ├─ 炉后字段<br>  ├─ 浇注字段<br>  ├─ 比例限制<br>  ├─ 重量 / 百分比 / 容差<br>  └─ 参考单价<br>  ↓<br>一张目标成分大表<br>  ├─ 炉前目标<br>  └─ 产品目标<br>  ↓<br>计算设置、计算按钮、统计结果<br></code></pre></td></tr></table></figure>
 
+<h3 id="改造前：一张表承载了三个工序"><a href="#改造前：一张表承载了三个工序" class="headerlink" title="改造前：一张表承载了三个工序"></a>改造前：一张表承载了三个工序</h3><p>第一张图里，炉内、炉后、浇注的字段被并列塞进同一张配料大表。第二张图继续把炉前目标、产品目标、计算设置和统计结果按宽表方式展开。用户需要在横向扫描中辨别工序、字段归属和下一步动作。</p>
+<p><img src="/img/auto-batching-ux-redesign/before-overview.png" srcset="/img/loading.gif" lazyload alt="改造前：基础信息与混合配料宽表"></p>
+<p><img src="/img/auto-batching-ux-redesign/before-calculation.png" srcset="/img/loading.gif" lazyload alt="改造前：目标成分、计算设置与重复统计"></p>
 <p>它有三个明显的体验问题。</p>
 <p>第一，工艺阶段被表格列打散了。炉内主料、炉后辅料和浇注辅料本质上属于不同工序，用户却需要在同一行里判断多个阶段的输入框。操作时很容易把“本阶段需要填什么”变成“这一整行还有没有漏填”。</p>
 <p>第二，主任务和低频配置抢占同一层级。最小比例、最大比例、固定比例是约束能力，不是每次制定配方都必须处理的内容；烧损策略、松弛计算也属于计算策略。它们和配料重量、成分目标并排时，会让页面显得比实际任务复杂得多。</p>
@@ -317,6 +325,10 @@
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">01 基础信息<br>  ↓<br>02 炉内配料<br>  ├─ 炉内主料配料明细<br>  ├─ 炉内铁水成分控制<br>  └─ 熔炼配料试算<br>  ↓<br>03 炉后 / 浇注配料<br>  ├─ 炉后 / 浇注辅料明细<br>  ├─ 产品元素成分控制<br>  └─ 炉后 / 浇注配料试算<br>  ↓<br>04 成本预估<br>  ├─ 全阶段配料明细<br>  └─ 成本汇总<br></code></pre></td></tr></table></figure>
 
 <p>这不是简单地把一张表拆成四张表，而是把“配方”重新定义为一个有顺序的生产指导过程。</p>
+<h3 id="改造后：四个区块表达一条工艺路径"><a href="#改造后：四个区块表达一条工艺路径" class="headerlink" title="改造后：四个区块表达一条工艺路径"></a>改造后：四个区块表达一条工艺路径</h3><p>改造后的页面先收口基础信息，再把炉内配料、炉后&#x2F;浇注配料、成本预估依次展开。每个配料阶段内部使用左右两张表：左侧填写配料明细，右侧控制该阶段对应的元素成分，试算操作放在阶段底部。</p>
+<p><img src="/img/auto-batching-ux-redesign/after-overview.png" srcset="/img/loading.gif" lazyload alt="改造后：基础信息与炉内配料阶段"></p>
+<p>炉后&#x2F;浇注阶段保持与炉内一致的结构，但元素目标切换为产品元素成分控制；最后由成本预估统一汇总三个阶段的用量和成本。</p>
+<p><img src="/img/auto-batching-ux-redesign/after-cost-estimate.png" srcset="/img/loading.gif" lazyload alt="改造后：炉后浇注阶段与成本预估"></p>
 <h2 id="01-基础信息：只保留建立配方所需的入口"><a href="#01-基础信息：只保留建立配方所需的入口" class="headerlink" title="01 基础信息：只保留建立配方所需的入口"></a>01 基础信息：只保留建立配方所需的入口</h2><p>基础信息区保留配方名称、配方编码、产品牌号、炉内目标总重等必要字段。配方编码生成动作紧贴编码输入框，不再单独占一行。</p>
 <p>低频字段被移出主视线：</p>
 <ul>
