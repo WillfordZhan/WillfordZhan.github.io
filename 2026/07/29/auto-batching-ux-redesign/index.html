@@ -30,8 +30,10 @@
 <meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/before-calculation.png">
 <meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/after-overview.png">
 <meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/after-cost-estimate.png">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/layout-before-after.gif">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/calculation-before-after.gif">
 <meta property="article:published_time" content="2026-07-29T06:19:17.000Z">
-<meta property="article:modified_time" content="2026-07-29T06:38:10.596Z">
+<meta property="article:modified_time" content="2026-07-29T07:02:35.645Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="UX">
 <meta property="article:tag" content="产品设计">
@@ -246,7 +248,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          2.5k 字
+          3.5k 字
         
       </span>
     
@@ -257,7 +259,7 @@
         
         
         
-          21 分钟
+          30 分钟
         
       </span>
     
@@ -329,6 +331,9 @@
 <p><img src="/img/auto-batching-ux-redesign/after-overview.png" srcset="/img/loading.gif" lazyload alt="改造后：基础信息与炉内配料阶段"></p>
 <p>炉后&#x2F;浇注阶段保持与炉内一致的结构，但元素目标切换为产品元素成分控制；最后由成本预估统一汇总三个阶段的用量和成本。</p>
 <p><img src="/img/auto-batching-ux-redesign/after-cost-estimate.png" srcset="/img/loading.gif" lazyload alt="改造后：炉后浇注阶段与成本预估"></p>
+<h3 id="页面结构前后切换动图"><a href="#页面结构前后切换动图" class="headerlink" title="页面结构前后切换动图"></a>页面结构前后切换动图</h3><p>下面两张动图只展示真实截图的页面结构切换：第一张对比基础信息与炉内配料，第二张对比计算区域与成本收口。它们用于快速说明“宽表被拆成工艺阶段”这件事，不把静态图片伪装成操作录屏。</p>
+<p><img src="/img/auto-batching-ux-redesign/layout-before-after.gif" srcset="/img/loading.gif" lazyload alt="基础信息与炉内配料：改造前后切换"></p>
+<p><img src="/img/auto-batching-ux-redesign/calculation-before-after.gif" srcset="/img/loading.gif" lazyload alt="计算区域与成本预估：改造前后切换"></p>
 <h2 id="01-基础信息：只保留建立配方所需的入口"><a href="#01-基础信息：只保留建立配方所需的入口" class="headerlink" title="01 基础信息：只保留建立配方所需的入口"></a>01 基础信息：只保留建立配方所需的入口</h2><p>基础信息区保留配方名称、配方编码、产品牌号、炉内目标总重等必要字段。配方编码生成动作紧贴编码输入框，不再单独占一行。</p>
 <p>低频字段被移出主视线：</p>
 <ul>
@@ -351,6 +356,62 @@
 
 <p>“一键复制炉内成分目标”不是强绑定。它只是为常见场景提供起点：把炉内已有的元素和填写值复制到产品目标；后续用户仍可按炉后、浇注工艺独立调整。炉后新增辅料也不会再反向往炉内成分表塞元素。</p>
 <p>这条边界很重要：前置工序决定初始铁水状态，后置工序在此基础上调整。页面结构应当帮助用户理解这个因果顺序，而不是让数据在两个区域里互相污染。</p>
+<h2 id="操作优化：把系统动作放在用户动作之后"><a href="#操作优化：把系统动作放在用户动作之后" class="headerlink" title="操作优化：把系统动作放在用户动作之后"></a>操作优化：把系统动作放在用户动作之后</h2><p>页面分区只能降低阅读负担，真正减少操作的是把重复判断交给系统，并把系统的建议放回用户正在填写的位置。</p>
+<table>
+<thead>
+<tr>
+<th>用户动作</th>
+<th>系统反馈</th>
+<th>少掉的心智负担</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>在炉内或炉后阶段新增原料</td>
+<td>自动汇总该阶段已选原料的元素；缺失元素加入对应成分控制区</td>
+<td>不再需要先查原料成分、再手工新增元素</td>
+</tr>
+<tr>
+<td>删除原料</td>
+<td>重新汇总剩余原料元素；没有原料来源且未填写控制目标的元素随之移除</td>
+<td>不必自己判断哪些空元素已经失效</td>
+</tr>
+<tr>
+<td>首次填写最优值</td>
+<td>自动补齐最低值和最高值</td>
+<td>不必重复输入同一个目标三次</td>
+</tr>
+<tr>
+<td>修改最优值</td>
+<td>仅在现有上下界无法覆盖最优值时修正，始终保持“最低 ≤ 最优 ≤ 最高”</td>
+<td>不会被静默覆盖人工范围，也不会留下无效区间</td>
+</tr>
+<tr>
+<td>炉内填写成分目标</td>
+<td>自动补齐尚未填写的炉后&#x2F;产品目标，不反向污染炉内</td>
+<td>前后工序有默认衔接，但仍保留各自的工艺边界</td>
+</tr>
+<tr>
+<td>需要统一产品目标</td>
+<td>用“一键复制炉内成分目标”显式复制元素和值</td>
+<td>用户能区分“默认带入”和“主动覆盖”</td>
+</tr>
+</tbody></table>
+<p>这类自动化的关键是单向、可预期。炉内目标可以为后置工序提供起点；炉后辅料不能反向改变炉内目标。系统可以减少重复输入，但不应替用户做跨工序的隐式决策。</p>
+<h3 id="推荐值必须出现在决策点旁边"><a href="#推荐值必须出现在决策点旁边" class="headerlink" title="推荐值必须出现在决策点旁边"></a>推荐值必须出现在决策点旁边</h3><p>求解器给出的松弛建议不再放在远处的报告正文或独立结果区，而是显示在对应元素的最低值、最高值输入框旁。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">元素目标输入框<br>  ├─ 当前填写的最低 / 最优 / 最高<br>  └─ 橙色建议值<br>       ├─ 悬浮后显示“应用”<br>       └─ 点击后只更新当前边界并移除该建议<br></code></pre></td></tr></table></figure>
+
+<p>当多个元素都有建议值时，阶段试算按钮旁才出现“一键应用建议值”，并要求二次确认。没有松弛建议时不显示该按钮。这个规则避免把低频能力常驻在页面上，也避免一键操作在用户没有意识到影响范围时发生。</p>
+<h3 id="非常用参数不再和主任务竞争"><a href="#非常用参数不再和主任务竞争" class="headerlink" title="非常用参数不再和主任务竞争"></a>非常用参数不再和主任务竞争</h3><p>计算方法、炉内烧损、炉外烧损、松弛开关和用量限制属于求解策略，不是每次制定配方都要处理的内容。它们被收进各阶段试算按钮旁的“配料计算设置”：默认收起，需要时就近展开。</p>
+<p>这样，用户的主路径变成“填配料 → 填成分 → 试算”，而不是先被一组求解器参数要求做选择。</p>
+<h3 id="适合补录的真实交互动图"><a href="#适合补录的真实交互动图" class="headerlink" title="适合补录的真实交互动图"></a>适合补录的真实交互动图</h3><p>用于对外展示时，下一批应录制真实页面操作，而不是继续制作静态图切换。每段控制在 5 到 8 秒即可：</p>
+<ol>
+<li>选择原料后，元素自动进入当前阶段成分控制区；</li>
+<li>首次填写最优值，最低值和最高值自动补齐；</li>
+<li>炉内目标自动带入炉后，再用“一键复制”完成主动同步；</li>
+<li>悬浮推荐值，点击“应用”并看到输入框更新；</li>
+<li>点击“一键应用建议值”，展示二次确认和批量更新；</li>
+<li>展开一次计算设置，再收起，说明它不干扰日常填写。</li>
+</ol>
 <h2 id="试算设置：默认隐藏，但计算能力必须可见"><a href="#试算设置：默认隐藏，但计算能力必须可见" class="headerlink" title="试算设置：默认隐藏，但计算能力必须可见"></a>试算设置：默认隐藏，但计算能力必须可见</h2><p>计算设置从大块展开区域改成试算按钮旁的白底设置按钮。默认不展开，避免在填写配方时抢占注意力；需要调整策略时，用户可以就近打开。</p>
 <p>每个阶段都有自己的：</p>
 <ul>
