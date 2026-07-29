@@ -32,8 +32,14 @@
 <meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/after-cost-estimate.png">
 <meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/layout-before-after.gif">
 <meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/calculation-before-after.gif">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/real-before-after.gif">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/operation-material-auto-elements.png">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/operation-optimum-sync.gif">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/operation-copy-targets.gif">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/operation-suggestions.gif">
+<meta property="og:image" content="https://willfordzhan.github.io/img/auto-batching-ux-redesign/real-settings-toggle.gif">
 <meta property="article:published_time" content="2026-07-29T06:19:17.000Z">
-<meta property="article:modified_time" content="2026-07-29T07:02:35.645Z">
+<meta property="article:modified_time" content="2026-07-29T07:35:14.523Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="UX">
 <meta property="article:tag" content="产品设计">
@@ -248,7 +254,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          3.5k 字
+          4.3k 字
         
       </span>
     
@@ -259,7 +265,7 @@
         
         
         
-          30 分钟
+          36 分钟
         
       </span>
     
@@ -334,6 +340,8 @@
 <h3 id="页面结构前后切换动图"><a href="#页面结构前后切换动图" class="headerlink" title="页面结构前后切换动图"></a>页面结构前后切换动图</h3><p>下面两张动图只展示真实截图的页面结构切换：第一张对比基础信息与炉内配料，第二张对比计算区域与成本收口。它们用于快速说明“宽表被拆成工艺阶段”这件事，不把静态图片伪装成操作录屏。</p>
 <p><img src="/img/auto-batching-ux-redesign/layout-before-after.gif" srcset="/img/loading.gif" lazyload alt="基础信息与炉内配料：改造前后切换"></p>
 <p><img src="/img/auto-batching-ux-redesign/calculation-before-after.gif" srcset="/img/loading.gif" lazyload alt="计算区域与成本预估：改造前后切换"></p>
+<h3 id="真实环境采集：从宽表到分阶段工作台"><a href="#真实环境采集：从宽表到分阶段工作台" class="headerlink" title="真实环境采集：从宽表到分阶段工作台"></a>真实环境采集：从宽表到分阶段工作台</h3><p>下面这段由旧版与新版环境的实际页面截图合成，展示同一“新建自动配料配方”入口的首屏变化：旧版将基础信息、配料、目标成分和计算参数连续堆叠；新版先给出基础信息，再把炉内、炉后&#x2F;浇注和成本预估拆为清晰阶段。</p>
+<p><img src="/img/auto-batching-ux-redesign/real-before-after.gif" srcset="/img/loading.gif" lazyload alt="真实环境：自动配料页面前后对比"></p>
 <h2 id="01-基础信息：只保留建立配方所需的入口"><a href="#01-基础信息：只保留建立配方所需的入口" class="headerlink" title="01 基础信息：只保留建立配方所需的入口"></a>01 基础信息：只保留建立配方所需的入口</h2><p>基础信息区保留配方名称、配方编码、产品牌号、炉内目标总重等必要字段。配方编码生成动作紧贴编码输入框，不再单独占一行。</p>
 <p>低频字段被移出主视线：</p>
 <ul>
@@ -356,7 +364,7 @@
 
 <p>“一键复制炉内成分目标”不是强绑定。它只是为常见场景提供起点：把炉内已有的元素和填写值复制到产品目标；后续用户仍可按炉后、浇注工艺独立调整。炉后新增辅料也不会再反向往炉内成分表塞元素。</p>
 <p>这条边界很重要：前置工序决定初始铁水状态，后置工序在此基础上调整。页面结构应当帮助用户理解这个因果顺序，而不是让数据在两个区域里互相污染。</p>
-<h2 id="操作优化：把系统动作放在用户动作之后"><a href="#操作优化：把系统动作放在用户动作之后" class="headerlink" title="操作优化：把系统动作放在用户动作之后"></a>操作优化：把系统动作放在用户动作之后</h2><p>页面分区只能降低阅读负担，真正减少操作的是把重复判断交给系统，并把系统的建议放回用户正在填写的位置。</p>
+<h2 id="操作优化：把系统动作放在用户动作之后"><a href="#操作优化：把系统动作放在用户动作之后" class="headerlink" title="操作优化：把系统动作放在用户动作之后"></a>操作优化：把系统动作放在用户动作之后</h2><p>页面分区只能降低阅读负担，真正减少操作的是把重复判断交给系统，并把系统反馈放回用户刚刚完成操作的位置。这里的自动化有两个边界：它只补齐能从当前数据直接推导出的内容；凡是会改变工艺目标的动作，始终由用户确认。</p>
 <table>
 <thead>
 <tr>
@@ -396,21 +404,33 @@
 <td>用户能区分“默认带入”和“主动覆盖”</td>
 </tr>
 </tbody></table>
-<p>这类自动化的关键是单向、可预期。炉内目标可以为后置工序提供起点；炉后辅料不能反向改变炉内目标。系统可以减少重复输入，但不应替用户做跨工序的隐式决策。</p>
+<p>这类自动化的关键是单向、可预期。炉内目标可以为后置工序提供起点；炉后辅料不能反向改变炉内目标。系统可以减少重复输入，但不替用户做跨工序的隐式决策。</p>
+<p>换句话说，系统负责“带出已有事实”，用户负责“确认工艺意图”。这比单纯给表单增加联动更重要：它让自动化可解释，也让用户知道自己始终握有最后的控制权。</p>
+<p>真实录制中，选择一条含 Mn、Si、C 的原料后，炉内成分控制立即补齐三种元素；配料明细、成分控制和成本预估也同步出现同一条原料。这是“选原料”这个动作应有的完整反馈，而不是让用户再去三个区域重复建立数据。</p>
+<p><img src="/img/auto-batching-ux-redesign/operation-material-auto-elements.png" srcset="/img/loading.gif" lazyload alt="真实交互：选择原料后自动带入元素"></p>
+<p>首次填写最优值时，系统自动补齐最低与最高；对应的炉内目标也按工序方向带入产品成分控制。用户只填写一次目标，系统只做可推导的同步。</p>
+<p><img src="/img/auto-batching-ux-redesign/operation-optimum-sync.gif" srcset="/img/loading.gif" lazyload alt="真实交互：最优值补齐上下界并同步后置目标"></p>
+<p>当需要主动覆盖产品成分时，“一键复制炉内成分目标”明确完成这一步，而不是让两个阶段隐式双向绑定。</p>
+<p><img src="/img/auto-batching-ux-redesign/operation-copy-targets.gif" srcset="/img/loading.gif" lazyload alt="真实交互：一键复制炉内成分目标"></p>
 <h3 id="推荐值必须出现在决策点旁边"><a href="#推荐值必须出现在决策点旁边" class="headerlink" title="推荐值必须出现在决策点旁边"></a>推荐值必须出现在决策点旁边</h3><p>求解器给出的松弛建议不再放在远处的报告正文或独立结果区，而是显示在对应元素的最低值、最高值输入框旁。</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">元素目标输入框<br>  ├─ 当前填写的最低 / 最优 / 最高<br>  └─ 橙色建议值<br>       ├─ 悬浮后显示“应用”<br>       └─ 点击后只更新当前边界并移除该建议<br></code></pre></td></tr></table></figure>
 
-<p>当多个元素都有建议值时，阶段试算按钮旁才出现“一键应用建议值”，并要求二次确认。没有松弛建议时不显示该按钮。这个规则避免把低频能力常驻在页面上，也避免一键操作在用户没有意识到影响范围时发生。</p>
+<p>当多个元素都有建议值时，阶段试算按钮旁才出现“一键应用建议值”，并要求二次确认。没有松弛建议时不显示该按钮。这样既支持逐项判断，也支持在用户明确知晓影响范围后批量处理。</p>
+<p>推荐值的意义不是“计算失败后的报错文本”，而是把求解器发现的可行边界翻译成用户能直接处理的下一步。建议贴着元素目标出现、可悬浮查看、可单项应用、可确认批量应用，用户不需要在报告和表格之间来回找答案。</p>
+<p>实际试算中，页面把建议值放在对应最低&#x2F;最高值旁，并只在有建议时显示“一键应用建议值”。批量应用前出现二次确认；确认后当前输入框更新、建议标签消失，整个过程不需要离开当前阶段。</p>
+<p><img src="/img/auto-batching-ux-redesign/operation-suggestions.gif" srcset="/img/loading.gif" lazyload alt="真实交互：松弛建议到批量应用"></p>
 <h3 id="非常用参数不再和主任务竞争"><a href="#非常用参数不再和主任务竞争" class="headerlink" title="非常用参数不再和主任务竞争"></a>非常用参数不再和主任务竞争</h3><p>计算方法、炉内烧损、炉外烧损、松弛开关和用量限制属于求解策略，不是每次制定配方都要处理的内容。它们被收进各阶段试算按钮旁的“配料计算设置”：默认收起，需要时就近展开。</p>
-<p>这样，用户的主路径变成“填配料 → 填成分 → 试算”，而不是先被一组求解器参数要求做选择。</p>
-<h3 id="适合补录的真实交互动图"><a href="#适合补录的真实交互动图" class="headerlink" title="适合补录的真实交互动图"></a>适合补录的真实交互动图</h3><p>用于对外展示时，下一批应录制真实页面操作，而不是继续制作静态图切换。每段控制在 5 到 8 秒即可：</p>
+<p>这样，用户的主路径变成“填配料 → 填成分 → 试算”，而不是先被一组求解器参数要求做选择。配置没有消失，只是从每次必经的障碍，变成需要时才打开的专业工具。</p>
+<h3 id="真实交互：把低频策略收进就近入口"><a href="#真实交互：把低频策略收进就近入口" class="headerlink" title="真实交互：把低频策略收进就近入口"></a>真实交互：把低频策略收进就近入口</h3><p>“配料计算设置”默认收起；用户点击试算按钮旁的设置入口后，才显示用量限制、成分松弛、计算方法和烧损策略。这段动图采集自新版真实页面，说明复杂策略没有被删除，而是从主路径中后置。</p>
+<p><img src="/img/auto-batching-ux-redesign/real-settings-toggle.gif" srcset="/img/loading.gif" lazyload alt="真实交互：配料计算设置收起与展开"></p>
+<h3 id="最值得展示的六个微交互"><a href="#最值得展示的六个微交互" class="headerlink" title="最值得展示的六个微交互"></a>最值得展示的六个微交互</h3><p>这些不是“锦上添花”的动效，而是把原本分散在用户脑内的判断变成可见反馈。每段操作控制在 5 到 8 秒，足以用于产品演示、方案汇报或交付培训：</p>
 <ol>
-<li>选择原料后，元素自动进入当前阶段成分控制区；</li>
+<li>新增原料后，元素自动进入对应阶段的成分控制区；</li>
 <li>首次填写最优值，最低值和最高值自动补齐；</li>
-<li>炉内目标自动带入炉后，再用“一键复制”完成主动同步；</li>
-<li>悬浮推荐值，点击“应用”并看到输入框更新；</li>
-<li>点击“一键应用建议值”，展示二次确认和批量更新；</li>
-<li>展开一次计算设置，再收起，说明它不干扰日常填写。</li>
+<li>炉内目标自动带入炉后，再通过“一键复制”完成显式同步；</li>
+<li>悬浮推荐值，点击“应用”后只更新当前元素边界；</li>
+<li>点击“一键应用建议值”，确认后批量更新所有建议值；</li>
+<li>展开再收起计算设置，说明专业参数始终可用但不抢占主任务。</li>
 </ol>
 <h2 id="试算设置：默认隐藏，但计算能力必须可见"><a href="#试算设置：默认隐藏，但计算能力必须可见" class="headerlink" title="试算设置：默认隐藏，但计算能力必须可见"></a>试算设置：默认隐藏，但计算能力必须可见</h2><p>计算设置从大块展开区域改成试算按钮旁的白底设置按钮。默认不展开，避免在填写配方时抢占注意力；需要调整策略时，用户可以就近打开。</p>
 <p>每个阶段都有自己的：</p>
@@ -472,6 +492,7 @@
 </tr>
 </tbody></table>
 <p>工业软件的复杂性通常不能被删除，但可以被安排到正确的时机和正确的位置。自动配料页面不应该让用户先理解求解器、约束和全部字段；它应该先帮助用户完成一次清晰的工艺决策，再让计算能力在恰当的位置出现。</p>
+<p>这次改造值得被展示的地方，不只是把宽表拆得更整齐。它把原本依赖经验、反复核对和跨区域找答案的配方制定过程，收敛成一条可理解、可试算、可回看、也可由用户最终确认的工艺工作流。求解器仍然复杂，但用户不必再替系统承担这份复杂。</p>
 
                 
               </div>
