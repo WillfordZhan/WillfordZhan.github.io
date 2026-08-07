@@ -241,6 +241,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/07/ai-tool-bigint-schema/" target="_self">
+          AI Tool 大数精度丢失：返回值与参数 Schema 必须一起修
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/07/ai-tool-bigint-schema/" target="_self">
+        <div>
+          一次物料出库的 AI Tool 调用失败，表面提示是“物料不存在或不属于当前工厂”。实际物料存在，问题发生在它作为 19 位 ID 穿过 JSON 与工具调用契约时。 第一次排查发现，工具调用收到的 ID 已经和查询结果不一致。随后将工具结果中的大整数序列化为字符串后，最新会话仍失败：返回值正确了，但工具参数 Schema 还是 integer，模型又把字符串 ID 当数字传回。这个问题需要同时修
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-07 14:29" pubdate>
+              2026-08-07
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/AI-Tool/">#AI Tool</a>
+            
+              <a href="/tags/%E8%B8%A9%E5%9D%91%E5%A4%8D%E7%9B%98/">#踩坑复盘</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/07/29/auto-batching-ux-redesign/" target="_self">
           把一张宽表拆回工艺流程：自动配料页面的 UX/UI 改造
         </a>
@@ -751,77 +818,6 @@
               <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
             
               <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/LLM-wiki/">#LLM-wiki</a>
-            
-              <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/">#文档治理</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/05/12/llm-wiki-agent-doc-governance/" target="_self">
-          给 Agent 读的 LLM-wiki：业务文档自管理系统设计
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/12/llm-wiki-agent-doc-governance/" target="_self">
-        <div>
-          最近在设计一个给 coding agent 使用的业务文档自管理系统。问题不是“要不要写文档”，而是：代码已经是运行行为的第一事实源，文档如果只是人工补充说明，很快会漂移；但如果完全不写文档，很多业务前提、取舍和禁区又不会自然出现在代码里。 这套系统最后收敛成一个比较小的模型：代码负责表达当前怎么跑；wiki 负责表达代码之外的业务语义和设计取舍；脚本负责稳定发现影响范围；agent 只处理语义判
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-05-12 18:40" pubdate>
-              2026-05-12
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/RAG/">#RAG</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
               <a href="/tags/LLM-wiki/">#LLM-wiki</a>
             
