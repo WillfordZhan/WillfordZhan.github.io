@@ -4,6 +4,37 @@
   
   
   <entry>
+    <title>Pi Java Runtime 的云端会话恢复 TODO</title>
+    <link href="/2026/08/07/pi-java-runtime-cloud-session-todo/"/>
+    <url>/2026/08/07/pi-java-runtime-cloud-session-todo/</url>
+    
+    <content type="html"><![CDATA[<p>Pi Java Runtime 目前把 Pi 的 <code>AgentSession</code> 写到本地 JSONL，再把原始 Entry 镜像到 Java 数据库。这个实现足以支持单机运行和管理台回放，但不适合作为云端部署后的会话恢复方案。</p><p>核心问题很直接：Runtime 续聊时仍从本机 <code>sessions/*.jsonl</code> 打开会话。如果实例重启、容器迁移或扩容到另一台机器，数据库虽然还保留管理台记录，Agent 却没有可恢复的上下文。</p><p>这篇记录当前实现的边界，以及后续要补的云端会话恢复 TODO。</p><h2 id="当前链路：JSONL-是运行真相，数据库是查询索引"><a href="#当前链路：JSONL-是运行真相，数据库是查询索引" class="headerlink" title="当前链路：JSONL 是运行真相，数据库是查询索引"></a>当前链路：JSONL 是运行真相，数据库是查询索引</h2><p>现在每个会话都有一个本地 JSONL 文件。文件里保存 Pi 的原生 Session Entry：用户消息、助手消息、工具调用、工具结果、模型切换、压缩记录以及自定义上下文。</p><p>Java 侧保存两类数据：</p><ul><li>会话元数据：会话 ID、租户、用户、标题、创建时间。</li><li>原生 Entry：每条 Pi Entry 单独存储，保留原始 JSON，用于管理台的列表、timeline、turn events 和 event detail。</li></ul><p>这两份数据内容相近，但职责不同：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">本地 JSONL  -&gt;  Pi SessionManager 恢复上下文并续聊<br>Java Entry  -&gt;  管理台查询、筛选和回放<br></code></pre></td></tr></table></figure><p>因此数据库中的历史记录即使完整，本地 JSONL 消失后，当前 Runtime 仍无法继续同一会话。</p><h2 id="多租户隔离现在做到哪里了"><a href="#多租户隔离现在做到哪里了" class="headerlink" title="多租户隔离现在做到哪里了"></a>多租户隔离现在做到哪里了</h2><p>新会话创建时，Runtime 会将 <code>tenantId</code> 和 <code>userId</code> 写入本地会话的自定义 Entry。续聊时，它会校验本次 Java 签名上下文与该 Entry 是否一致；不一致就拒绝访问。</p><p>这能保护“本机仍有 JSONL”的续聊路径，但它不是云端恢复的完整授权模型。原因是恢复源仍在本机，数据库查询虽然已有会话归属字段，Runtime 却没有以 <code>(conversationId, tenantId, userId)</code> 从数据库加载上下文。</p><p>管理台也属于另一条路径：管理员在具备权限时可以查询会话，而普通用户续聊必须严格限制到自己的租户和用户范围。两者不能共用一个无 owner 条件的读取接口。</p><h2 id="云端部署前要完成的改造"><a href="#云端部署前要完成的改造" class="headerlink" title="云端部署前要完成的改造"></a>云端部署前要完成的改造</h2><p>目标是把数据库升级为会话的唯一持久化真相源，JSONL 仅作为运行节点上的可丢弃缓存。</p><h3 id="1-提供带归属校验的会话快照接口"><a href="#1-提供带归属校验的会话快照接口" class="headerlink" title="1. 提供带归属校验的会话快照接口"></a>1. 提供带归属校验的会话快照接口</h3><p>Java 接口按以下条件读取会话：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">conversationId + tenantId + userId<br></code></pre></td></tr></table></figure><p>归属不匹配时直接返回 403。接口返回会话元数据和按顺序排列的原始 Pi Entry；不能先按会话 ID 取数据，再由 Runtime 自己判断归属。</p><h3 id="2-用数据库-Entry-重建-Pi-Session"><a href="#2-用数据库-Entry-重建-Pi-Session" class="headerlink" title="2. 用数据库 Entry 重建 Pi Session"></a>2. 用数据库 Entry 重建 Pi Session</h3><p>Runtime 收到续聊请求后，先从 Java 获取会话快照，再将其物化为临时 JSONL 缓存，复用 Pi 的 <code>SessionManager</code> 恢复上下文。</p><p>这样不需要重写 Pi 的 Agent loop，也不把 Java 变成另一套消息解释器。缓存丢失时重新物化即可。</p><h3 id="3-把写库变成完成条件"><a href="#3-把写库变成完成条件" class="headerlink" title="3. 把写库变成完成条件"></a>3. 把写库变成完成条件</h3><p>当前 Entry 镜像可以失败后重试，这适合本地开发阶段，但不满足云端持久化保证。云端模式下，一轮会话的最终状态必须在数据库确认写入后才算完成。</p><p>Entry ID 继续作为幂等键：网络重试、进程重启和重复提交都不应生成重复记录。</p><h3 id="4-用跨实例测试验证，而不是只测刷新"><a href="#4-用跨实例测试验证，而不是只测刷新" class="headerlink" title="4. 用跨实例测试验证，而不是只测刷新"></a>4. 用跨实例测试验证，而不是只测刷新</h3><p>至少需要覆盖以下场景：</p><ul><li>A 实例创建会话，B 实例续聊。</li><li>本地缓存删除后，仍能从数据库恢复。</li><li>同一租户的不同用户不能互相续聊。</li><li>不同租户、相同会话 ID 的非法请求被拒绝。</li><li>工具调用和工具结果恢复后，后续模型调用仍保留正确上下文。</li></ul><h2 id="当前结论"><a href="#当前结论" class="headerlink" title="当前结论"></a>当前结论</h2><p>现在的 Java Entry 表已经能承担管理台索引，但还不能替代 JSONL 恢复 AgentSession。把数据库设为唯一真相源前，不应把本地会话目录当作可随时丢弃的临时文件。</p><p>这个改造先作为 AI TODO 保留。后续实现时，优先补齐“带 owner 校验的快照读取 + 临时 JSONL 物化 + 跨实例恢复测试”这条最小闭环，不要先拆重写 Pi 的会话运行时。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>AI TODO</tag>
+      
+      <tag>会话持久化</tag>
+      
+      <tag>多租户</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>AI Tool 大数精度丢失：返回值与参数 Schema 必须一起修</title>
     <link href="/2026/08/07/ai-tool-bigint-schema/"/>
     <url>/2026/08/07/ai-tool-bigint-schema/</url>
@@ -142,9 +173,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>工程效率</tag>
       
@@ -248,11 +279,11 @@
     
     <tags>
       
+      <tag>Agent</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>开发回顾</tag>
-      
-      <tag>Agent</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -281,11 +312,11 @@
     
     <tags>
       
+      <tag>Agent</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>开发回顾</tag>
-      
-      <tag>Agent</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -314,9 +345,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>RAG</tag>
       
@@ -560,11 +591,11 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>复盘</tag>
       
@@ -628,15 +659,15 @@
     
     <tags>
       
+      <tag>Agent</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>开发回顾</tag>
       
-      <tag>Agent</tag>
+      <tag>Dify</tag>
       
       <tag>RAG</tag>
-      
-      <tag>Dify</tag>
       
     </tags>
     
@@ -768,9 +799,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>复盘</tag>
       
@@ -803,9 +834,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Function Calling</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>AI Agent</tag>
       
@@ -844,9 +875,9 @@
       
       <tag>Python</tag>
       
-      <tag>RAG</tag>
-      
       <tag>Dify</tag>
+      
+      <tag>RAG</tag>
       
       <tag>DashScope</tag>
       
@@ -910,11 +941,11 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>LangGraph</tag>
       
@@ -947,8 +978,6 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
@@ -956,6 +985,8 @@
       <tag>Clarify</tag>
       
       <tag>工程复盘</tag>
+      
+      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -986,9 +1017,9 @@
       
       <tag>AI</tag>
       
-      <tag>RAG</tag>
-      
       <tag>知识库</tag>
+      
+      <tag>RAG</tag>
       
     </tags>
     
@@ -1019,13 +1050,13 @@
       
       <tag>Java</tag>
       
+      <tag>AI</tag>
+      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
-      
-      <tag>AI</tag>
       
     </tags>
     
@@ -1085,9 +1116,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>LangGraph</tag>
       
@@ -1120,9 +1151,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Function Calling</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>AI Agent</tag>
       
@@ -1190,9 +1221,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Function Calling</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Qwen</tag>
       
@@ -1231,9 +1262,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>LangGraph</tag>
       
@@ -1299,9 +1330,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>工程复盘</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>LangGraph</tag>
       
@@ -1714,9 +1745,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>工程复盘</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>MCP</tag>
       
@@ -1825,9 +1856,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>Function Calling</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>OpenClaw</tag>
       
@@ -2167,9 +2198,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>工程复盘</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>RAG</tag>
       
@@ -2276,15 +2307,15 @@
       
       <tag>MCP</tag>
       
+      <tag>Dify</tag>
+      
+      <tag>知识库</tag>
+      
       <tag>AI工程</tag>
       
       <tag>RAG</tag>
       
-      <tag>Dify</tag>
-      
       <tag>架构设计</tag>
-      
-      <tag>知识库</tag>
       
     </tags>
     
