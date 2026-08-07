@@ -27,7 +27,7 @@
 <meta property="og:description" content="一次物料出库的 AI Tool 调用失败，表面提示是“物料不存在或不属于当前工厂”。实际物料存在，问题发生在它作为 19 位 ID 穿过 JSON 与工具调用契约时。 第一次排查发现，工具调用收到的 ID 已经和查询结果不一致。随后将工具结果中的大整数序列化为字符串后，最新会话仍失败：返回值正确了，但工具参数 Schema 还是 integer，模型又把字符串 ID 当数字传回。这个问题需要同时修">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-08-07T06:29:56.000Z">
-<meta property="article:modified_time" content="2026-08-07T07:47:33.629Z">
+<meta property="article:modified_time" content="2026-08-07T07:54:13.310Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="MCP">
@@ -240,7 +240,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.3k 字
+          1.6k 字
         
       </span>
     
@@ -251,7 +251,7 @@
         
         
         
-          11 分钟
+          14 分钟
         
       </span>
     
@@ -330,23 +330,34 @@
 </tbody></table>
 <p>错误值并不是后端重新生成的 ID，而是原值在数值表示阶段被舍入后的结果。因此按错误 ID 查询时，没有任何一条物料或仓库记录能匹配。</p>
 <p>这不是 Java 的 <code>Long</code> 算错了。<code>Long</code> 能保存该值，问题是它在某一段 JSON 链路中被当作 JavaScript <code>Number</code>。<code>Number</code> 只能精确表示安全整数范围内的整数，超出范围后会按二进制浮点规则舍入。</p>
-<h2 id="第一次修复为什么不够"><a href="#第一次修复为什么不够" class="headerlink" title="第一次修复为什么不够"></a>第一次修复为什么不够</h2><p>最初的公共修复落在 Tool 返回值投影处。AI 工具注册模块自行创建了 <code>ObjectMapper</code>，绕过了 Spring 全局 Jackson 配置，因此项目已有的大数序列化规则没有生效。</p>
-<p>原链路：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Java Long<br>  -&gt; 自建 ObjectMapper<br>  -&gt; JSON number<br>  -&gt; JavaScript / 模型运行时 Number（可能舍入）<br>  -&gt; 下一次 Tool Call 使用已变形的 ID<br></code></pre></td></tr></table></figure>
+<h2 id="RuoYi-原本已经有通用解法"><a href="#RuoYi-原本已经有通用解法" class="headerlink" title="RuoYi 原本已经有通用解法"></a>RuoYi 原本已经有通用解法</h2><p>项目里的普通接口没有逐个给 VO 的 <code>Long</code> 字段加注解。RuoYi 在 <code>JacksonConfig</code> 中注册 <code>Jackson2ObjectMapperBuilderCustomizer</code>，把 <code>BigNumberSerializer</code> 加到 Spring 全局 <code>ObjectMapper</code> 的序列化规则中：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs java">javaTimeModule.addSerializer(Long.class, BigNumberSerializer.INSTANCE);<br>javaTimeModule.addSerializer(Long.TYPE, BigNumberSerializer.INSTANCE);<br>javaTimeModule.addSerializer(BigInteger.class, BigNumberSerializer.INSTANCE);<br></code></pre></td></tr></table></figure>
 
-<p>修复后，工具结果复用 Spring 管理的 <code>ObjectMapper</code>，超出安全范围的 <code>Long</code> 和 <code>BigInteger</code> 以 JSON 字符串输出：</p>
+<p><code>BigNumberSerializer</code> 的判断也很直接：在 JavaScript 安全整数区间内仍输出 JSON number，超出 <code>9007199254740991</code> 则调用 <code>writeString(value.toString())</code>。因此，一个普通 Controller 返回包含 <code>Long</code> 的 VO 时，Spring MVC 使用的全局 <code>ObjectMapper</code> 会自动选择安全的表示：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Controller 返回 VO(Long)<br>  -&gt; Spring MVC 的全局 ObjectMapper<br>  -&gt; BigNumberSerializer<br>  -&gt; 安全范围内：JSON number<br>  -&gt; 超出范围：JSON string<br></code></pre></td></tr></table></figure>
+
+<p>VO、DTO、领域服务和数据库实体都仍然是 <code>Long</code>。这才是“无感”的含义：业务对象保留正确的数值类型，只在 Java 与 JavaScript 的序列化边界改变表示形式。不需要为了某个接口把 <code>materialId</code> 改成 <code>String</code>，更不需要为每个字段单独加序列化注解。</p>
+<h2 id="第一次修复为什么不够"><a href="#第一次修复为什么不够" class="headerlink" title="第一次修复为什么不够"></a>第一次修复为什么不够</h2><p>AI Tool 恰好没有走这条既有链路。工具注册模块自行创建了 <code>new ObjectMapper().findAndRegisterModules()</code>；它能发现 Jackson 模块，但不会应用 Spring 容器里的 <code>Jackson2ObjectMapperBuilderCustomizer</code>，因此项目已有的 <code>BigNumberSerializer</code> 没有生效。</p>
+<p>原链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Java Long<br>  -&gt; AI Tool 自建 ObjectMapper<br>  -&gt; JSON number<br>  -&gt; JavaScript / 模型运行时 Number（可能舍入）<br>  -&gt; 下一次 Tool Call 使用已变形的 ID<br></code></pre></td></tr></table></figure>
+
+<p>修复没有修改任何 Tool 响应 VO 的字段结构，而是让 <code>AiAutoConfiguration</code> 注入 Spring 管理的 <code>ObjectMapper</code> 并传给 <code>ToolRegistry</code>。工具结果投影器原本就通过 <code>objectMapper.valueToTree(...)</code> 写入 JSON，改用全局实例后自动继承 RuoYi 的序列化规则：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">AI Tool 返回 VO(Long)<br>  -&gt; ToolResults<br>  -&gt; ToolPayloadProjector.valueToTree(global ObjectMapper, VO)<br>  -&gt; RuoYi BigNumberSerializer<br>  -&gt; MCP tool result 的大 ID 为 JSON string<br></code></pre></td></tr></table></figure>
+
+<p>超出安全范围的 <code>Long</code> 和 <code>BigInteger</code> 因而以 JSON 字符串输出：</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;materialId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1955516024755728386&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;depotId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2079385681079046145&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
 
 <p>这一步确实生效了：后续 Pi 会话中的 <code>search_material</code> 已经拿到了精确的字符串 ID。</p>
 <p>但出库仍然失败。继续看 <code>tools/list</code> 返回的定义，<code>form.lines[].materialId</code>、<code>depotId</code> 等字段仍是 <code>integer</code>。模型遵循这个 Schema 构造调用参数时，会把字符串重新按数字处理；在请求序列化前，精度再次丢失。</p>
 <h2 id="修复的是-AI-Tool-的边界契约"><a href="#修复的是-AI-Tool-的边界契约" class="headerlink" title="修复的是 AI Tool 的边界契约"></a>修复的是 AI Tool 的边界契约</h2><p>这里不应只针对物料、仓库或供应商字段逐个打补丁。根因是 AI Tool 边界把 Java 的 64 位整数误描述成了 JSON <code>integer</code>。</p>
 <p>修复收口在通用 Schema 推导逻辑：</p>
-<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Java 参数类型<br>  -&gt; ToolSchemaIntrospector 推导 inputSchema<br>  -&gt; MCP tools/list<br>  -&gt; 模型按 Schema 组装参数<br>  -&gt; ToolRegistry 反序列化为 Java 参数<br></code></pre></td></tr></table></figure>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Java 参数类型<br>  -&gt; ToolSchemaIntrospector 推导 inputSchema<br>  -&gt; MCP tools/list<br>  -&gt; 模型按 Schema 组装参数<br>  -&gt; ToolRegistry.treeToValue 反序列化为 Java 参数<br></code></pre></td></tr></table></figure>
 
 <p>新的规则是：</p>
 <figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">long / Long / BigInteger<br>  -&gt; AI Tool inputSchema: string<br>  -&gt; JSON: &quot;精确十进制文本&quot;<br>  -&gt; Java 绑定时还原为原始数值类型<br><br>Integer / Short / Byte / BigDecimal<br>  -&gt; 继续使用数值类型<br></code></pre></td></tr></table></figure>
 
 <p>因此，<code>materialId</code>、<code>depotId</code>、<code>supplierId</code> 不需要字段名白名单；所有由 <code>Long</code> 或 <code>BigInteger</code> 表达的 AI Tool 参数都会得到同一套保护。业务 DTO、数据库字段和 Java 服务方法仍保持原来的数值类型，变化只发生在最容易丢精度的跨运行时边界。</p>
+<p>两层改动的职责不同，缺一不可：全局 Jackson 解决 Java 返回值如何安全地走出服务；Schema 解决模型知道应以什么类型把值传回服务。前者复用 RuoYi 已有的通用能力，后者补齐 AI Tool 特有的参数契约。</p>
 <h2 id="回归测试覆盖了两边"><a href="#回归测试覆盖了两边" class="headerlink" title="回归测试覆盖了两边"></a>回归测试覆盖了两边</h2><p>测试没有只断言 Schema，而是同时验证：</p>
 <ol>
 <li>嵌套参数 <code>form.lines[].materialId</code> 的类型为 <code>string</code>；</li>
