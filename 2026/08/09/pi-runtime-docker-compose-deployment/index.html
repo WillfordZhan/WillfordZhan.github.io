@@ -1,0 +1,754 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="这次要把 Pi Runtime 部署到一台已经安装 Docker 的 x86_64 Linux 主机上。代码还没有进入代码托管和构建流水线，因此第一版不接镜像仓库，也不做自动发布，只要求本地构建镜像、传到服务器、接入 Nginx，并把环境变量和运行数据放到镜像外面。 讨论到最后，真正需要理清的不是 Dockerfile 语法，而是三个边界：镜像负责什么，Compose 负责什么，环境变量和文件挂载">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/09/pi-runtime-docker-compose-deployment/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="这次要把 Pi Runtime 部署到一台已经安装 Docker 的 x86_64 Linux 主机上。代码还没有进入代码托管和构建流水线，因此第一版不接镜像仓库，也不做自动发布，只要求本地构建镜像、传到服务器、接入 Nginx，并把环境变量和运行数据放到镜像外面。 讨论到最后，真正需要理清的不是 Dockerfile 语法，而是三个边界：镜像负责什么，Compose 负责什么，环境变量和文件挂载">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-09T11:50:56.000Z">
+<meta property="article:modified_time" content="2026-08-09T13:01:59.260Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Docker">
+<meta property="article:tag" content="Docker Compose">
+<meta property="article:tag" content="Pi Runtime">
+<meta property="article:tag" content="部署">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-09 19:50" pubdate>
+          2026年8月9日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>这次要把 Pi Runtime 部署到一台已经安装 Docker 的 x86_64 Linux 主机上。代码还没有进入代码托管和构建流水线，因此第一版不接镜像仓库，也不做自动发布，只要求本地构建镜像、传到服务器、接入 Nginx，并把环境变量和运行数据放到镜像外面。</p>
+<p>讨论到最后，真正需要理清的不是 Dockerfile 语法，而是三个边界：镜像负责什么，Compose 负责什么，环境变量和文件挂载又分别负责什么。尤其要避免一个常见误解：拉取新镜像不会顺带更新 <code>compose.yml</code>。</p>
+<h2 id="第一版先收窄到一条可验证链路"><a href="#第一版先收窄到一条可验证链路" class="headerlink" title="第一版先收窄到一条可验证链路"></a>第一版先收窄到一条可验证链路</h2><p>已有镜像仓库、代码平台和构建流水线，不代表第一版必须全部接入。当前代码还没有进入远端仓库，先为流水线写一套配置只会扩大排查面。</p>
+<p>第一版链路收敛为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">本地构建 linux/amd64 镜像<br>  -&gt; docker save 导出镜像<br>  -&gt; 压缩并传到目标服务器<br>  -&gt; docker load 导入镜像<br>  -&gt; 同步 compose.yml<br>  -&gt; docker compose up -d<br>  -&gt; Nginx 转发到容器映射在宿主机回环地址上的端口<br></code></pre></td></tr></table></figure>
+
+<p>这里有两个阶段。</p>
+<p>构建阶段把源码和依赖变成不可变镜像。Dockerfile 使用多阶段构建：builder 安装完整依赖并产出编译结果，runtime 只复制运行所需文件。目标主机是 x86_64，所以本地构建时明确使用 <code>linux/amd64</code>，避免在 ARM 开发机上得到无法直接运行的镜像。</p>
+<p>运行阶段不再编译代码。服务器只导入镜像，再由 Compose 提供端口、环境变量、挂载目录、重启策略和网络配置。</p>
+<h2 id="镜像和-Compose-是两个独立部署物"><a href="#镜像和-Compose-是两个独立部署物" class="headerlink" title="镜像和 Compose 是两个独立部署物"></a>镜像和 Compose 是两个独立部署物</h2><p>Docker 镜像包含程序、运行时和依赖。<code>compose.yml</code> 是部署说明，描述使用哪个镜像、如何启动、开放哪些端口以及挂载哪些目录。</p>
+<p>因此：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">docker pull / docker load 只更新镜像<br>docker compose up -d 只读取服务器当前目录里的 Compose 文件<br></code></pre></td></tr></table></figure>
+
+<p>Docker 不会从镜像中自动取出新版 <code>compose.yml</code>。即使 Compose 和代码放在同一个 Git 仓库，它也只有在部署步骤同步到服务器后才会生效。</p>
+<p>如果 <code>image</code> 指向可访问的镜像仓库，Compose 可以在本机缺少镜像时自动拉取；本地传输版则可以设置 <code>pull_policy: never</code>，明确使用 <code>docker load</code> 导入的镜像。两种方式都不会更新 Compose 文件本身。</p>
+<p>第一版最简单的做法是把镜像包和 <code>compose.yml</code> 当作同一次发布的两个文件：每次都传过去，再执行 <code>docker compose up -d</code>。如果 Compose 没变，重复同步的成本也很低，却能避免服务器长期残留旧配置。</p>
+<p>后续接入流水线时，这一步可以自动化，但边界不会改变：流水线负责同时发布镜像和部署配置，镜像仓库本身仍然只保存镜像。</p>
+<h2 id="环境变量不是“挂载”"><a href="#环境变量不是“挂载”" class="headerlink" title="环境变量不是“挂载”"></a>环境变量不是“挂载”</h2><p>Compose 可以通过 <code>environment</code> 直接向容器进程注入变量：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">services:</span><br>  <span class="hljs-attr">pi-runtime:</span><br>    <span class="hljs-attr">image:</span> <span class="hljs-string">pi-runtime:$&#123;IMAGE_TAG&#125;</span><br>    <span class="hljs-attr">environment:</span><br>      <span class="hljs-attr">PI_RUNTIME_PORT:</span> <span class="hljs-string">&quot;$&#123;CONTAINER_PORT&#125;&quot;</span><br>      <span class="hljs-attr">MCP_BASE_URL:</span> <span class="hljs-string">&quot;http://host.docker.internal:$&#123;JAVA_PORT&#125;/example/mcp&quot;</span><br>      <span class="hljs-attr">MCP_API_TOKEN:</span> <span class="hljs-string">&quot;$&#123;MCP_API_TOKEN&#125;&quot;</span><br></code></pre></td></tr></table></figure>
+
+<p><code>$&#123;MCP_API_TOKEN&#125;</code> 由服务器上的 <code>.env</code> 或启动 Compose 的 Shell 环境完成替换。这里即使没有配置 <code>env_file</code>，变量仍会通过 <code>environment</code> 进入容器；区别在于 <code>.env</code> 只参与 Compose 的变量替换，<code>env_file</code> 会把文件中的变量批量注入容器。</p>
+<p>如果 <code>compose.yml</code> 要和代码一起管理，固定的非敏感配置可以直接写，token、API Key 和签名密钥只保留 <code>$&#123;...&#125;</code> 占位符。真实值留在服务器，不进入镜像，也不提交 Git。</p>
+<p>文件和目录才使用 <code>volumes</code>：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">volumes:</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">./data:/data</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">./config/model-api-key.txt:/run/secrets/model-api-key:ro</span><br></code></pre></td></tr></table></figure>
+
+<p><code>./data:/data</code> 保存会话等运行数据，容器删除或重建后数据仍在宿主机。密钥文件以只读方式挂载，程序通过文件路径读取，不必把内容写进 Compose。</p>
+<p>这只能解决单机容器重建后的持久化，不能解决主机迁移或多实例共享。等 Runtime 真正扩容时，会话需要进入数据库或对象存储，而不是继续依赖一台主机上的目录。</p>
+<h2 id="网络入口只交给-Nginx"><a href="#网络入口只交给-Nginx" class="headerlink" title="网络入口只交给 Nginx"></a>网络入口只交给 Nginx</h2><p>第一版不让 Runtime 直接暴露到 VPC 或 VPN，只映射到宿主机回环地址：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">ports:</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;127.0.0.1:$&#123;RUNTIME_PORT&#125;:$&#123;CONTAINER_PORT&#125;&quot;</span><br><span class="hljs-attr">extra_hosts:</span><br>  <span class="hljs-bullet">-</span> <span class="hljs-string">&quot;host.docker.internal:host-gateway&quot;</span><br></code></pre></td></tr></table></figure>
+
+<p>链路变成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">客户端 -&gt; Nginx -&gt; 127.0.0.1:$&#123;RUNTIME_PORT&#125; -&gt; Pi Runtime 容器<br>Pi Runtime 容器 -&gt; host.docker.internal:$&#123;JAVA_PORT&#125; -&gt; Java 服务<br></code></pre></td></tr></table></figure>
+
+<p>绑定 <code>127.0.0.1</code> 后，同一 VPC 或 VPN 中的其他机器不能直接访问 Runtime 端口，所有外部请求都经过 Nginx。Nginx 继续负责 TLS、路由和流式响应配置，Runtime 只处理应用协议。</p>
+<p>如果以后确实需要从 VPN 直连 Runtime，再单独调整监听地址和安全组。第一版没有必要提前扩大暴露面。</p>
+<h2 id="一次发布到底更新什么"><a href="#一次发布到底更新什么" class="headerlink" title="一次发布到底更新什么"></a>一次发布到底更新什么</h2><p>最终可以把文件分成两组。</p>
+<p>随版本发布：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">Pi Runtime 镜像<br>compose.yml<br></code></pre></td></tr></table></figure>
+
+<p>长期保留在服务器：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">.env<br>只读 API Key 文件<br>会话和其他运行数据目录<br></code></pre></td></tr></table></figure>
+
+<p>一次人工发布的最短动作是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">导入新镜像<br>同步 compose.yml<br>执行 docker compose up -d<br>检查容器健康状态<br>通过 Nginx 验证一次真实请求<br>重启容器并确认数据仍然存在<br></code></pre></td></tr></table></figure>
+
+<p>需要特别说明：这次形成的是第一版部署设计，不是已经完成上线的结果。镜像构建、Nginx 修改和真实业务验收仍需要在实施阶段执行。</p>
+<h2 id="后续什么时候再接流水线"><a href="#后续什么时候再接流水线" class="headerlink" title="后续什么时候再接流水线"></a>后续什么时候再接流水线</h2><p>当代码进入远端仓库、人工传输开始频繁或需要保留可追踪版本时，再接入构建流水线和镜像仓库：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">代码提交<br>  -&gt; 流水线构建 linux/amd64 镜像<br>  -&gt; 推送带版本号的镜像<br>  -&gt; 服务器拉取镜像并同步部署配置<br>  -&gt; docker compose up -d<br></code></pre></td></tr></table></figure>
+
+<p>流水线消除的是人工构建和传输，不会把镜像与 Compose 合并成同一个对象。先把这条边界想清楚，第一版手工部署和后续自动发布就能沿用同一套模型。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Docker/" class="print-no-link">#Docker</a>
+      
+        <a href="/tags/Docker-Compose/" class="print-no-link">#Docker Compose</a>
+      
+        <a href="/tags/Pi-Runtime/" class="print-no-link">#Pi Runtime</a>
+      
+        <a href="/tags/%E9%83%A8%E7%BD%B2/" class="print-no-link">#部署</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界</div>
+      <div>https://willfordzhan.github.io/2026/08/09/pi-runtime-docker-compose-deployment/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月9日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/07/pi-skill-progressive-loading/" title="Pi Skill 的渐进加载：元数据、System Prompt 与正文">
+                        <span class="hidden-mobile">Pi Skill 的渐进加载：元数据、System Prompt 与正文</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
