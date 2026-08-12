@@ -19,25 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="目标用 iPhone 的 Termius 远程连接 Mac，借助 Tailscale 组网，实现随时随地安全 SSH；用 tmux 保持会话不断线（适合常驻跑 Codex）。 组件 Termius：iOS SSH 客户端 Tailscale：内网组网（避免端口映射） tmux：会话常驻  Mac：开启 SSH系统设置 → 通用 → 共享 → 远程登录（Remote Login）打开。 Termiu">
+    <meta name="description" content="我们准备把 Java MCP 接到 Pi Runtime 上。工具目录未来会按租户、用户和业务权限过滤，但过滤后的工具仍可能很多。把全部 Tool Schema 每轮发给模型，会增加 token 消耗，也会让相似工具之间的选择变得不稳定。 Pi 已经有渐进加载的底层机制：工具可以全部注册在 Registry 中，只把当前 Active Tools 发给模型。这套能力可以复用到 Java MCP，搜">
 <meta property="og:type" content="article">
-<meta property="og:title" content="用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）">
-<meta property="og:url" content="https://willfordzhan.github.io/guides/termius-tailscale-tmux/index.html">
+<meta property="og:title" content="Pi 与 Java MCP：大量工具的渐进式披露">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/12/pi-java-mcp-progressive-tool-disclosure/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="目标用 iPhone 的 Termius 远程连接 Mac，借助 Tailscale 组网，实现随时随地安全 SSH；用 tmux 保持会话不断线（适合常驻跑 Codex）。 组件 Termius：iOS SSH 客户端 Tailscale：内网组网（避免端口映射） tmux：会话常驻  Mac：开启 SSH系统设置 → 通用 → 共享 → 远程登录（Remote Login）打开。 Termiu">
+<meta property="og:description" content="我们准备把 Java MCP 接到 Pi Runtime 上。工具目录未来会按租户、用户和业务权限过滤，但过滤后的工具仍可能很多。把全部 Tool Schema 每轮发给模型，会增加 token 消耗，也会让相似工具之间的选择变得不稳定。 Pi 已经有渐进加载的底层机制：工具可以全部注册在 Registry 中，只把当前 Active Tools 发给模型。这套能力可以复用到 Java MCP，搜">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-02-17T16:00:00.000Z">
-<meta property="article:modified_time" content="2026-08-12T09:19:30.946Z">
+<meta property="article:published_time" content="2026-08-12T09:11:49.000Z">
+<meta property="article:modified_time" content="2026-08-12T09:19:30.945Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="工具技巧">
-<meta property="article:tag" content="远程办公">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="Java Runtime">
+<meta property="article:tag" content="Tool Use">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻） - 味儿福德詹的小站</title>
+  <title>Pi 与 Java MCP：大量工具的渐进式披露 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -215,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）"></span>
+            <span id="subtitle" data-typed-text="Pi 与 Java MCP：大量工具的渐进式披露"></span>
           
         </div>
 
@@ -226,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-02-18 00:00" pubdate>
-          2026年2月18日 凌晨
+        <time datetime="2026-08-12 17:11" pubdate>
+          2026年8月12日 下午
         </time>
       </span>
     
@@ -238,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          241 字
+          1.1k 字
         
       </span>
     
@@ -249,7 +252,7 @@
         
         
         
-          3 分钟
+          10 分钟
         
       </span>
     
@@ -295,44 +298,50 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）</h1>
+            <h1 id="seo-header">Pi 与 Java MCP：大量工具的渐进式披露</h1>
             
             
               <div class="markdown-body">
                 
-                <h2 id="目标"><a href="#目标" class="headerlink" title="目标"></a>目标</h2><p>用 iPhone 的 Termius 远程连接 Mac，借助 Tailscale 组网，实现随时随地安全 SSH；用 tmux 保持会话不断线（适合常驻跑 Codex）。</p>
-<h2 id="组件"><a href="#组件" class="headerlink" title="组件"></a>组件</h2><ul>
-<li>Termius：iOS SSH 客户端</li>
-<li>Tailscale：内网组网（避免端口映射）</li>
-<li>tmux：会话常驻</li>
-</ul>
-<h2 id="Mac：开启-SSH"><a href="#Mac：开启-SSH" class="headerlink" title="Mac：开启 SSH"></a>Mac：开启 SSH</h2><p>系统设置 → 通用 → 共享 → 远程登录（Remote Login）打开。</p>
-<h2 id="Termius：生成-SSH-Key-并配置"><a href="#Termius：生成-SSH-Key-并配置" class="headerlink" title="Termius：生成 SSH Key 并配置"></a>Termius：生成 SSH Key 并配置</h2><ol>
-<li>Termius → Keychain → + → Generate Key → Ed25519</li>
-<li>复制 Public Key（ssh-ed25519 …）</li>
-<li>Mac 追加到 <code>~/.ssh/authorized_keys</code>：</li>
-</ol>
-<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">nano ~/.ssh/authorized_keys<br><span class="hljs-built_in">chmod</span> 700 ~/.ssh<br><span class="hljs-built_in">chmod</span> 600 ~/.ssh/authorized_keys<br></code></pre></td></tr></table></figure>
+                <p>我们准备把 Java MCP 接到 Pi Runtime 上。工具目录未来会按租户、用户和业务权限过滤，但过滤后的工具仍可能很多。把全部 Tool Schema 每轮发给模型，会增加 token 消耗，也会让相似工具之间的选择变得不稳定。</p>
+<p>Pi 已经有渐进加载的底层机制：工具可以全部注册在 Registry 中，只把当前 Active Tools 发给模型。这套能力可以复用到 Java MCP，搜索和鉴权边界需要单独接上。</p>
+<h2 id="现在的-Java-Runtime-会暴露全部工具"><a href="#现在的-Java-Runtime-会暴露全部工具" class="headerlink" title="现在的 Java Runtime 会暴露全部工具"></a>现在的 Java Runtime 会暴露全部工具</h2><p>当前链路很直接：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">Java /tools/list<br>  -&gt; JavaMcpClient.createTools()<br>  -&gt; 转换为 Pi ToolDefinition[]<br>  -&gt; createAgentSession(customTools)<br>  -&gt; 全部 customTools 成为 Active Tools<br>  -&gt; 全部 Schema 进入模型请求<br></code></pre></td></tr></table></figure>
 
-<h2 id="Tailscale：同账号组网"><a href="#Tailscale：同账号组网" class="headerlink" title="Tailscale：同账号组网"></a>Tailscale：同账号组网</h2><ul>
-<li>Mac 安装并登录官方 Tailscale.app</li>
-<li>iPhone 安装并登录 Tailscale，开启 VPN</li>
-<li>记下 Mac 的 Tailscale IP（100.x.y.z）或 MagicDNS</li>
-</ul>
-<h2 id="Termius：添加-Host"><a href="#Termius：添加-Host" class="headerlink" title="Termius：添加 Host"></a>Termius：添加 Host</h2><ul>
-<li>Host：Mac 的 100.x 或 MagicDNS</li>
-<li>Port：22</li>
-<li>Username：你的 macOS 用户名</li>
-<li>Auth：选择 Key</li>
-</ul>
-<h2 id="tmux：保持会话"><a href="#tmux：保持会话" class="headerlink" title="tmux：保持会话"></a>tmux：保持会话</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">brew install tmux<br>tmux new -As codex<br></code></pre></td></tr></table></figure>
-
-<p>常用：<code>Ctrl-b</code> 后按 <code>d</code> 断开但保留会话。</p>
-<h2 id="macOS-权限坑（Desktop：Operation-not-permitted）"><a href="#macOS-权限坑（Desktop：Operation-not-permitted）" class="headerlink" title="macOS 权限坑（Desktop：Operation not permitted）"></a>macOS 权限坑（Desktop：Operation not permitted）</h2><p>如果 SSH 会话访问 <code>~/Desktop</code> 报 <code>Operation not permitted</code>，这是 macOS 隐私保护。</p>
+<p><code>JavaMcpClient.createTools()</code> 调用 <code>/tools/list</code>，再把每个 Java 工具转换成 <code>ToolDefinition</code>。<code>runtime.ts</code> 将它们作为 <code>customTools</code> 传入 <code>createAgentSession()</code>。Pi 会把 custom tools 放进工具注册表，并在当前初始化流程中全部激活。</p>
+<p><code>noTools: &quot;builtin&quot;</code> 只禁用 <code>read</code>、<code>bash</code> 等内置工具，不会让 custom tools 延迟加载。</p>
+<h2 id="Pi-已有的动态工具机制"><a href="#Pi-已有的动态工具机制" class="headerlink" title="Pi 已有的动态工具机制"></a>Pi 已有的动态工具机制</h2><p>Pi 内部分开了两个集合：</p>
 <ul>
-<li>方案 1（推荐）：把工作目录放到 <code>~/Work</code> 而不是 Desktop</li>
-<li>方案 2：系统设置 → 隐私与安全性 → 完全磁盘访问权限 → 添加 <code>/usr/sbin/sshd</code>，然后重新连接</li>
+<li>Tool Registry 保存所有已注册工具。</li>
+<li>Active Tools 保存下一次模型请求可见的工具。</li>
 </ul>
+<p>Extension API 提供 <code>getAllTools()</code>、<code>getActiveTools()</code> 和 <code>setActiveTools()</code>。官方的 Dynamic Tool Loading 示例会先注册所有工具，初始只激活 <code>tool_search</code>。模型调用搜索工具后，它在执行期增量激活命中工具。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">全部已授权工具 -&gt; Registry<br>                      -&gt; 初始 Active: tool_search<br>用户任务            -&gt; tool_search(query)<br>                      -&gt; 匹配 Top-K<br>                      -&gt; setActiveTools(当前 + Top-K)<br>                      -&gt; 下一轮暴露具体 Tool Schema<br></code></pre></td></tr></table></figure>
+
+<p>Pi 会对工具执行前后的 Active Tools 做差集，把新增名称记录到 <code>ToolResultMessage.addedToolNames</code>。支持原生 Deferred Tools 的 Provider 可以在该 Tool Result 之后插入新 Schema：</p>
+<ul>
+<li>Anthropic 走 <code>defer_loading</code> 和 <code>tool_reference</code>。</li>
+<li>OpenAI Responses 走 <code>tool_search_call</code> 和 <code>tool_search_output</code>。</li>
+</ul>
+<p>其他 Provider 也能使用动态激活。Pi 会在下一轮正常发送当前完整的 Active Tools，代价是 Provider 的 Prompt 缓存前缀可能失效。</p>
+<p>Pi 这层提供动态注册、激活和 Provider 协议适配。搜索算法没有被固化成通用服务，示例里只是简单关键词匹配。</p>
+<h2 id="Java-MCP-的最小接入方式"><a href="#Java-MCP-的最小接入方式" class="headerlink" title="Java MCP 的最小接入方式"></a>Java MCP 的最小接入方式</h2><h3 id="1-tools-list-先做授权过滤"><a href="#1-tools-list-先做授权过滤" class="headerlink" title="1. /tools/list 先做授权过滤"></a>1. <code>/tools/list</code> 先做授权过滤</h3><p><code>/tools/list</code> 需要接收与 <code>/tools/call</code> 一致的调用人上下文，至少包含租户和用户标识。Java 端按租户能力、用户角色、业务配置得到 filtered tools。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">全部工具<br>  -&gt; 租户可用范围<br>  -&gt; 用户角色/权限<br>  -&gt; 当前业务配置<br>  -&gt; filtered tools<br></code></pre></td></tr></table></figure>
+
+<p>这一步决定用户能发现哪些工具。<code>/tools/call</code> 仍然要在每次执行前重新鉴权。会话期间的权限可能变化，而且客户端激活状态不能代替服务端授权。</p>
+<h3 id="2-Pi-只激活搜索入口"><a href="#2-Pi-只激活搜索入口" class="headerlink" title="2. Pi 只激活搜索入口"></a>2. Pi 只激活搜索入口</h3><p>filtered tools 仍然全部转成 <code>ToolDefinition</code>，先放入 Pi Registry。Session 创建完成后，初始 Active Tools 收缩为 <code>tool_search</code>。</p>
+<p>Java Runtime 目前通过 SDK <code>customTools</code> 注入工具，没有直接得到 Extension 中的 <code>pi</code> 对象。最小适配需要让 <code>tool_search</code> 在执行时调用当前 <code>AgentSession.setActiveToolsByName()</code>。搜索工具仍经过 Pi 的 extension-tool wrapper，因此 Active Tools 的纯增量变化会自动写入 <code>addedToolNames</code>，后续 Deferred Tools 链路可以直接复用。</p>
+<p>搜索先用工具名、描述、领域和动作标签做 Top-K 匹配。已授权目录大到不适合每个 Session 全量拉取时，再增加 Java <code>/tools/search</code>，由服务端同时完成权限过滤和检索。</p>
+<h3 id="3-具体工具仍走原来的执行链路"><a href="#3-具体工具仍走原来的执行链路" class="headerlink" title="3. 具体工具仍走原来的执行链路"></a>3. 具体工具仍走原来的执行链路</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">模型调用具体工具<br>  -&gt; Pi ToolDefinition.execute()<br>  -&gt; POST /tools/call<br>  -&gt; Java 重新鉴权<br>  -&gt; 执行业务能力<br>  -&gt; 返回 preview + payload<br></code></pre></td></tr></table></figure>
+
+<p>现有 <code>toPiTool()</code> 已经封装了这条转发链路。渐进披露不要求重写业务工具，也不需要改成一个泛化的 <code>call_tool(name, args)</code>。保留具体工具的强类型 Schema，模型在搜索命中后仍能获得参数约束。</p>
+<h2 id="这次改造的边界"><a href="#这次改造的边界" class="headerlink" title="这次改造的边界"></a>这次改造的边界</h2><p>最小变更集中在三处：</p>
+<ol>
+<li><code>/tools/list</code> 增加调用人上下文和服务端过滤。</li>
+<li>Java Runtime 注册全部 filtered tools，初始只激活 <code>tool_search</code>。</li>
+<li><code>tool_search</code> 命中 Top-K 后增量激活具体工具。</li>
+</ol>
+<p>具体工具的 <code>/tools/call</code> 转发保持不变，Java 端补上每次执行的权限复核。初期限制每次搜索的 Top-K，并保持 Active Tools 只增不减，就能用 Pi 现成机制跑通第一版。向量检索和独立工具索引可以等目录规模与召回率数据证明关键词策略不够用时再补。</p>
 
                 
               </div>
@@ -341,13 +350,40 @@
             <div>
               <div class="post-metas my-3">
   
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
   
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/%E5%B7%A5%E5%85%B7%E6%8A%80%E5%B7%A7/" class="print-no-link">#工具技巧</a>
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/%E8%BF%9C%E7%A8%8B%E5%8A%9E%E5%85%AC/" class="print-no-link">#远程办公</a>
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/Java-Runtime/" class="print-no-link">#Java Runtime</a>
+      
+        <a href="/tags/Tool-Use/" class="print-no-link">#Tool Use</a>
       
     </div>
   
@@ -359,8 +395,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>用 iPhone 远程操控 Mac：Termius + Tailscale + tmux（Codex 常驻）</div>
-      <div>https://willfordzhan.github.io/guides/termius-tailscale-tmux/</div>
+      <div>Pi 与 Java MCP：大量工具的渐进式披露</div>
+      <div>https://willfordzhan.github.io/2026/08/12/pi-java-mcp-progressive-tool-disclosure/</div>
     </div>
     <div class="license-meta">
       
@@ -372,7 +408,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年2月18日</div>
+          <div>2026年8月12日</div>
         </div>
       
       
@@ -404,18 +440,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/02/20/java-ai-vs-java-mcp-python-control-plane/" title="纯 Java AI vs Java MCP + Python Control Plane：重构方案与落地模块解析">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">纯 Java AI vs Java MCP + Python Control Plane：重构方案与落地模块解析</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2019/12/23/Nemenyi/" title="关于 posthoc_nemenyi_friedman() 函数的一点思考">
-                        <span class="hidden-mobile">关于 posthoc_nemenyi_friedman() 函数的一点思考</span>
+                      <a href="/2026/08/09/pi-runtime-docker-compose-deployment/" title="Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界">
+                        <span class="hidden-mobile">Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

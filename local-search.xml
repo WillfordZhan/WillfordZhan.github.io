@@ -4,6 +4,39 @@
   
   
   <entry>
+    <title>Pi 与 Java MCP：大量工具的渐进式披露</title>
+    <link href="/2026/08/12/pi-java-mcp-progressive-tool-disclosure/"/>
+    <url>/2026/08/12/pi-java-mcp-progressive-tool-disclosure/</url>
+    
+    <content type="html"><![CDATA[<p>我们准备把 Java MCP 接到 Pi Runtime 上。工具目录未来会按租户、用户和业务权限过滤，但过滤后的工具仍可能很多。把全部 Tool Schema 每轮发给模型，会增加 token 消耗，也会让相似工具之间的选择变得不稳定。</p><p>Pi 已经有渐进加载的底层机制：工具可以全部注册在 Registry 中，只把当前 Active Tools 发给模型。这套能力可以复用到 Java MCP，搜索和鉴权边界需要单独接上。</p><h2 id="现在的-Java-Runtime-会暴露全部工具"><a href="#现在的-Java-Runtime-会暴露全部工具" class="headerlink" title="现在的 Java Runtime 会暴露全部工具"></a>现在的 Java Runtime 会暴露全部工具</h2><p>当前链路很直接：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">Java /tools/list<br>  -&gt; JavaMcpClient.createTools()<br>  -&gt; 转换为 Pi ToolDefinition[]<br>  -&gt; createAgentSession(customTools)<br>  -&gt; 全部 customTools 成为 Active Tools<br>  -&gt; 全部 Schema 进入模型请求<br></code></pre></td></tr></table></figure><p><code>JavaMcpClient.createTools()</code> 调用 <code>/tools/list</code>，再把每个 Java 工具转换成 <code>ToolDefinition</code>。<code>runtime.ts</code> 将它们作为 <code>customTools</code> 传入 <code>createAgentSession()</code>。Pi 会把 custom tools 放进工具注册表，并在当前初始化流程中全部激活。</p><p><code>noTools: &quot;builtin&quot;</code> 只禁用 <code>read</code>、<code>bash</code> 等内置工具，不会让 custom tools 延迟加载。</p><h2 id="Pi-已有的动态工具机制"><a href="#Pi-已有的动态工具机制" class="headerlink" title="Pi 已有的动态工具机制"></a>Pi 已有的动态工具机制</h2><p>Pi 内部分开了两个集合：</p><ul><li>Tool Registry 保存所有已注册工具。</li><li>Active Tools 保存下一次模型请求可见的工具。</li></ul><p>Extension API 提供 <code>getAllTools()</code>、<code>getActiveTools()</code> 和 <code>setActiveTools()</code>。官方的 Dynamic Tool Loading 示例会先注册所有工具，初始只激活 <code>tool_search</code>。模型调用搜索工具后，它在执行期增量激活命中工具。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">全部已授权工具 -&gt; Registry<br>                      -&gt; 初始 Active: tool_search<br>用户任务            -&gt; tool_search(query)<br>                      -&gt; 匹配 Top-K<br>                      -&gt; setActiveTools(当前 + Top-K)<br>                      -&gt; 下一轮暴露具体 Tool Schema<br></code></pre></td></tr></table></figure><p>Pi 会对工具执行前后的 Active Tools 做差集，把新增名称记录到 <code>ToolResultMessage.addedToolNames</code>。支持原生 Deferred Tools 的 Provider 可以在该 Tool Result 之后插入新 Schema：</p><ul><li>Anthropic 走 <code>defer_loading</code> 和 <code>tool_reference</code>。</li><li>OpenAI Responses 走 <code>tool_search_call</code> 和 <code>tool_search_output</code>。</li></ul><p>其他 Provider 也能使用动态激活。Pi 会在下一轮正常发送当前完整的 Active Tools，代价是 Provider 的 Prompt 缓存前缀可能失效。</p><p>Pi 这层提供动态注册、激活和 Provider 协议适配。搜索算法没有被固化成通用服务，示例里只是简单关键词匹配。</p><h2 id="Java-MCP-的最小接入方式"><a href="#Java-MCP-的最小接入方式" class="headerlink" title="Java MCP 的最小接入方式"></a>Java MCP 的最小接入方式</h2><h3 id="1-tools-list-先做授权过滤"><a href="#1-tools-list-先做授权过滤" class="headerlink" title="1. /tools/list 先做授权过滤"></a>1. <code>/tools/list</code> 先做授权过滤</h3><p><code>/tools/list</code> 需要接收与 <code>/tools/call</code> 一致的调用人上下文，至少包含租户和用户标识。Java 端按租户能力、用户角色、业务配置得到 filtered tools。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">全部工具<br>  -&gt; 租户可用范围<br>  -&gt; 用户角色/权限<br>  -&gt; 当前业务配置<br>  -&gt; filtered tools<br></code></pre></td></tr></table></figure><p>这一步决定用户能发现哪些工具。<code>/tools/call</code> 仍然要在每次执行前重新鉴权。会话期间的权限可能变化，而且客户端激活状态不能代替服务端授权。</p><h3 id="2-Pi-只激活搜索入口"><a href="#2-Pi-只激活搜索入口" class="headerlink" title="2. Pi 只激活搜索入口"></a>2. Pi 只激活搜索入口</h3><p>filtered tools 仍然全部转成 <code>ToolDefinition</code>，先放入 Pi Registry。Session 创建完成后，初始 Active Tools 收缩为 <code>tool_search</code>。</p><p>Java Runtime 目前通过 SDK <code>customTools</code> 注入工具，没有直接得到 Extension 中的 <code>pi</code> 对象。最小适配需要让 <code>tool_search</code> 在执行时调用当前 <code>AgentSession.setActiveToolsByName()</code>。搜索工具仍经过 Pi 的 extension-tool wrapper，因此 Active Tools 的纯增量变化会自动写入 <code>addedToolNames</code>，后续 Deferred Tools 链路可以直接复用。</p><p>搜索先用工具名、描述、领域和动作标签做 Top-K 匹配。已授权目录大到不适合每个 Session 全量拉取时，再增加 Java <code>/tools/search</code>，由服务端同时完成权限过滤和检索。</p><h3 id="3-具体工具仍走原来的执行链路"><a href="#3-具体工具仍走原来的执行链路" class="headerlink" title="3. 具体工具仍走原来的执行链路"></a>3. 具体工具仍走原来的执行链路</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">模型调用具体工具<br>  -&gt; Pi ToolDefinition.execute()<br>  -&gt; POST /tools/call<br>  -&gt; Java 重新鉴权<br>  -&gt; 执行业务能力<br>  -&gt; 返回 preview + payload<br></code></pre></td></tr></table></figure><p>现有 <code>toPiTool()</code> 已经封装了这条转发链路。渐进披露不要求重写业务工具，也不需要改成一个泛化的 <code>call_tool(name, args)</code>。保留具体工具的强类型 Schema，模型在搜索命中后仍能获得参数约束。</p><h2 id="这次改造的边界"><a href="#这次改造的边界" class="headerlink" title="这次改造的边界"></a>这次改造的边界</h2><p>最小变更集中在三处：</p><ol><li><code>/tools/list</code> 增加调用人上下文和服务端过滤。</li><li>Java Runtime 注册全部 filtered tools，初始只激活 <code>tool_search</code>。</li><li><code>tool_search</code> 命中 Top-K 后增量激活具体工具。</li></ol><p>具体工具的 <code>/tools/call</code> 转发保持不变，Java 端补上每次执行的权限复核。初期限制每次搜索的 Top-K，并保持 Active Tools 只增不减，就能用 Pi 现成机制跑通第一版。向量检索和独立工具索引可以等目录规模与召回率数据证明关键词策略不够用时再补。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>Java Runtime</tag>
+      
+      <tag>Tool Use</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界</title>
     <link href="/2026/08/09/pi-runtime-docker-compose-deployment/"/>
     <url>/2026/08/09/pi-runtime-docker-compose-deployment/</url>
@@ -589,9 +622,9 @@
     
     <tags>
       
-      <tag>Python</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>Python</tag>
       
       <tag>React</tag>
       
@@ -626,9 +659,9 @@
       
       <tag>FastAPI</tag>
       
-      <tag>AI</tag>
-      
       <tag>SSE</tag>
+      
+      <tag>AI</tag>
       
       <tag>Spring Boot</tag>
       
@@ -1114,9 +1147,9 @@
       
       <tag>复盘</tag>
       
-      <tag>日志</tag>
-      
       <tag>Java</tag>
+      
+      <tag>日志</tag>
       
       <tag>Logback</tag>
       
@@ -1815,9 +1848,9 @@
       
       <tag>工程复盘</tag>
       
-      <tag>MCP</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>MCP</tag>
       
       <tag>Guardrails</tag>
       
@@ -1852,9 +1885,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>技术选型</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>技术选型</tag>
       
       <tag>LlamaIndex</tag>
       
@@ -1887,11 +1920,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>ReAct</tag>
+      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
-      
-      <tag>ReAct</tag>
       
       <tag>Prompt Injection</tag>
       
@@ -1986,19 +2019,19 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Python</tag>
-      
       <tag>FastAPI</tag>
       
-      <tag>Java</tag>
-      
-      <tag>SSE</tag>
+      <tag>Python</tag>
       
       <tag>AI网关</tag>
+      
+      <tag>Java</tag>
       
       <tag>鉴权</tag>
       
       <tag>联调复盘</tag>
+      
+      <tag>SSE</tag>
       
     </tags>
     
@@ -2025,9 +2058,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>OpenClaw</tag>
-      
       <tag>ReAct</tag>
+      
+      <tag>OpenClaw</tag>
       
       <tag>FastAPI</tag>
       
@@ -2087,9 +2120,9 @@
     
     <tags>
       
-      <tag>Python</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>Python</tag>
       
       <tag>调试</tag>
       
@@ -2124,9 +2157,9 @@
       
       <tag>ReAct</tag>
       
-      <tag>MCP</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>MCP</tag>
       
       <tag>Qwen</tag>
       
@@ -2377,9 +2410,9 @@
       
       <tag>知识库</tag>
       
-      <tag>AI工程</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>AI工程</tag>
       
       <tag>架构设计</tag>
       
