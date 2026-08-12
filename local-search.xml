@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>Pi 管理台语音输入：把音频停在 Java，把文本交给 Pi</title>
+    <link href="/2026/08/12/pi-management-console-voice-input/"/>
+    <url>/2026/08/12/pi-management-console-voice-input/</url>
+    
+    <content type="html"><![CDATA[<p>管理台的语音输入最后没有做成“浏览器把音频交给 Pi，再让模型处理”。实际链路是：浏览器录音，Java 调用阿里云百炼转成文字，文字回填输入框；用户确认后，才按原有 SSE 对话链路交给 Pi。</p><p>这个拆分很重要：Pi 负责 Agent 会话、Tool 调用和模型回复；Java 负责 ERP Gateway 已有的鉴权、部署配置和外部 ASR 调用。音频不是 Pi 会话的一部分，也不会进入 LLM 上下文。</p><h2 id="最终链路"><a href="#最终链路" class="headerlink" title="最终链路"></a>最终链路</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs text">浏览器 Management Console<br>  │ 1. MediaRecorder 录音<br>  ▼<br>Pi 管理台代理 ──► Java Gateway ──► 阿里云百炼非实时 ASR<br>  ▲                    │<br>  └──── &#123; text &#125; ◄─────┘<br><br>浏览器输入框（用户可修改）<br>  │ 2. 用户点击“发送”<br>  ▼<br>Pi 管理台代理 ──► Java Gateway ──► Pi /ai/conversations（SSE）<br>                                          │<br>                                          ▼<br>                                  Pi AgentSession ──► 模型 / ERP MCP Tool<br></code></pre></td></tr></table></figure><p>管理台静态页面由 Pi Runtime 托管，但浏览器访问 <code>/api/ai/**</code> 时，Pi 的 HTTP 层会先转发给 Java Gateway。对话请求再由 Java Gateway 带上可信业务上下文，转发回 Pi 的内部会话接口。这个双向代理看似多了一跳，换来的是：浏览器从不持有 Runtime 的内网凭据，Java 仍是 ERP 身份和外部服务密钥的唯一边界。</p><h2 id="为什么不直接把音频发给-Pi"><a href="#为什么不直接把音频发给-Pi" class="headerlink" title="为什么不直接把音频发给 Pi"></a>为什么不直接把音频发给 Pi</h2><p>这不是 Pi 不支持语音，而是这次产品路径不需要让 Pi 处理音频。</p><p>Pi 当前运行的是文本和图片会话。图片在 Pi HTTP 边界做 <code>processImage</code> 预处理后，作为原生 <code>images</code> 参数传入 <code>AgentSession</code>；如果把音频也塞进这条路径，就要额外选择支持音频的模型、定义音频在 Session JSONL 中的存储形式，并处理后续追问是否携带原音频。</p><p>本次需求是“转写后先填入输入框，用户确认再发送”。因此把 ASR 当作输入法能力更直接：Java 得到音频后只返回一段文本，Pi 看到的仍然是原本就支持的文字消息。音频不写入 Pi 会话 JSONL，也不会被带进 ERP Tool 调用。</p><p>这是当前项目的设计判断，不是 Pi 的通用限制。若以后需要让模型直接理解会议录音、语音中的环境声或多说话人信息，再单独设计音频多模态会话，而不是把它混入本次的文本输入流程。</p><h2 id="浏览器：录音不等于发送"><a href="#浏览器：录音不等于发送" class="headerlink" title="浏览器：录音不等于发送"></a>浏览器：录音不等于发送</h2><p>入口在 <code>packages/java-agent-runtime/manage-console/src/useLiveDebugTransport.ts</code>。这个 Hook 同时管理管理台的文本、图片、录音状态和 SSE 对话，但语音和发送是两条连续而独立的动作。</p><p>点击“语音输入”后，<code>toggleLiveRecording()</code> 会：</p><ol><li>用 <code>navigator.mediaDevices.getUserMedia(&#123; audio: true &#125;)</code> 请求麦克风权限；</li><li>按 <code>webm/opus</code>、<code>ogg/opus</code>、<code>mp4</code> 的顺序选择浏览器实际支持的 <code>MediaRecorder</code> 格式；</li><li>收集录音分片，录满 5 分钟自动停止；</li><li>停止后调用 <code>transcribeRecordedChunks()</code>，将 <code>Blob</code> 作为 <code>multipart/form-data</code> 的 <code>audio</code> 字段提交。</li></ol><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> formData = <span class="hljs-keyword">new</span> <span class="hljs-title class_">FormData</span>();<br>formData.<span class="hljs-title function_">append</span>(<span class="hljs-string">&quot;audio&quot;</span>, audio, audio.<span class="hljs-property">name</span>);<br><br><span class="hljs-keyword">const</span> response = <span class="hljs-keyword">await</span> apiFetch&lt;&#123; <span class="hljs-attr">text</span>: <span class="hljs-built_in">string</span> &#125;&gt;(<span class="hljs-string">&quot;/api/ai/asr/transcriptions&quot;</span>, &#123;<br>  <span class="hljs-attr">method</span>: <span class="hljs-string">&quot;POST&quot;</span>,<br>  <span class="hljs-attr">body</span>: formData,<br>&#125;);<br><br><span class="hljs-title function_">setLiveInput</span>(<span class="hljs-function">(<span class="hljs-params">current</span>) =&gt;</span> (current.<span class="hljs-title function_">trim</span>() ? <span class="hljs-string">`<span class="hljs-subst">$&#123;current&#125;</span>\n<span class="hljs-subst">$&#123;response.text.trim()&#125;</span>`</span> : response.<span class="hljs-property">text</span>.<span class="hljs-title function_">trim</span>()));<br></code></pre></td></tr></table></figure><p>这里没有调用 <code>handleLivePrimaryAction()</code>。转写结果只追加到输入框，发送按钮仍由用户点击或按 Enter 触发。录音或转写进行时，发送和图片附件都会被禁用，避免一段尚未完成的输入与另一轮 Pi 会话交叉。</p><p>浏览器侧限制是 5 分钟、原始音频 7 MiB。百炼接口接收的是 Base64 Data URI，编码后会比原始二进制大；把原文件控制在 7 MiB，是为其 10 MiB 的输入上限预留 JSON 和协议开销。组件卸载、重置会话或录音失败时，代码会停止 <code>MediaStream</code> 的所有轨道，避免浏览器继续占用麦克风。</p><h2 id="Java：把音频变成稳定的文本接口"><a href="#Java：把音频变成稳定的文本接口" class="headerlink" title="Java：把音频变成稳定的文本接口"></a>Java：把音频变成稳定的文本接口</h2><p>浏览器请求先经过 Pi 的 <code>proxyJava()</code>，再到 Java 的 <code>AiController#transcribeAudio()</code>：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@PostMapping(value = &quot;/asr/transcriptions&quot;, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)</span><br><span class="hljs-keyword">public</span> ResponseEntity&lt;Map&lt;String, String&gt;&gt; <span class="hljs-title function_">transcribeAudio</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-meta">@RequestParam(value = &quot;audio&quot;, required = false)</span> MultipartFile audio,</span><br><span class="hljs-params">    HttpServletRequest request</span><br><span class="hljs-params">)</span> &#123;<br>    <span class="hljs-type">AiBizPrincipal</span> <span class="hljs-variable">principal</span> <span class="hljs-operator">=</span> resolvePrincipal(request);<br>    <span class="hljs-type">String</span> <span class="hljs-variable">text</span> <span class="hljs-operator">=</span> aliyunAsrService.transcribe(audio, principal.getTraceId());<br>    <span class="hljs-keyword">return</span> ResponseEntity.ok(Collections.singletonMap(<span class="hljs-string">&quot;text&quot;</span>, text));<br>&#125;<br></code></pre></td></tr></table></figure><p><code>resolvePrincipal()</code> 仍然走 Java Gateway 的既有身份解析。转写接口使用 <code>traceId</code> 记录可排查日志，但不会记录音频内容、Base64 内容或 API Key。</p><p>真正调用百炼的是 <code>AliyunAsrService#transcribe()</code>，它在请求离开 Java 前做四件事：</p><ol><li>校验文件存在、大小和 MIME 类型；目前接受 <code>webm</code>、<code>ogg/opus</code>、<code>m4a</code>、<code>mp3</code>、<code>wav</code>；</li><li>用有界读取限制真实字节数，不能只相信 multipart 的 <code>Content-Length</code>；</li><li>将音频编码为 <code>data:&lt;mime&gt;;base64,...</code>，调用 <code>fun-asr-flash-2026-06-15</code>；</li><li>设置 <code>X-DashScope-SSE: disable</code>，只取最终的 <code>output.text</code>，不再维护另一条 ASR SSE 状态机。</li></ol><p>ASR 的 API Key 只放在 Java 的 Nacos 或部署密钥中，例如：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">ai:</span><br>  <span class="hljs-attr">asr:</span><br>    <span class="hljs-attr">api-key:</span> <span class="hljs-string">&quot;&lt;DashScope API Key&gt;&quot;</span><br></code></pre></td></tr></table></figure><p>Pi 的 <code>.env</code> 不需要、也不应该保存这把 Key。当前实现提供了百炼兼容地址、模型和超时的默认值；如果配置是在服务启动后才改动，重启 Java 服务使 <code>@Value</code> 重新注入即可。</p><h2 id="文本确认后，才进入-Pi-AgentSession"><a href="#文本确认后，才进入-Pi-AgentSession" class="headerlink" title="文本确认后，才进入 Pi AgentSession"></a>文本确认后，才进入 Pi AgentSession</h2><p>用户点击发送后，还是 <code>useLiveDebugTransport.ts</code> 的 <code>handleLivePrimaryAction()</code>。它将纯文字组织成原有 JSON 请求，并固定通过 <code>apiStream()</code> 请求 SSE：</p><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">await</span> <span class="hljs-title function_">apiStream</span>(path, &#123; <span class="hljs-attr">method</span>: <span class="hljs-string">&quot;POST&quot;</span>, <span class="hljs-attr">body</span>: <span class="hljs-title class_">JSON</span>.<span class="hljs-title function_">stringify</span>(&#123; query &#125;) &#125;, &#123;<br>  <span class="hljs-attr">onEvent</span>: handleSseEvent,<br>&#125;);<br></code></pre></td></tr></table></figure><p><code>apiStream()</code> 显式设置 <code>Accept: text/event-stream</code>，逐帧解析 <code>event:</code> 和 <code>data:</code>。Pi Runtime 的 <code>streamConversation()</code> 将 Pi <code>AgentSession</code> 事件投影为管理台可消费的 SSE 事件：</p><ul><li><code>conversation_started</code>：已创建会话；</li><li><code>answer_delta</code>：模型文本增量；</li><li><code>tool_call</code> &#x2F; <code>tool_result</code>：ERP MCP Tool 生命周期；</li><li><code>final</code>：最终回答；</li><li><code>conversation_failed</code>：本轮失败。</li></ul><p>在 Runtime 内，<code>PiConversationRuntime#runConversation()</code> 最终调用的是：</p><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">await</span> session.<span class="hljs-title function_">prompt</span>(input.<span class="hljs-property">query</span>, &#123;<br>  <span class="hljs-attr">source</span>: <span class="hljs-string">&quot;rpc&quot;</span>,<br>  <span class="hljs-attr">images</span>: input.<span class="hljs-property">images</span>.<span class="hljs-property">length</span> &gt; <span class="hljs-number">0</span> ? input.<span class="hljs-property">images</span> : <span class="hljs-literal">undefined</span>,<br>&#125;);<br></code></pre></td></tr></table></figure><p>因此语音转写后的内容和用户手工输入的文字，对 Pi 来说没有区别。Pi 继续负责 Session JSONL、Agent loop、模型调用、MCP Tool 和 SSE 事件；Java ASR 完成任务后就退出链路。</p><h2 id="验证和边界"><a href="#验证和边界" class="headerlink" title="验证和边界"></a>验证和边界</h2><p>这次实现保留了两类聚焦测试：</p><ul><li>Java ASR 测试用本地 HTTP Server 验证请求头、<code>data:</code> URI、模型参数和转写结果解析；也验证超限音频会在调用百炼前被拒绝。</li><li>Controller 测试验证转写接口只返回文本，并且不会调用创建或续聊 Pi 会话的 Gateway 方法。</li></ul><p>提交前还执行了 Pi 的 <code>npm run check</code> 和 Java 聚焦测试。</p><p>当前版本刻意不做实时识别、OSS 存储和音频会话持久化。它适合“短语音转文字，再确认发送”的 ERP 对话输入。等需求变成边说边出字、保存录音审计，或让模型直接理解音频时，再分别引入实时 ASR、对象存储和音频多模态会话设计；它们不该被提前塞进这一条简单输入链路。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>SSE</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>Java Runtime</tag>
+      
+      <tag>语音识别</tag>
+      
+      <tag>阿里云百炼</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>Pi 与 Java MCP：大量工具的渐进式披露</title>
     <link href="/2026/08/12/pi-java-mcp-progressive-tool-disclosure/"/>
     <url>/2026/08/12/pi-java-mcp-progressive-tool-disclosure/</url>
@@ -380,9 +415,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>开发回顾</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>开发回顾</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -413,9 +448,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>开发回顾</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>开发回顾</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -622,9 +657,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>React</tag>
       
@@ -760,9 +795,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>开发回顾</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>开发回顾</tag>
       
       <tag>Dify</tag>
       
@@ -791,13 +826,13 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
       
-      <tag>ReAct</tag>
+      <tag>AI工作日志</tag>
       
       <tag>AI Agent</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Workflow</tag>
       
@@ -904,9 +939,9 @@
       
       <tag>复盘</tag>
       
-      <tag>Prompt</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>Prompt</tag>
       
       <tag>AI</tag>
       
@@ -1040,13 +1075,13 @@
     
     <tags>
       
+      <tag>LangGraph</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
-      
-      <tag>LangGraph</tag>
       
       <tag>复盘</tag>
       
@@ -1149,13 +1184,13 @@
       
       <tag>Java</tag>
       
+      <tag>AI</tag>
+      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
-      
-      <tag>AI</tag>
       
     </tags>
     
@@ -1180,11 +1215,11 @@
     
     <tags>
       
+      <tag>LangGraph</tag>
+      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
-      
-      <tag>LangGraph</tag>
       
       <tag>Prompt工程</tag>
       
@@ -1215,11 +1250,11 @@
     
     <tags>
       
+      <tag>LangGraph</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>Agent</tag>
-      
-      <tag>LangGraph</tag>
       
       <tag>ReAct</tag>
       
@@ -1361,17 +1396,17 @@
     
     <tags>
       
+      <tag>LangGraph</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>Agent</tag>
       
-      <tag>LangGraph</tag>
+      <tag>FastAPI</tag>
       
       <tag>Security</tag>
       
       <tag>Prompt Injection</tag>
-      
-      <tag>FastAPI</tag>
       
     </tags>
     
@@ -1396,9 +1431,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>重构复盘</tag>
       
@@ -1429,11 +1464,11 @@
     
     <tags>
       
+      <tag>LangGraph</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>工程复盘</tag>
-      
-      <tag>LangGraph</tag>
       
       <tag>架构重构</tag>
       
@@ -1462,9 +1497,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Checkpoint</tag>
       
@@ -1495,9 +1530,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>复盘</tag>
       
@@ -1528,9 +1563,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>复盘</tag>
       
@@ -1563,9 +1598,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>重构复盘</tag>
       
@@ -1627,9 +1662,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>联调复盘</tag>
       
@@ -1658,9 +1693,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>复盘</tag>
       
@@ -1689,9 +1724,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>复盘</tag>
       
@@ -1848,9 +1883,9 @@
       
       <tag>工程复盘</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>Guardrails</tag>
       
@@ -1883,17 +1918,17 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
+      <tag>技术选型</tag>
       
       <tag>LangGraph</tag>
-      
-      <tag>技术选型</tag>
       
       <tag>LlamaIndex</tag>
       
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
+      
+      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -1918,13 +1953,13 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
-      <tag>ReAct</tag>
-      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Prompt Injection</tag>
       
@@ -1955,11 +1990,11 @@
     
     <tags>
       
+      <tag>OpenClaw</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>Function Calling</tag>
-      
-      <tag>OpenClaw</tag>
       
       <tag>Memory</tag>
       
@@ -2019,13 +2054,13 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
       
       <tag>AI网关</tag>
       
       <tag>Java</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -2056,11 +2091,11 @@
     
     <tags>
       
+      <tag>OpenClaw</tag>
+      
       <tag>AI工作日志</tag>
       
       <tag>ReAct</tag>
-      
-      <tag>OpenClaw</tag>
       
       <tag>FastAPI</tag>
       
@@ -2120,9 +2155,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>调试</tag>
       
@@ -2157,9 +2192,9 @@
       
       <tag>ReAct</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>Qwen</tag>
       
@@ -2373,11 +2408,11 @@
       
       <tag>Orchestrator</tag>
       
+      <tag>里程碑</tag>
+      
       <tag>Plan-and-Solve</tag>
       
       <tag>Reflection</tag>
-      
-      <tag>里程碑</tag>
       
     </tags>
     
