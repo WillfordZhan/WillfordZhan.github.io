@@ -1,0 +1,899 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="给 Management Console 加图片输入时，我先定了两个限制：一轮最多 5 张，原始单图不超过 10 MiB。随后看到 Runtime 给 Qwen 登记的上下文窗口是 1,000,000 Token，一个问题马上冒出来：一张 5 MB 图片发给模型，会不会直接吃掉几百万 Token，顺手把前面的系统指令挤出去？ 这两个数字属于不同阶段。5 MB 描述图片文件和 HTTP 传输；1M">
+<meta property="og:type" content="article">
+<meta property="og:title" content="5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/12/pi-image-input-context/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="给 Management Console 加图片输入时，我先定了两个限制：一轮最多 5 张，原始单图不超过 10 MiB。随后看到 Runtime 给 Qwen 登记的上下文窗口是 1,000,000 Token，一个问题马上冒出来：一张 5 MB 图片发给模型，会不会直接吃掉几百万 Token，顺手把前面的系统指令挤出去？ 这两个数字属于不同阶段。5 MB 描述图片文件和 HTTP 传输；1M">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-12T09:15:19.000Z">
+<meta property="article:modified_time" content="2026-08-12T09:43:43.353Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="多模态">
+<meta property="article:tag" content="图片处理">
+<meta property="article:tag" content="Java Runtime">
+<meta property="article:tag" content="大模型上下文">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-12 17:15" pubdate>
+          2026年8月12日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.8k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          32 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>给 Management Console 加图片输入时，我先定了两个限制：一轮最多 5 张，原始单图不超过 10 MiB。随后看到 Runtime 给 Qwen 登记的上下文窗口是 1,000,000 Token，一个问题马上冒出来：一张 5 MB 图片发给模型，会不会直接吃掉几百万 Token，顺手把前面的系统指令挤出去？</p>
+<p>这两个数字属于不同阶段。5 MB 描述图片文件和 HTTP 传输；1M 描述模型一次推理能够接收的 Token。图片进入模型前还要经过 Base64 编码、Pi 图片预处理和供应商的视觉编码，文件大小与上下文大小没有直接换算关系。</p>
+<p>本文标题沿用日常说法中的 MB；涉及代码限制时使用 MiB，<code>1 MiB = 1024 × 1024 Byte</code>。</p>
+<h2 id="先说结论：5-MB-文件不等于-5-MB-上下文"><a href="#先说结论：5-MB-文件不等于-5-MB-上下文" class="headerlink" title="先说结论：5 MB 文件不等于 5 MB 上下文"></a>先说结论：5 MB 文件不等于 5 MB 上下文</h2><p>一张图片从浏览器进入大模型，要经过三个阶段：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>主要计量单位</th>
+<th>它回答的问题</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>文件上传</td>
+<td>Byte &#x2F; MiB</td>
+<td>网络要传多少数据，服务端要占多少内存</td>
+</tr>
+<tr>
+<td>API 请求</td>
+<td>Base64 字符、HTTP Body</td>
+<td>调用模型接口时，请求体有多大</td>
+</tr>
+<tr>
+<td>模型推理</td>
+<td>文本 Token、视觉 Token</td>
+<td>实际占用多少上下文和推理资源</td>
+</tr>
+</tbody></table>
+<p>5 MB 是压缩后的 JPEG、PNG 等文件大小。它受图片内容、编码格式和压缩率影响，但并不直接代表图片有多少视觉信息。</p>
+<p>例如，两张分辨率相同的图片，一张是纯色截图，一张是细节丰富的照片，文件大小可能相差很多；对某些视觉模型来说，它们经过相同的缩放和切块策略后，视觉 Token 数量却可能接近。反过来，一张压缩率很高、文件很小但分辨率很大的图片，也可能被切出不少视觉块。</p>
+<p>因此不能用下面这种方式换算：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">5 MB 图片 ≠ 500 万个上下文字节 ≠ 500 万 Token<br></code></pre></td></tr></table></figure>
+
+<p>更准确的链路是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">图片文件<br>  -&gt; 图片解码与预处理<br>  -&gt; 模型供应商的视觉编码器<br>  -&gt; 视觉表示 / 视觉 Token<br>  -&gt; 与文字 Token 一起参与推理<br></code></pre></td></tr></table></figure>
+
+<p>具体一张图片最终占多少视觉 Token，取决于模型、图片分辨率、视觉切块方式和供应商接口策略。当前 Pi 代码没有实现 Qwen 图片 Token 计算公式，也没有证据支持“每张图片固定 576 Token”或“固定 1000 Token”这类说法。</p>
+<h2 id="Base64-变大了，为什么也不是文本-Token"><a href="#Base64-变大了，为什么也不是文本-Token" class="headerlink" title="Base64 变大了，为什么也不是文本 Token"></a>Base64 变大了，为什么也不是文本 Token</h2><p>Pi 在调用 OpenAI 兼容接口时，会把内部图片对象序列化成 Data URL：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs ts">&#123;<br>  <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;image_url&quot;</span>,<br>  <span class="hljs-attr">image_url</span>: &#123;<br>    <span class="hljs-attr">url</span>: <span class="hljs-string">`data:<span class="hljs-subst">$&#123;mimeType&#125;</span>;base64,<span class="hljs-subst">$&#123;data&#125;</span>`</span>,<br>  &#125;,<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>Base64 通常会让传输体积比原始二进制增加约三分之一。一份 5 MiB 的原始数据，直接编码后大约是 6.67 MiB。这部分增长会增加 HTTP 请求大小、网络流量和服务端内存，但模型接口知道该字段表示图片，不会把整段 Base64 当成普通文章逐字分词。</p>
+<p>模型服务先解码图片，再进入视觉预处理和视觉编码阶段。进入模型上下文的是供应商定义的视觉表示，不是 Base64 字符串本身。</p>
+<p>所以要同时记住两件事：</p>
+<ol>
+<li>图片不按文件字节数占用上下文 Token。</li>
+<li>图片依然会占用上传带宽、请求内存和模型视觉计算资源。</li>
+</ol>
+<p>“不会按文件字节吃上下文”不等于“图片没有成本”。</p>
+<h2 id="5-MiB-原图在当前实现里会发生什么"><a href="#5-MiB-原图在当前实现里会发生什么" class="headerlink" title="5 MiB 原图在当前实现里会发生什么"></a>5 MiB 原图在当前实现里会发生什么</h2><p>当前链路有三组独立限制：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">原始上传：最多 5 张，单张不超过 10 MiB<br>会话 HTTP Body：不超过 52 MiB<br>processImage 输出：最大 2000 × 2000，Base64 负载小于 4.5 MiB<br></code></pre></td></tr></table></figure>
+
+<p>5 MiB 原图能通过第一层上传校验。它的 Base64 估算值已经超过 4.5 MiB，进入 <code>processImage</code> 后会触发缩放或重新编码。最终传给 Provider 的图片已经不是那份 5 MiB 原始二进制。</p>
+<p>52 MiB 请求上限服务于 HTTP 层。五张 10 MiB 原图加上 multipart 元数据仍有少量余量，超出后请求会在代理或 Runtime 边界被拒绝。这项限制保护进程内存，与 1M Token 上下文没有换算关系。</p>
+<h2 id="当前图片请求链路"><a href="#当前图片请求链路" class="headerlink" title="当前图片请求链路"></a>当前图片请求链路</h2><p>Management Console 由 Pi Runtime 托管。浏览器默认走同源接口，因此调试链路会先经过 Pi 的 Java 代理，再进入 Java Gateway，最后回到 Pi 的内部会话接口：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><code class="hljs text">Management Console<br>  File[] + query<br>      │ multipart/form-data<br>      ▼<br>Pi Runtime 同源代理 /api/ai<br>      │ 保留 Content-Type 和 multipart boundary<br>      ▼<br>Java AI Gateway /api/ai<br>      │ 解析用户/租户，注入签名业务上下文，重新组装 multipart<br>      ▼<br>Pi Runtime 内部接口 /ai<br>      │ 校验文件头、大小与数量，调用 processImage<br>      ▼<br>ConversationInput<br>  query: string<br>  images: ImageContent[]<br>      │ session.prompt(query, &#123; images &#125;)<br>      ▼<br>Pi AgentSession<br>      │ OpenAI Chat Completions 内容块<br>      ▼<br>Qwen Provider<br>  text + image_url(Data URL)<br></code></pre></td></tr></table></figure>
+
+<p>业务前端或小程序部署后可以直接访问 Java Gateway。Management Console 多出来的第一段 Pi 同源代理，是本地调试页面的部署方式带来的路径。</p>
+<p>下面跟踪同一张图片在代码里的数据变化。</p>
+<h2 id="1-Management-Console：File-组装成-multipart"><a href="#1-Management-Console：File-组装成-multipart" class="headerlink" title="1. Management Console：File[] 组装成 multipart"></a>1. Management Console：<code>File[]</code> 组装成 multipart</h2><p>输入框维护两份状态：文字是 <code>liveInput</code>，图片是 <code>liveImages: File[]</code>。点击选择和粘贴图片共用 <code>addLiveImages</code>，因此都会经过“最多 5 张、单张 10 MiB、拒绝空文件”的前端校验。</p>
+<p>发送入口 <code>handleLivePrimaryAction</code> 先固定本轮快照，再调用 <code>runSse(query, images)</code>。真正决定请求格式的是 <code>buildConversationBody</code>：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">function</span> <span class="hljs-title function_">buildConversationBody</span>(<span class="hljs-params"><span class="hljs-attr">query</span>: <span class="hljs-built_in">string</span>, <span class="hljs-attr">images</span>: <span class="hljs-title class_">File</span>[]</span>): <span class="hljs-title class_">BodyInit</span> &#123;<br>  <span class="hljs-keyword">if</span> (images.<span class="hljs-property">length</span> === <span class="hljs-number">0</span>) <span class="hljs-keyword">return</span> <span class="hljs-title class_">JSON</span>.<span class="hljs-title function_">stringify</span>(&#123; query &#125;);<br><br>  <span class="hljs-keyword">const</span> formData = <span class="hljs-keyword">new</span> <span class="hljs-title class_">FormData</span>();<br>  <span class="hljs-keyword">if</span> (query) formData.<span class="hljs-title function_">append</span>(<span class="hljs-string">&quot;query&quot;</span>, query);<br>  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">const</span> image <span class="hljs-keyword">of</span> images) &#123;<br>    formData.<span class="hljs-title function_">append</span>(<span class="hljs-string">&quot;images&quot;</span>, image, image.<span class="hljs-property">name</span>);<br>  &#125;<br>  <span class="hljs-keyword">return</span> formData;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>纯文字请求继续使用 JSON；出现图片后才切换到 <code>multipart/form-data</code>。图片都放在同名 <code>images</code> 字段，文字放在 <code>query</code> 字段，这与 Spring 和 Pi Runtime 的参数名保持一致。</p>
+<p><code>apiStream</code> 遇到 <code>FormData</code> 时不会手工设置 <code>Content-Type</code>：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">if</span> (!headers.<span class="hljs-title function_">has</span>(<span class="hljs-string">&quot;Content-Type&quot;</span>)<br>    &amp;&amp; init.<span class="hljs-property">body</span><br>    &amp;&amp; !(init.<span class="hljs-property">body</span> <span class="hljs-keyword">instanceof</span> <span class="hljs-title class_">FormData</span>)) &#123;<br>  headers.<span class="hljs-title function_">set</span>(<span class="hljs-string">&quot;Content-Type&quot;</span>, <span class="hljs-string">&quot;application/json&quot;</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>multipart 的 boundary 由浏览器生成。手工写成 <code>multipart/form-data</code> 却漏掉 boundary，Java 和 Pi 都无法拆出图片字段。</p>
+<p>相关入口：</p>
+<ul>
+<li><code>packages/java-agent-runtime/manage-console/src/useLiveDebugTransport.ts</code><ul>
+<li><code>handleLivePrimaryAction</code></li>
+<li><code>runSse</code></li>
+<li><code>buildConversationBody</code></li>
+</ul>
+</li>
+<li><code>packages/java-agent-runtime/manage-console/src/api.ts</code><ul>
+<li><code>apiStream</code></li>
+</ul>
+</li>
+</ul>
+<h2 id="2-Pi-同源代理：保留请求协议"><a href="#2-Pi-同源代理：保留请求协议" class="headerlink" title="2. Pi 同源代理：保留请求协议"></a>2. Pi 同源代理：保留请求协议</h2><p>Management Console 请求 <code>/api/ai/conversations</code> 时，Pi HTTP Server 的 <code>proxyJava</code> 会读取请求体，并把原始 <code>Content-Type</code> 交给 Java 管理代理：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> requestBody = <span class="hljs-keyword">await</span> <span class="hljs-title function_">readRequestBody</span>(<br>  request,<br>  url.<span class="hljs-property">pathname</span>.<span class="hljs-title function_">startsWith</span>(<span class="hljs-string">&quot;/api/ai&quot;</span>)<br>    ? <span class="hljs-variable constant_">MAX_CONVERSATION_REQUEST_BODY_BYTES</span><br>    : <span class="hljs-variable constant_">MAX_JSON_REQUEST_BODY_BYTES</span>,<br>);<br><br><span class="hljs-keyword">await</span> management.<span class="hljs-title function_">proxyJava</span>(<br>  method,<br>  <span class="hljs-string">`<span class="hljs-subst">$&#123;url.pathname&#125;</span><span class="hljs-subst">$&#123;url.search&#125;</span>`</span>,<br>  authorization,<br>  requestBody,<br>  accept,<br>  abortController?.<span class="hljs-property">signal</span>,<br>  cookie,<br>  <span class="hljs-title function_">getHeader</span>(request, <span class="hljs-string">&quot;content-type&quot;</span>),<br>);<br></code></pre></td></tr></table></figure>
+
+<p>这里针对 <code>/api/ai</code> 放宽到 52 MiB，其他 Java 管理接口仍维持 1 MiB。图片能力没有扩大所有代理入口的攻击面。</p>
+<p>这层会缓冲完整请求体。它适合当前 Management Console 调试，但五张大图并发上传时会产生明确的内存成本。生产业务入口直接到 Java 后，可以绕开这次额外缓冲。</p>
+<p>相关入口：<code>packages/java-agent-runtime/src/http-server.ts</code> 中的 <code>proxyJava</code>。</p>
+<h2 id="3-Java-Gateway：解析业务身份并流式重组-multipart"><a href="#3-Java-Gateway：解析业务身份并流式重组-multipart" class="headerlink" title="3. Java Gateway：解析业务身份并流式重组 multipart"></a>3. Java Gateway：解析业务身份并流式重组 multipart</h2><p>Java Controller 为同一路径声明两种 <code>consumes</code>。JSON 方法继续处理纯文字，multipart 方法接收文字和图片：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@PostMapping(</span><br><span class="hljs-meta">    value = &quot;/conversations&quot;,</span><br><span class="hljs-meta">    consumes = MediaType.MULTIPART_FORM_DATA_VALUE</span><br><span class="hljs-meta">)</span><br><span class="hljs-keyword">public</span> ResponseEntity&lt;StreamingResponseBody&gt; <span class="hljs-title function_">createConversationWithImages</span><span class="hljs-params">(</span><br><span class="hljs-params">    <span class="hljs-meta">@RequestParam(value = &quot;query&quot;, required = false)</span> String query,</span><br><span class="hljs-params">    <span class="hljs-meta">@RequestParam(value = &quot;images&quot;, required = false)</span> List&lt;MultipartFile&gt; images,</span><br><span class="hljs-params">    HttpServletRequest request</span><br><span class="hljs-params">)</span> &#123;<br>    <span class="hljs-type">AiBizPrincipal</span> <span class="hljs-variable">principal</span> <span class="hljs-operator">=</span> resolvePrincipal(request);<br>    <span class="hljs-keyword">return</span> proxyService.proxyCreateConversationMultipartStream(<br>        query, images, <span class="hljs-literal">null</span>, <span class="hljs-literal">null</span>, principal<br>    );<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>示例省略了当前接口里的 PDF 参数和幂等参数，只保留图片链路。</p>
+<p>Controller 解析当前用户和租户，Service 将可信业务上下文写入内部请求头。图片内容仍按字节转发，Java 不做视觉识别、缩放或重编码。</p>
+<p><code>writeMultipartRequest</code> 使用 JDK 输入输出流重组请求：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs java">conn.setChunkedStreamingMode(IO_BUFFER_SIZE);<br><span class="hljs-keyword">try</span> (<span class="hljs-type">OutputStream</span> <span class="hljs-variable">output</span> <span class="hljs-operator">=</span> conn.getOutputStream()) &#123;<br>    <span class="hljs-keyword">for</span> (<span class="hljs-type">int</span> <span class="hljs-variable">index</span> <span class="hljs-operator">=</span> <span class="hljs-number">0</span>; index &lt; images.size(); index++) &#123;<br>        <span class="hljs-type">MultipartFile</span> <span class="hljs-variable">image</span> <span class="hljs-operator">=</span> images.get(index);<br>        writeUtf8(output, <span class="hljs-string">&quot;--&quot;</span> + boundary + <span class="hljs-string">&quot;\r\n&quot;</span>);<br>        writeUtf8(output,<br>            <span class="hljs-string">&quot;Content-Disposition: form-data; name=\&quot;images\&quot;; &quot;</span><br>                + <span class="hljs-string">&quot;filename=\&quot;image-&quot;</span> + (index + <span class="hljs-number">1</span>) + <span class="hljs-string">&quot;\&quot;\r\n&quot;</span>);<br>        writeUtf8(output,<br>            <span class="hljs-string">&quot;Content-Type: &quot;</span> + safeMultipartContentType(image.getContentType())<br>                + <span class="hljs-string">&quot;\r\n\r\n&quot;</span>);<br>        <span class="hljs-keyword">try</span> (<span class="hljs-type">InputStream</span> <span class="hljs-variable">input</span> <span class="hljs-operator">=</span> image.getInputStream()) &#123;<br>            copy(input, output, <span class="hljs-literal">false</span>);<br>        &#125;<br>        writeUtf8(output, <span class="hljs-string">&quot;\r\n&quot;</span>);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>实际复制缓冲区是 8 KiB。Gateway 不保留用户文件名，转发时生成稳定序号，避免特殊字符进入 multipart 请求头。</p>
+<p>这层的职责集中在四件事：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">解析登录身份<br>解析租户与业务上下文<br>签名内部上下文<br>转发 multipart 与 SSE<br></code></pre></td></tr></table></figure>
+
+<p>图片规范由 Pi Runtime 维护。Java 再实现一份图片压缩会产生两套格式列表、两套质量参数和两套错误语义，后续很容易漂移。</p>
+<p>相关入口：</p>
+<ul>
+<li><code>AiController.createConversationWithImages</code></li>
+<li><code>AiGatewayProxyService.proxyMultipartEventStream</code></li>
+<li><code>AiGatewayProxyService.writeMultipartRequest</code></li>
+</ul>
+<h2 id="4-Pi-Runtime：从上传文件变成-ImageContent"><a href="#4-Pi-Runtime：从上传文件变成-ImageContent" class="headerlink" title="4. Pi Runtime：从上传文件变成 ImageContent"></a>4. Pi Runtime：从上传文件变成 <code>ImageContent</code></h2><p>Java 请求进入 Pi 内部 <code>/ai</code> 接口后，<code>readConversationBody</code> 根据 <code>Content-Type</code> 选择 JSON 或 multipart 解析。multipart 分支读取 <code>query</code> 和全部 <code>images</code>，随后执行权威校验：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> imageFields = form.<span class="hljs-title function_">getAll</span>(<span class="hljs-string">&quot;images&quot;</span>);<br><span class="hljs-keyword">if</span> (imageFields.<span class="hljs-property">length</span> &gt; <span class="hljs-variable constant_">MAX_IMAGE_COUNT</span>) &#123;<br>  <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">HttpRequestError</span>(<span class="hljs-number">413</span>, <span class="hljs-string">&quot;too many images&quot;</span>);<br>&#125;<br><br><span class="hljs-keyword">for</span> (<span class="hljs-keyword">const</span> [index, file] <span class="hljs-keyword">of</span> imageFields.<span class="hljs-title function_">entries</span>()) &#123;<br>  <span class="hljs-keyword">if</span> (file.<span class="hljs-property">size</span> === <span class="hljs-number">0</span>) <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">HttpRequestError</span>(<span class="hljs-number">400</span>, <span class="hljs-string">&quot;image is empty&quot;</span>);<br>  <span class="hljs-keyword">if</span> (file.<span class="hljs-property">size</span> &gt; <span class="hljs-variable constant_">MAX_IMAGE_BYTES</span>) &#123;<br>    <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">HttpRequestError</span>(<span class="hljs-number">413</span>, <span class="hljs-string">&quot;image is too large&quot;</span>);<br>  &#125;<br><br>  <span class="hljs-keyword">const</span> bytes = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Uint8Array</span>(<span class="hljs-keyword">await</span> file.<span class="hljs-title function_">arrayBuffer</span>());<br>  <span class="hljs-keyword">const</span> mimeType = <span class="hljs-title function_">detectSupportedImageMimeType</span>(bytes);<br>  <span class="hljs-keyword">if</span> (!mimeType) <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">HttpRequestError</span>(<span class="hljs-number">415</span>, <span class="hljs-string">&quot;unsupported image&quot;</span>);<br><br>  <span class="hljs-keyword">const</span> processed = <span class="hljs-keyword">await</span> <span class="hljs-title function_">processImage</span>(bytes, mimeType);<br>  <span class="hljs-keyword">if</span> (!processed.<span class="hljs-property">ok</span>) <span class="hljs-keyword">throw</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">HttpRequestError</span>(<span class="hljs-number">422</span>, <span class="hljs-string">&quot;image processing failed&quot;</span>);<br>  images.<span class="hljs-title function_">push</span>(&#123; <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;image&quot;</span>, <span class="hljs-attr">data</span>: processed.<span class="hljs-property">data</span>, <span class="hljs-attr">mimeType</span>: processed.<span class="hljs-property">mimeType</span> &#125;);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>前端传来的文件名和 <code>Content-Type</code> 只能作为提示。Runtime 使用文件头识别真实格式，避免把改过扩展名的任意文件送进图片解码器。</p>
+<p>错误状态也在这里定型：</p>
+<table>
+<thead>
+<tr>
+<th>HTTP 状态</th>
+<th>当前含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>400</code></td>
+<td>multipart 无法解析、字段类型错误、空图片</td>
+</tr>
+<tr>
+<td><code>413</code></td>
+<td>图片数量或大小超限</td>
+</tr>
+<tr>
+<td><code>415</code></td>
+<td>文件头无法识别为支持的图片</td>
+</tr>
+<tr>
+<td><code>422</code></td>
+<td>图片已经识别，但转换或缩放失败</td>
+</tr>
+</tbody></table>
+<p>整批图片采用全有或全无处理。一张失败后，本轮不会继续拿剩余图片调用模型，页面看到的图片数量与模型实际收到的数量不会悄悄分叉。</p>
+<p>相关入口：<code>packages/java-agent-runtime/src/http-server.ts</code> 中的 <code>readConversationBody</code> 与 multipart 解析函数。</p>
+<h2 id="5-processImage：规范化、纠正方向、缩放和重编码"><a href="#5-processImage：规范化、纠正方向、缩放和重编码" class="headerlink" title="5. processImage：规范化、纠正方向、缩放和重编码"></a>5. <code>processImage</code>：规范化、纠正方向、缩放和重编码</h2><p>Runtime 直接复用 Pi 的 <code>processImage</code>：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">export</span> <span class="hljs-keyword">async</span> <span class="hljs-keyword">function</span> <span class="hljs-title function_">processImage</span>(<span class="hljs-params">bytes, mimeType, options</span>) &#123;<br>  <span class="hljs-keyword">const</span> normalized = <span class="hljs-keyword">await</span> <span class="hljs-title function_">normalizeImage</span>(bytes, mimeType);<br>  <span class="hljs-keyword">if</span> (!normalized) <span class="hljs-keyword">return</span> &#123; <span class="hljs-attr">ok</span>: <span class="hljs-literal">false</span>, <span class="hljs-attr">message</span>: <span class="hljs-string">&quot;...&quot;</span> &#125;;<br><br>  <span class="hljs-keyword">const</span> autoResizeImages = options?.<span class="hljs-property">autoResizeImages</span> ?? <span class="hljs-literal">true</span>;<br>  <span class="hljs-keyword">if</span> (!autoResizeImages) &#123;<br>    <span class="hljs-keyword">return</span> &#123;<br>      <span class="hljs-attr">ok</span>: <span class="hljs-literal">true</span>,<br>      <span class="hljs-attr">data</span>: <span class="hljs-title class_">Buffer</span>.<span class="hljs-title function_">from</span>(normalized.<span class="hljs-property">bytes</span>).<span class="hljs-title function_">toString</span>(<span class="hljs-string">&quot;base64&quot;</span>),<br>      <span class="hljs-attr">mimeType</span>: normalized.<span class="hljs-property">mimeType</span>,<br>      <span class="hljs-attr">hints</span>: [],<br>    &#125;;<br>  &#125;<br><br>  <span class="hljs-keyword">const</span> resized = <span class="hljs-keyword">await</span> <span class="hljs-title function_">resizeImage</span>(<br>    normalized.<span class="hljs-property">bytes</span>,<br>    normalized.<span class="hljs-property">mimeType</span>,<br>    options?.<span class="hljs-property">resizeOptions</span>,<br>  );<br>  <span class="hljs-keyword">if</span> (!resized) <span class="hljs-keyword">return</span> &#123; <span class="hljs-attr">ok</span>: <span class="hljs-literal">false</span>, <span class="hljs-attr">message</span>: <span class="hljs-string">&quot;...&quot;</span> &#125;;<br><br>  <span class="hljs-keyword">return</span> &#123;<br>    <span class="hljs-attr">ok</span>: <span class="hljs-literal">true</span>,<br>    <span class="hljs-attr">data</span>: resized.<span class="hljs-property">data</span>,<br>    <span class="hljs-attr">mimeType</span>: resized.<span class="hljs-property">mimeType</span>,<br>    <span class="hljs-attr">hints</span>: [], <span class="hljs-comment">// 省略格式转换和尺寸变化提示的组装代码</span><br>  &#125;;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>代码片段省略了具体错误文案和提示组装；源码通过 <code>conversionHint</code> 和 <code>formatDimensionNote</code> 记录格式转换、尺寸变化。</p>
+<p>默认参数位于 <code>image-resize-core.ts</code>：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">DEFAULT_OPTIONS</span> = &#123;<br>  <span class="hljs-attr">maxWidth</span>: <span class="hljs-number">2000</span>,<br>  <span class="hljs-attr">maxHeight</span>: <span class="hljs-number">2000</span>,<br>  <span class="hljs-attr">maxBytes</span>: <span class="hljs-number">4.5</span> * <span class="hljs-number">1024</span> * <span class="hljs-number">1024</span>,<br>  <span class="hljs-attr">jpegQuality</span>: <span class="hljs-number">80</span>,<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p>处理顺序如下：</p>
+<ol>
+<li>解码图片并应用 EXIF 方向。手机照片的像素矩阵和显示方向可能不同，这一步防止模型收到侧着的图片。</li>
+<li>检查宽高与 Base64 估算大小。两项都在上限内时保留原数据。</li>
+<li>按比例缩到 2000 × 2000 以内。</li>
+<li>尝试 PNG，以及质量 80、85、70、55、40 的 JPEG 候选。</li>
+<li>编码结果仍超过 4.5 MiB 时，宽高各缩为当前值的 75%，继续尝试。</li>
+</ol>
+<p>4.5 MiB 约束的是处理后 Base64 字符串。它最初为 Anthropic 的 5 MiB 图片限制预留余量，当前 Qwen Runtime 复用了这条偏保守的跨 Provider 默认值。</p>
+<p>相关入口：</p>
+<ul>
+<li><code>packages/coding-agent/src/utils/image-process.ts</code></li>
+<li><code>packages/coding-agent/src/utils/image-resize.ts</code></li>
+<li><code>packages/coding-agent/src/utils/image-resize-core.ts</code></li>
+</ul>
+<h2 id="6-Java-Runtime：ImageContent-进入-AgentSession"><a href="#6-Java-Runtime：ImageContent-进入-AgentSession" class="headerlink" title="6. Java Runtime：ImageContent[] 进入 AgentSession"></a>6. Java Runtime：<code>ImageContent[]</code> 进入 <code>AgentSession</code></h2><p>图片处理完成后，HTTP 层返回统一的 <code>ConversationInput</code>：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">type</span> <span class="hljs-title class_">ConversationInput</span> = &#123;<br>  <span class="hljs-attr">query</span>: <span class="hljs-built_in">string</span>;<br>  <span class="hljs-attr">images</span>: <span class="hljs-title class_">ImageContent</span>[];<br>  <span class="hljs-attr">businessContext</span>?: <span class="hljs-title class_">ConversationBusinessContext</span>;<br>&#125;;<br><br><span class="hljs-keyword">type</span> <span class="hljs-title class_">ImageContent</span> = &#123;<br>  <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;image&quot;</span>;<br>  <span class="hljs-attr">data</span>: <span class="hljs-built_in">string</span>;      <span class="hljs-comment">// Base64</span><br>  <span class="hljs-attr">mimeType</span>: <span class="hljs-built_in">string</span>;<br>&#125;;<br></code></pre></td></tr></table></figure>
+
+<p><code>PiConversationRuntime.runConversation</code> 打开或恢复会话，再调用 Pi 原生接口：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">await</span> session.<span class="hljs-title function_">prompt</span>(input.<span class="hljs-property">query</span>, &#123;<br>  <span class="hljs-attr">source</span>: <span class="hljs-string">&quot;rpc&quot;</span>,<br>  <span class="hljs-attr">images</span>: input.<span class="hljs-property">images</span>.<span class="hljs-property">length</span> &gt; <span class="hljs-number">0</span> ? input.<span class="hljs-property">images</span> : <span class="hljs-literal">undefined</span>,<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>到这里，图片已经进入 Pi 标准消息结构。文字仍是 <code>query</code>，图片仍是独立的 <code>ImageContent[]</code>；Runtime 没有把 Base64 拼进提示词。</p>
+<p>这项结构化处理还影响会话恢复。Pi 的 SessionManager 会把用户消息及图片内容写入会话 JSONL，后续追问恢复同一会话时，历史图片仍在消息树中。相应代价是会话文件会被 Base64 明显放大。</p>
+<p>相关入口：<code>packages/java-agent-runtime/src/runtime.ts</code> 中的 <code>runConversation</code>。</p>
+<h2 id="7-Provider：ImageContent-变成-image-url"><a href="#7-Provider：ImageContent-变成-image-url" class="headerlink" title="7. Provider：ImageContent 变成 image_url"></a>7. Provider：<code>ImageContent</code> 变成 <code>image_url</code></h2><p>当前 Qwen 模型通过 Pi 的 OpenAI Chat Completions Provider 调用。Provider 将系统提示词、历史消息和本轮多模态内容组装成请求参数。</p>
+<p>用户消息是数组时，文本与图片分别转换：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> content = msg.<span class="hljs-property">content</span>.<span class="hljs-title function_">map</span>(<span class="hljs-function">(<span class="hljs-params">item</span>) =&gt;</span> &#123;<br>  <span class="hljs-keyword">if</span> (item.<span class="hljs-property">type</span> === <span class="hljs-string">&quot;text&quot;</span>) &#123;<br>    <span class="hljs-keyword">return</span> &#123; <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;text&quot;</span>, <span class="hljs-attr">text</span>: item.<span class="hljs-property">text</span> &#125;;<br>  &#125;<br>  <span class="hljs-keyword">return</span> &#123;<br>    <span class="hljs-attr">type</span>: <span class="hljs-string">&quot;image_url&quot;</span>,<br>    <span class="hljs-attr">image_url</span>: &#123;<br>      <span class="hljs-attr">url</span>: <span class="hljs-string">`data:<span class="hljs-subst">$&#123;item.mimeType&#125;</span>;base64,<span class="hljs-subst">$&#123;item.data&#125;</span>`</span>,<br>    &#125;,<br>  &#125;;<br>&#125;);<br><br>params.<span class="hljs-title function_">push</span>(&#123; <span class="hljs-attr">role</span>: <span class="hljs-string">&quot;user&quot;</span>, content &#125;);<br></code></pre></td></tr></table></figure>
+
+<p>发送给 Provider 的一轮消息形态接近：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;role&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;user&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-punctuation">&#123;</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;text&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;text&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;这张图片里有什么？&quot;</span> <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-punctuation">&#123;</span> <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;image_url&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;image_url&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span> <span class="hljs-attr">&quot;url&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;data:image/jpeg;base64,...&quot;</span> <span class="hljs-punctuation">&#125;</span> <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>这段代码回答了“Pi 怎样把文字和图片一起传给模型”：它们属于同一条 <code>user</code> 消息，同时保持为不同内容块。Qwen 服务端拿到 <code>image_url</code> 后才进入自己的图片解码与视觉编码过程。</p>
+<p>相关入口：<code>packages/ai/src/api/openai-completions.ts</code> 中的消息转换逻辑。</p>
+<h2 id="Pi-如何估算图片上下文"><a href="#Pi-如何估算图片上下文" class="headerlink" title="Pi 如何估算图片上下文"></a>Pi 如何估算图片上下文</h2><p>Runtime 注册 Qwen Provider 时声明：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs ts">&#123;<br>  <span class="hljs-attr">input</span>: [<span class="hljs-string">&quot;text&quot;</span>, <span class="hljs-string">&quot;image&quot;</span>],<br>  <span class="hljs-attr">contextWindow</span>: <span class="hljs-number">1_000_000</span>,<br>  <span class="hljs-attr">maxTokens</span>: <span class="hljs-number">32_768</span>,<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><code>contextWindow</code> 是输入上下文容量；<code>maxTokens</code> 是单轮最大输出，两者含义不同。</p>
+<p>Pi 在供应商 usage 尚不可用时，需要先估算当前消息大小。<code>packages/ai/src/utils/estimate.ts</code> 的本地规则是：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">CHARS_PER_TOKEN</span> = <span class="hljs-number">4</span>;<br><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">ESTIMATED_IMAGE_CHARS</span> = <span class="hljs-number">4800</span>;<br><br><span class="hljs-keyword">for</span> (<span class="hljs-keyword">const</span> block <span class="hljs-keyword">of</span> content) &#123;<br>  chars += block.<span class="hljs-property">type</span> === <span class="hljs-string">&quot;text&quot;</span><br>    ? block.<span class="hljs-property">text</span>.<span class="hljs-property">length</span><br>    : <span class="hljs-variable constant_">ESTIMATED_IMAGE_CHARS</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>按 <code>4800 / 4</code> 计算，Pi 暂时把每张图片记作约 1,200 Token。五张图片在本地估算里约为 6,000 Token。</p>
+<p>1,200 是 Pi 为上下文管理准备的启发式数字，不能用来计算 Qwen 账单，也不能代表模型真实切出了 1,200 个视觉 Token。模型响应返回 usage 后，Pi 会优先使用供应商报告的 Token 数，再估算 usage 之后新增的消息。</p>
+<h2 id="图片会不会把前面的系统指令挤出去"><a href="#图片会不会把前面的系统指令挤出去" class="headerlink" title="图片会不会把前面的系统指令挤出去"></a>图片会不会把前面的系统指令挤出去</h2><p>当前 Pi 的请求组装和 compaction 没有使用“新图片按字节覆盖旧文字”的处理方式。</p>
+<p>OpenAI Provider 从 <code>context.systemPrompt</code> 单独生成 <code>system</code> 或 <code>developer</code> 消息；会话历史来自 <code>context.messages</code>。AgentSession 判断上下文接近 <code>contextWindow - reserveTokens</code> 时，会压缩较早的历史消息，保留摘要和最近消息，再发起下一轮请求。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">systemPrompt<br>+ 历史摘要<br>+ 最近的 user / assistant / tool 消息<br>+ 本轮文字和图片<br>-&gt; Provider 请求<br></code></pre></td></tr></table></figure>
+
+<p>系统提示词仍然占用上下文。1M 也不承诺模型会对第一条和最后一条信息保持完全相同的注意力。供应商实际限制低于 Runtime 配置、usage 报告不准确或服务端自行截断时，请求仍可能失败或丢失信息。</p>
+<p>这次能由代码确认的范围是：Pi 把系统提示词与可压缩的消息历史分开管理；图片以结构化内容块进入消息；本地图片 Token 使用约 1,200 的估算值。Qwen 内部怎样切视觉 Token、是否采用某种注意力窗口，当前项目源码无法证明。</p>
+<p>回到最初那张 5 MiB 图片：它先受 10 MiB 上传限制约束，随后被 Pi 处理到 2000 × 2000 和 4.5 MiB Base64 负载以内，再以 <code>image_url</code> 内容块发送给 Qwen。它会消耗网络、内存、磁盘和视觉推理资源；上下文占用按照视觉 Token 计算，无法从 5 MiB 文件大小直接推出。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/%E5%A4%9A%E6%A8%A1%E6%80%81/" class="print-no-link">#多模态</a>
+      
+        <a href="/tags/%E5%9B%BE%E7%89%87%E5%A4%84%E7%90%86/" class="print-no-link">#图片处理</a>
+      
+        <a href="/tags/Java-Runtime/" class="print-no-link">#Java Runtime</a>
+      
+        <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%B8%8A%E4%B8%8B%E6%96%87/" class="print-no-link">#大模型上下文</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路</div>
+      <div>https://willfordzhan.github.io/2026/08/12/pi-image-input-context/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月12日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/12/pi-management-console-voice-input/" title="Pi 管理台语音输入：把音频停在 Java，把文本交给 Pi">
+                        <span class="hidden-mobile">Pi 管理台语音输入：把音频停在 Java，把文本交给 Pi</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

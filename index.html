@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/12/pi-image-input-context/" target="_self">
+          5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/12/pi-image-input-context/" target="_self">
+        <div>
+          给 Management Console 加图片输入时，我先定了两个限制：一轮最多 5 张，原始单图不超过 10 MiB。随后看到 Runtime 给 Qwen 登记的上下文窗口是 1,000,000 Token，一个问题马上冒出来：一张 5 MB 图片发给模型，会不会直接吃掉几百万 Token，顺手把前面的系统指令挤出去？ 这两个数字属于不同阶段。5 MB 描述图片文件和 HTTP 传输；1M
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-12 17:15" pubdate>
+              2026-08-12
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/%E5%A4%9A%E6%A8%A1%E6%80%81/">#多模态</a>
+            
+              <a href="/tags/%E5%9B%BE%E7%89%87%E5%A4%84%E7%90%86/">#图片处理</a>
+            
+              <a href="/tags/Java-Runtime/">#Java Runtime</a>
+            
+              <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%B8%8A%E4%B8%8B%E6%96%87/">#大模型上下文</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/12/pi-management-console-voice-input/" target="_self">
           Pi 管理台语音输入：把音频停在 Java，把文本交给 Pi
         </a>
@@ -497,9 +568,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/Skill/">#Skill</a>
             
@@ -824,71 +895,6 @@
               <a href="/tags/DevOps/">#DevOps</a>
             
               <a href="/tags/Skill/">#Skill</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/06/12/db-query-skill-iteration/" target="_self">
-          一次数据库查询 Skill 的小步优化
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/06/12/db-query-skill-iteration/" target="_self">
-        <div>
-          最近整理了一个给 Agent 用的数据库只读查询 Skill。目标很普通：让 Agent 能在本地通过固定脚本查 MySQL 和 Mongo，验证接口副作用、业务数据、测点数据，不要每次都临时拼连接、猜表、猜字段。 真正改起来，重点并不是“怎么查数据库”，而是三个更工程化的问题：  这套 Skill 要给团队共享，不能带任何真实凭证。 Agent 查库时要少走弯路，不能靠全仓宽泛搜索碰运气。 Co
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-06-12 18:13" pubdate>
-              2026-06-12
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/%E5%B7%A5%E7%A8%8B%E6%95%88%E7%8E%87/">#工程效率</a>
             
           </div>
         

@@ -27,7 +27,7 @@
 <meta property="og:description" content="管理台的语音输入最后没有做成“浏览器把音频交给 Pi，再让模型处理”。实际链路是：浏览器录音，Java 调用阿里云百炼转成文字，文字回填输入框；用户确认后，才按原有 SSE 对话链路交给 Pi。 这个拆分很重要：Pi 负责 Agent 会话、Tool 调用和模型回复；Java 负责 ERP Gateway 已有的鉴权、部署配置和外部 ASR 调用。音频不是 Pi 会话的一部分，也不会进入 LLM">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-08-12T09:12:29.000Z">
-<meta property="article:modified_time" content="2026-08-12T09:25:08.035Z">
+<meta property="article:modified_time" content="2026-08-12T09:43:43.353Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="SSE">
@@ -461,6 +461,12 @@
                 <div class="post-prevnext my-3">
                   <article class="post-prev col-6">
                     
+                    
+                      <a href="/2026/08/12/pi-image-input-context/" title="5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
                     
                   </article>
                   <article class="post-next col-6">
