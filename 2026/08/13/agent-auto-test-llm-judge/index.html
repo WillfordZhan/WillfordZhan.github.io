@@ -19,28 +19,27 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：  到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。  答案很明确：后者。 下面按真实时间线复盘，尽量给可复现证据，不讲玄学。 1. 讨论分歧：要不要用 fallback 快速过 case中途一度出现典型诱惑：  用户说“1号炉”，那就直接从 query 里正则提">
+    <meta name="description" content="我们给 ERP 系统接了一个 LLM Agent：用户在系统侧边栏用自然语言问”今天 3 号炉的生产计划怎么样”，Agent 调后端工具查数据，再组织成一段业务回答。 现在每发一个版本，两段都要人工扛。发布是六步手工命令：本地 build 镜像、打包、传到服务器、导入、起容器、验证健康检查。验收更麻烦：发布后在侧边栏手敲指令，人肉看 Agent 调没调对工具、数据对不对、有没有泄露内部字段。 人肉">
 <meta property="og:type" content="article">
-<meta property="og:title" content="LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/06/langgraph-schema-driven-retrospective-20260306/index.html">
+<meta property="og:title" content="给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/13/agent-auto-test-llm-judge/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：  到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。  答案很明确：后者。 下面按真实时间线复盘，尽量给可复现证据，不讲玄学。 1. 讨论分歧：要不要用 fallback 快速过 case中途一度出现典型诱惑：  用户说“1号炉”，那就直接从 query 里正则提">
+<meta property="og:description" content="我们给 ERP 系统接了一个 LLM Agent：用户在系统侧边栏用自然语言问”今天 3 号炉的生产计划怎么样”，Agent 调后端工具查数据，再组织成一段业务回答。 现在每发一个版本，两段都要人工扛。发布是六步手工命令：本地 build 镜像、打包、传到服务器、导入、起容器、验证健康检查。验收更麻烦：发布后在侧边栏手敲指令，人肉看 Agent 调没调对工具、数据对不对、有没有泄露内部字段。 人肉">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-06T10:01:00.000Z">
-<meta property="article:modified_time" content="2026-08-13T15:58:38.162Z">
+<meta property="article:published_time" content="2026-08-13T15:53:00.000Z">
+<meta property="article:modified_time" content="2026-08-13T15:58:38.159Z">
 <meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI Agent">
+<meta property="article:tag" content="自动化测试">
+<meta property="article:tag" content="LLM 评测">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="LangGraph">
-<meta property="article:tag" content="重构复盘">
-<meta property="article:tag" content="Tool Schema">
-<meta property="article:tag" content="联调实战">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战 - 味儿福德詹的小站</title>
+  <title>给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -218,7 +217,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战"></span>
+            <span id="subtitle" data-typed-text="给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案"></span>
           
         </div>
 
@@ -229,8 +228,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-06 18:01" pubdate>
-          2026年3月6日 晚上
+        <time datetime="2026-08-13 23:53" pubdate>
+          2026年8月13日 晚上
         </time>
       </span>
     
@@ -241,7 +240,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          1.3k 字
+          1.9k 字
         
       </span>
     
@@ -252,7 +251,7 @@
         
         
         
-          11 分钟
+          16 分钟
         
       </span>
     
@@ -298,144 +297,131 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</h1>
+            <h1 id="seo-header">给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这次改造最有意思的地方，不是“把编排迁到 LangGraph”这件事本身，而是我们把一个常见工程陷阱踩出来又填平了：</p>
-<blockquote>
-<p>到底是要“快速把 case 跑通”，还是要“把系统做成可长期治理”。</p>
-</blockquote>
-<p>答案很明确：后者。</p>
-<p>下面按真实时间线复盘，尽量给可复现证据，不讲玄学。</p>
-<h2 id="1-讨论分歧：要不要用-fallback-快速过-case"><a href="#1-讨论分歧：要不要用-fallback-快速过-case" class="headerlink" title="1. 讨论分歧：要不要用 fallback 快速过 case"></a>1. 讨论分歧：要不要用 fallback 快速过 case</h2><p>中途一度出现典型诱惑：</p>
+                <p>我们给 ERP 系统接了一个 LLM Agent：用户在系统侧边栏用自然语言问”今天 3 号炉的生产计划怎么样”，Agent 调后端工具查数据，再组织成一段业务回答。</p>
+<p>现在每发一个版本，两段都要人工扛。发布是六步手工命令：本地 build 镜像、打包、传到服务器、导入、起容器、验证健康检查。验收更麻烦：发布后在侧边栏手敲指令，人肉看 Agent 调没调对工具、数据对不对、有没有泄露内部字段。</p>
+<p>人肉验收的缺口很明显：Agent 答非所问但格式正确，也能通过；边界情况靠记忆，覆盖不住。所以这次把发布和验收都自动化：一键触发，先本地联调、再发布、再线上验收，最后出报告。</p>
+<h2 id="先分层：确定性的事和语义的事分开"><a href="#先分层：确定性的事和语义的事分开" class="headerlink" title="先分层：确定性的事和语义的事分开"></a>先分层：确定性的事和语义的事分开</h2><p>Agent 的输出里混着两类性质不同的东西。</p>
+<p>确定性的事：有没有走到终态、调没调对工具、有没有把内部字段（计划 ID、状态码）直接吐出来、澄清话术有没有脱敏。这些跟模型无关，程序断言就能判。</p>
+<p>语义的事：回答的数字对不对、状态判没判反、有没有编一个不存在的炉次。这些正则查不出来。</p>
+<p>两类放在一起测会互相拖累，所以拆成四层：</p>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>测什么</th>
+<th>什么时候跑</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L0 单元&#x2F;契约</td>
+<td>接口、鉴权、消息结构</td>
+<td>每次提交</td>
+</tr>
+<tr>
+<td>L1 工具契约</td>
+<td>后端工具入参出参 + 只读 DB 校验</td>
+<td>发布前后</td>
+</tr>
+<tr>
+<td>L2 端到端 scenario</td>
+<td>完整对话链路行为</td>
+<td>发布前后</td>
+</tr>
+<tr>
+<td>L3 冒烟</td>
+<td>健康检查 + 两三条关键 case</td>
+<td>发布后立刻</td>
+</tr>
+</tbody></table>
+<p>确定性断言覆盖 L0&#x2F;L1 和 L2 的一部分，语义判定只放在 L2。</p>
+<h2 id="正则查不了”业务对不对”"><a href="#正则查不了”业务对不对”" class="headerlink" title="正则查不了”业务对不对”"></a>正则查不了”业务对不对”</h2><p>举一个真实问题。</p>
+<p>用户问”今天 3 号炉生产计划怎么样”，Agent 回答”有 5 个炉次，状态都是进行中”。</p>
+<p>正则断言能确认三件事：调了生产计划查询工具、没泄露 <code>planId</code>、走到了 <code>final</code>。但判断不了 5 对不对、状态是不是真的”进行中”、有没有编炉次。</p>
+<p>这层缺口用 LLM 补：再拿一个模型当裁判，把”问题 + 工具返回的真实数据 + Agent 的回答”一起喂进去，让它按标准判。</p>
+<h2 id="LLM-当裁判，先想清楚三个坑"><a href="#LLM-当裁判，先想清楚三个坑" class="headerlink" title="LLM 当裁判，先想清楚三个坑"></a>LLM 当裁判，先想清楚三个坑</h2><p>方案听起来直接，落地前有三个坑要先踩明白。</p>
+<p>第一，裁判自己也会错。裁判也是 LLM，会被 Agent 流畅但错误的回答糊弄。解法是让裁判对答案，后面讲 Golden。</p>
+<p>第二，同源盲区。裁判和 Agent 用同一个模型，可能犯同样的错。所以用两个不同模型交叉评。</p>
+<p>第三，判分不稳。同一个回答，裁判多次判可能不同。解法是档位制 + 低温 + 结构化输出。低温是调低模型的随机性参数，让它输出更确定；结构化输出是让它吐固定 JSON，机器能直接读、能前后对比，也逼它每个维度都给结论。</p>
+<h2 id="档位制评分-硬门禁"><a href="#档位制评分-硬门禁" class="headerlink" title="档位制评分 + 硬门禁"></a>档位制评分 + 硬门禁</h2><p>判分不打裸分，设四个维度，每个维度分”好&#x2F;中&#x2F;差”三档，再加权合计成 10 分制：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>权重</th>
+<th>硬门禁</th>
+<th>判什么</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>忠实性</td>
+<td>40%</td>
+<td>是</td>
+<td>回答是否严格基于工具数据，有没有编造数字&#x2F;炉次&#x2F;状态</td>
+</tr>
+<tr>
+<td>正确性</td>
+<td>40%</td>
+<td>是</td>
+<td>数据对不对、有没有答用户问的核心问题</td>
+</tr>
+<tr>
+<td>业务恰当性</td>
+<td>10%</td>
+<td>否(WARN)</td>
+<td>是否用业务化表达而非内部字段，该澄清时澄清</td>
+</tr>
+<tr>
+<td>边界合规</td>
+<td>10%</td>
+<td>否(WARN)</td>
+<td>有没有声称超出能力、泄露内部实现</td>
+</tr>
+</tbody></table>
+<p>档位映射：好&#x3D;10、中&#x3D;5、差&#x3D;0，加权总分满分 10。</p>
+<p>硬门禁的规则：忠实性、正确性任一判”差”，直接 FAIL，不看总分。剩下两个维度只做 WARN，不硬卡发布。总分默认阈值 8.0，低于阈值也进 WARN，交人工复核。</p>
+<p>裁判输出固定成 JSON：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;metrics&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;faithfulness&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;好&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;回答称5个炉次，与 Golden 数据长度5一致&quot;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;correctness&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;好&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;准确回答了状态与炉次安排&quot;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;business_appropriateness&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;好&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;用&#x27;进行中&#x27;表达，未直出状态码&quot;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;boundary_compliance&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;好&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;未泄露 planId&quot;</span><span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;weighted_total&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">10.0</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;verdict&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PASS&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<h2 id="Golden-答案：让裁判对答案"><a href="#Golden-答案：让裁判对答案" class="headerlink" title="Golden 答案：让裁判对答案"></a>Golden 答案：让裁判对答案</h2><p>Golden 是预先算好的标准答案。链路这样走：</p>
 <ol>
-<li>用户说“1号炉”，那就直接从 query 里正则提 <code>fnCode</code>。</li>
-<li>schema 还没升级就先兼容参数名，保证联调先绿灯。</li>
+<li>用例”今天 3 号炉生产计划怎么样”。</li>
+<li>只读 SQL 查库，得到真实答案：5 个炉次，状态”进行中”。</li>
+<li>让 Agent 回答同一问题，它说”6 个炉次”。</li>
+<li>把”问题 + Golden + Agent 回答”一起给裁判。</li>
+<li>裁判看到 6 对 5，忠实性判”差”。</li>
 </ol>
-<p>这类方案短期很爽，长期很贵。因为它会快速演变成“编排层半个业务解析器”。</p>
-<p>最终我们把原则钉死：</p>
-<ol>
-<li><strong>禁止 case 特判</strong>。</li>
-<li><strong>禁止 query 文本硬编码补参</strong>。</li>
-<li>参数补全和澄清必须由 <strong>tool schema 语义字段</strong>驱动。</li>
-</ol>
-<p>换句话说：补参逻辑是协议能力，不是对话技巧。</p>
-<h2 id="2-改造目标：保外部资产，重写内部编排"><a href="#2-改造目标：保外部资产，重写内部编排" class="headerlink" title="2. 改造目标：保外部资产，重写内部编排"></a>2. 改造目标：保外部资产，重写内部编排</h2><p>目标是“重写编排侧”，不是“把所有层都改烂”。</p>
-<p>保留不动的资产：</p>
-<ol>
-<li>Infra（鉴权、存储、事件）</li>
-<li>MCP 对接与工具执行平面</li>
-<li>HTTP API 对外契约</li>
-</ol>
-<p>改造聚焦在编排层：</p>
-<ol>
-<li>LangGraph 单轨流程</li>
-<li>节点拆文件</li>
-<li>schema-driven 的 tool 参数 resolve 与澄清</li>
-</ol>
-<h2 id="3-Java-侧改造：把工具参数从“文档”变成“可执行语义”"><a href="#3-Java-侧改造：把工具参数从“文档”变成“可执行语义”" class="headerlink" title="3. Java 侧改造：把工具参数从“文档”变成“可执行语义”"></a>3. Java 侧改造：把工具参数从“文档”变成“可执行语义”</h2><p>核心动作是让 <code>tools/list</code> 返回的 schema 可直接驱动编排。</p>
-<h3 id="3-1-参数注解扩展语义字段"><a href="#3-1-参数注解扩展语义字段" class="headerlink" title="3.1 参数注解扩展语义字段"></a>3.1 参数注解扩展语义字段</h3><p>新增并透传：</p>
-<ol>
-<li><code>x-normalizationRule</code></li>
-<li><code>x-clarifyTemplate</code></li>
-<li><code>x-aliasExamples</code></li>
-<li><code>x-acceptedExamples</code></li>
-<li><code>x-requiredWhen</code></li>
-</ol>
-<h3 id="3-2-Tool-schema-输出升级"><a href="#3-2-Tool-schema-输出升级" class="headerlink" title="3.2 Tool schema 输出升级"></a>3.2 Tool schema 输出升级</h3><p><code>tools/list</code> 返回 <code>inputSchema</code>（兼容保留 <code>parameters</code>），并带参数级 <code>x-*</code> 字段。</p>
-<h3 id="3-3-工具定义补全语义"><a href="#3-3-工具定义补全语义" class="headerlink" title="3.3 工具定义补全语义"></a>3.3 工具定义补全语义</h3><p>例如：</p>
-<ol>
-<li><code>fnCode</code> 标注 <code>extract_furnace_code_number</code></li>
-<li><code>date</code> 标注 <code>relative_date_to_yyyy_mm_dd</code></li>
-<li>每个关键参数给出 <code>x-clarifyTemplate</code></li>
-</ol>
-<h3 id="3-4-Java-侧提交"><a href="#3-4-Java-侧提交" class="headerlink" title="3.4 Java 侧提交"></a>3.4 Java 侧提交</h3><p>提交信息：<code>feat: 增加工具参数语义 schema 并打通补参与澄清</code></p>
-<h2 id="4-Python-侧改造：严格-schema-驱动，不做参数名猜测"><a href="#4-Python-侧改造：严格-schema-驱动，不做参数名猜测" class="headerlink" title="4. Python 侧改造：严格 schema 驱动，不做参数名猜测"></a>4. Python 侧改造：严格 schema 驱动，不做参数名猜测</h2><p>核心函数是 <code>normalize_plan_with_tools</code>，行为约束如下：</p>
-<ol>
-<li>只读取 <code>inputSchema</code>&#x2F;<code>parameters</code> 中显式声明的规则。</li>
-<li>按 <code>x-normalizationRule</code> 做归一化与缺参补全。</li>
-<li>缺参时优先拼 <code>x-clarifyTemplate</code> 作为澄清问题。</li>
-</ol>
-<p>实现后我们做过一次“反向修正”：</p>
-<ol>
-<li>先临时加了向前兼容 fallback（按参数名补）。</li>
-<li>被明确要求撤回（理由：这是硬编码捷径）。</li>
-<li>立即删除 fallback，回到纯 schema-driven。</li>
-</ol>
-<p>这次回滚非常关键，它保证了后续治理边界不再漂移。</p>
-<h3 id="Python-侧提交"><a href="#Python-侧提交" class="headerlink" title="Python 侧提交"></a>Python 侧提交</h3><p>提交信息：<code>feat: 按 schema 驱动工具参数归一化与澄清流程</code></p>
-<h2 id="5-联调排障：先判协议，再判流程，最后判数据"><a href="#5-联调排障：先判协议，再判流程，最后判数据" class="headerlink" title="5. 联调排障：先判协议，再判流程，最后判数据"></a>5. 联调排障：先判协议，再判流程，最后判数据</h2><p>这次联调如果只看“最终回答”，很容易误判。</p>
-<p>正确排障顺序是：</p>
-<ol>
-<li>Java MCP <code>tools/list</code> 是否真的返回了 <code>inputSchema + x-*</code>。</li>
-<li><code>react_plan</code> 是否从 <code>missing_arg</code> 转为真实 <code>tool_call</code>。</li>
-<li><code>tool_result</code> 失败到底是参数问题还是业务数据未命中。</li>
-</ol>
-<h3 id="5-1-第一轮现象（协议未生效）"><a href="#5-1-第一轮现象（协议未生效）" class="headerlink" title="5.1 第一轮现象（协议未生效）"></a>5.1 第一轮现象（协议未生效）</h3><p>当在线 Java 仍返回旧 schema 时，Case2 会持续停在“缺少 fnCode”的澄清。</p>
-<p>这是协议问题，不是 LangGraph 节点逻辑问题。</p>
-<h3 id="5-2-服务重启后验证（协议生效）"><a href="#5-2-服务重启后验证（协议生效）" class="headerlink" title="5.2 服务重启后验证（协议生效）"></a>5.2 服务重启后验证（协议生效）</h3><p>确认 <code>tools/list</code> 已含 <code>inputSchema</code> 和 <code>x-normalizationRule/x-clarifyTemplate</code>。</p>
-<p>之后再跑 case，链路变化为：</p>
-<ol>
-<li>Case2 第二轮出现真实 <code>tool_call(arguments=&#123;&quot;fnCode&quot;:&quot;1&quot;&#125;)</code>。</li>
-<li>Case3 出现 <code>tool_call -&gt; tool_result</code>，并携带归一化后的参数。</li>
-</ol>
-<h3 id="5-3-最终阻塞点"><a href="#5-3-最终阻塞点" class="headerlink" title="5.3 最终阻塞点"></a>5.3 最终阻塞点</h3><p><code>tool_result</code> 返回“未找到匹配炉体，fnCode&#x3D;1”。</p>
-<p>这说明：</p>
-<ol>
-<li>编排链路已通。</li>
-<li>参数解析已通。</li>
-<li>业务数据不命中。</li>
-</ol>
-<p>这个结论比“没跑通”更有价值，因为可执行动作变得明确：补业务数据或提供真实可命中炉号。</p>
-<h2 id="6-典型用例结果（真实联调）"><a href="#6-典型用例结果（真实联调）" class="headerlink" title="6. 典型用例结果（真实联调）"></a>6. 典型用例结果（真实联调）</h2><h3 id="Case1：问候语"><a href="#Case1：问候语" class="headerlink" title="Case1：问候语"></a>Case1：问候语</h3><p>链路：<code>user_message -&gt; conversation_started -&gt; llm_request -&gt; react_plan -&gt; final</code></p>
-<p>结果：通过。</p>
-<h3 id="Case2：缺参澄清-补参"><a href="#Case2：缺参澄清-补参" class="headerlink" title="Case2：缺参澄清 -&gt; 补参"></a>Case2：缺参澄清 -&gt; 补参</h3><ol>
-<li>首轮按 schema 提示补 <code>fnCode</code>。</li>
-<li>次轮输入“1号炉”后触发 <code>tool_call</code>。</li>
-<li>由于数据未命中进入标准编码澄清。</li>
-</ol>
-<p>结果：编排通过，数据未命中。</p>
-<h3 id="Case3：今天-vs-昨天"><a href="#Case3：今天-vs-昨天" class="headerlink" title="Case3：今天 vs 昨天"></a>Case3：今天 vs 昨天</h3><ol>
-<li>触发 <code>tool_call</code> 与 <code>tool_result</code>。</li>
-<li>参数归一化生效。</li>
-<li>数据未命中后进入澄清。</li>
-</ol>
-<p>结果：编排通过，数据未命中。</p>
-<h2 id="7-这次改造的工程收益"><a href="#7-这次改造的工程收益" class="headerlink" title="7. 这次改造的工程收益"></a>7. 这次改造的工程收益</h2><h3 id="7-1-可维护性提升"><a href="#7-1-可维护性提升" class="headerlink" title="7.1 可维护性提升"></a>7.1 可维护性提升</h3><p>新增工具参数时，路径稳定：</p>
-<ol>
-<li>Java 注解声明语义</li>
-<li>MCP schema 透出</li>
-<li>Python resolve 执行规则</li>
-<li>测试覆盖</li>
-</ol>
-<p>不再需要在编排里堆 if&#x2F;else。</p>
-<h3 id="7-2-可观测性提升"><a href="#7-2-可观测性提升" class="headerlink" title="7.2 可观测性提升"></a>7.2 可观测性提升</h3><p>现在可以基于事件链定位：</p>
-<ol>
-<li><code>react_plan.validationErrors</code></li>
-<li><code>tool_call</code></li>
-<li><code>tool_result</code></li>
-</ol>
-<p>故障定位从“猜测式”变成“证据式”。</p>
-<h3 id="7-3-治理边界稳定"><a href="#7-3-治理边界稳定" class="headerlink" title="7.3 治理边界稳定"></a>7.3 治理边界稳定</h3><p>最重要的一点：这次明确拒绝了“tricky pass”。</p>
-<p>这让系统从“能跑一次”转向“能持续演进”。</p>
-<h2 id="8-给做-Agent-编排的同学三条建议"><a href="#8-给做-Agent-编排的同学三条建议" class="headerlink" title="8. 给做 Agent 编排的同学三条建议"></a>8. 给做 Agent 编排的同学三条建议</h2><ol>
-<li>先把 tool schema 语义化，再谈 prompt 技巧。</li>
-<li>把“失败可解释”当成首要验收标准。</li>
-<li>真实联调必须分层看证据：协议 -&gt; 编排 -&gt; 数据。</li>
-</ol>
-<h2 id="结语"><a href="#结语" class="headerlink" title="结语"></a>结语</h2><p>这次改造的最终形态并不炫技：</p>
-<ol>
-<li>LangGraph 单轨。</li>
-<li>schema 驱动补参与澄清。</li>
-<li>事件链可验证。</li>
-</ol>
-<p>但它解决了一个更难的问题：</p>
-<blockquote>
-<p>当需求变化时，系统还能不能继续被清晰地改下去。</p>
-</blockquote>
-<p>这件事，比一次“看起来很聪明”的临时绿灯值钱得多。</p>
+<p>裁判自己不懂业务、也不能查库，所以必须给 Golden。有了 Golden，裁判是对答案，数字编错、状态判反、编炉次都会在忠实性&#x2F;正确性上落马。</p>
+<p>Golden 来源优先只读 DB 实时查，生产计划每天变，预置假数据会过期。</p>
+<h2 id="双裁判-分歧处理"><a href="#双裁判-分歧处理" class="headerlink" title="双裁判 + 分歧处理"></a>双裁判 + 分歧处理</h2><p>单裁判可能误判，所以用两个不同模型（这次是 Qwen 和 Codex）各自独立判：</p>
+<ul>
+<li>两个都 PASS → PASS</li>
+<li>两个都 FAIL → FAIL</li>
+<li>一个 PASS 一个 FAIL → 自动重判一次，还分歧就升级 WARN，交人工复核</li>
+</ul>
+<p>不同模型家族互相纠偏，压住单个模型的盲区。</p>
+<h2 id="Prompt-变更单独记账"><a href="#Prompt-变更单独记账" class="headerlink" title="Prompt 变更单独记账"></a>Prompt 变更单独记账</h2><p>这套系统有个历史坑：语义约束加得太多，模型最后变”傻”了。所以 Prompt &#x2F; 语义约束的变更必须单独记账：</p>
+<ul>
+<li>报告里声明：这次改的是 Prompt&#x2F;语义约束，不是代码。</li>
+<li>记录改了哪条约束、为什么改、影响什么。</li>
+<li>同一 scenario 变更前后各跑一遍，对比裁判各维度档位变化。</li>
+</ul>
+<p>裁判分数正好能量化”变聪明还是变傻”。去掉一条多余约束后，”业务恰当性”从低档升到高档，这就是证据。</p>
+<h2 id="一键流程和分支红线"><a href="#一键流程和分支红线" class="headerlink" title="一键流程和分支红线"></a>一键流程和分支红线</h2><p>最终是 agent 一键触发，串成五步：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">1. 本地联调：本地起 Agent，连 ERP 开发环境(Canary)，跑完整 scenario<br>2. 红转绿：Agent 的问题改 Agent，后端的问题后端提交后发布到 Canary 再继续测<br>3. 发布测试环境：Agent 和后端各自发布<br>4. 线上验收：冒烟 + 完整 scenario 打测试环境<br>5. 出报告<br></code></pre></td></tr></table></figure>
+
+<p>分支上有一条红线：只允许 dev 往 Canary 合，禁止 Canary 反向往 dev 合。反向合并只能人工做，自动化流程不得执行，也不得绕道。</p>
+<h2 id="代价和边界"><a href="#代价和边界" class="headerlink" title="代价和边界"></a>代价和边界</h2><p>代价集中在三处：</p>
+<ul>
+<li>LLM 非确定性还在，靠分层 + 档位 + 重判隔离，没有彻底消除。</li>
+<li>裁判误差只能降低不能归零，需要定期抽样本人工复核校准。</li>
+<li>Golden 要维护：每个 scenario 都要有对应的只读查询，数据模型变了 Golden 也要跟着改。</li>
+</ul>
+<p>它解决的是”发布 + 验收靠人扛”这件事，不解决 Agent 本身写得好不好。语义约束有没有过量，靠前后对比的裁判分数给信号，不靠感觉。</p>
 
                 
               </div>
@@ -469,15 +455,13 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
+        <a href="/tags/AI-Agent/" class="print-no-link">#AI Agent</a>
+      
+        <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/" class="print-no-link">#自动化测试</a>
+      
+        <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/" class="print-no-link">#LLM 评测</a>
+      
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
-      
-        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
-      
-        <a href="/tags/%E9%87%8D%E6%9E%84%E5%A4%8D%E7%9B%98/" class="print-no-link">#重构复盘</a>
-      
-        <a href="/tags/Tool-Schema/" class="print-no-link">#Tool Schema</a>
-      
-        <a href="/tags/%E8%81%94%E8%B0%83%E5%AE%9E%E6%88%98/" class="print-no-link">#联调实战</a>
       
     </div>
   
@@ -489,8 +473,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>LangGraph 编排重构复盘：一次把“能跑”改成“可证据化运行”的实战</div>
-      <div>https://willfordzhan.github.io/2026/03/06/langgraph-schema-driven-retrospective-20260306/</div>
+      <div>给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案</div>
+      <div>https://willfordzhan.github.io/2026/08/13/agent-auto-test-llm-judge/</div>
     </div>
     <div class="license-meta">
       
@@ -502,7 +486,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月6日</div>
+          <div>2026年8月13日</div>
         </div>
       
       
@@ -534,18 +518,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/09/ai-agent-security/" title="AI Agent Security 实现实践：对话阶段防泄露、防工具暴露与审计">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">AI Agent Security 实现实践：对话阶段防泄露、防工具暴露与审计</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/06/langgraph-messagesstate/" title="LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口">
-                        <span class="hidden-mobile">LangGraph 从字段拼接到 MessagesState：两次提交把编排链路收口</span>
+                      <a href="/2026/08/13/pi-native-skill-runtime-choice/" title="回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择">
+                        <span class="hidden-mobile">回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

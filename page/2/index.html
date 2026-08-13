@@ -241,6 +241,54 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/07/29/auto-batching-ux-redesign/" target="_self">
+          把一张宽表拆回工艺流程：自动配料页面的 UX/UI 改造
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/07/29/auto-batching-ux-redesign/" target="_self">
+        <div>
+          自动配料页面最初的问题，不是字段不够，而是把所有字段同时摊在了一张表里：炉内、炉后、浇注三类配料混在一起；重量、比例、容差、固定比例、价格并列出现；目标成分又在另一张横向大表里同时表达炉前和产品目标。 用户面对的不是“制定一个配方”，而是一张需要不断横向滚动、反复确认列含义的配置表。字段本身有业务价值，但页面没有把业务过程表达出来。 这次改造的目标很明确：让页面按照真实工艺流程组织，让用户在每一步
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-07-29 14:19" pubdate>
+              2026-07-29
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/UX/">#UX</a>
+            
+              <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1/">#产品设计</a>
+            
+              <a href="/tags/ERP/">#ERP</a>
+            
+              <a href="/tags/%E5%B7%A5%E4%B8%9A%E8%BD%AF%E4%BB%B6/">#工业软件</a>
+            
+              <a href="/tags/%E9%85%8D%E6%96%99%E8%AE%A1%E7%AE%97/">#配料计算</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/07/01/2026-07-01-lora/" target="_self">
           2026-07-01 LoRa 项目整理开发记录
         </a>
@@ -355,9 +403,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">#自动化部署</a>
             
@@ -631,9 +679,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
-            
               <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
             
               <a href="/tags/LLM-wiki/">#LLM-wiki</a>
             
@@ -700,9 +748,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
-            
               <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
             
               <a href="/tags/LLM-wiki/">#LLM-wiki</a>
             
@@ -778,75 +826,6 @@
               <a href="/tags/LLM-wiki/">#LLM-wiki</a>
             
               <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/">#文档治理</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/05/08/system-config-cache-sqlite-pressure/" target="_self">
-          端侧 Java 服务的系统配置读写降压设计
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/08/system-config-cache-sqlite-pressure/" target="_self">
-        <div>
-          端侧 Java 服务里有一类配置读写很容易被忽略：系统配置表看起来很小，单次 selectById 也很快，但高频轮询、状态推送、版本上报叠在一起后，会把 SQLite 打成持续背景负载。 这次要处理的不是一次慢 SQL，而是低价值的高频读写。目标也很明确：不改变业务配置语义，减少系统配置读写次数，把优化开关做成可回退能力。 现场数据监控窗口是 30 秒。某台端侧设备上的数据库监控大致是这样： 1
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-05-08 14:39" pubdate>
-              2026-05-08
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/%E6%97%A5%E5%B8%B8%E5%BC%80%E5%8F%91/" class="category-chain-item">日常开发</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/SQLite/">#SQLite</a>
-            
-              <a href="/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">#性能优化</a>
-            
-              <a href="/tags/%E7%BC%93%E5%AD%98/">#缓存</a>
             
           </div>
         

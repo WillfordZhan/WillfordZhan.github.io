@@ -241,6 +241,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/13/agent-auto-test-llm-judge/" target="_self">
+          给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/13/agent-auto-test-llm-judge/" target="_self">
+        <div>
+          我们给 ERP 系统接了一个 LLM Agent：用户在系统侧边栏用自然语言问”今天 3 号炉的生产计划怎么样”，Agent 调后端工具查数据，再组织成一段业务回答。 现在每发一个版本，两段都要人工扛。发布是六步手工命令：本地 build 镜像、打包、传到服务器、导入、起容器、验证健康检查。验收更麻烦：发布后在侧边栏手敲指令，人肉看 Agent 调没调对工具、数据对不对、有没有泄露内部字段。 人肉
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-13 23:53" pubdate>
+              2026-08-13
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">#自动化测试</a>
+            
+              <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/13/pi-native-skill-runtime-choice/" target="_self">
           回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择
         </a>
@@ -851,54 +918,6 @@
               <a href="/tags/AI-Tool/">#AI Tool</a>
             
               <a href="/tags/%E8%B8%A9%E5%9D%91%E5%A4%8D%E7%9B%98/">#踩坑复盘</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/07/29/auto-batching-ux-redesign/" target="_self">
-          把一张宽表拆回工艺流程：自动配料页面的 UX/UI 改造
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/07/29/auto-batching-ux-redesign/" target="_self">
-        <div>
-          自动配料页面最初的问题，不是字段不够，而是把所有字段同时摊在了一张表里：炉内、炉后、浇注三类配料混在一起；重量、比例、容差、固定比例、价格并列出现；目标成分又在另一张横向大表里同时表达炉前和产品目标。 用户面对的不是“制定一个配方”，而是一张需要不断横向滚动、反复确认列含义的配置表。字段本身有业务价值，但页面没有把业务过程表达出来。 这次改造的目标很明确：让页面按照真实工艺流程组织，让用户在每一步
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-07-29 14:19" pubdate>
-              2026-07-29
-            </time>
-          </div>
-        
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/UX/">#UX</a>
-            
-              <a href="/tags/%E4%BA%A7%E5%93%81%E8%AE%BE%E8%AE%A1/">#产品设计</a>
-            
-              <a href="/tags/ERP/">#ERP</a>
-            
-              <a href="/tags/%E5%B7%A5%E4%B8%9A%E8%BD%AF%E4%BB%B6/">#工业软件</a>
-            
-              <a href="/tags/%E9%85%8D%E6%96%99%E8%AE%A1%E7%AE%97/">#配料计算</a>
             
           </div>
         
