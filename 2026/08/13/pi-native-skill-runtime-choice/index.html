@@ -1,0 +1,972 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="这次给 Java Runtime 接入仓管 Skill，我先重新梳理了 Pi 原生的 Skill 链路。 Pi 已经提供了四项可以直接组合的能力：  Skill 自动发现 noSkills additionalSkillPaths Skill 元数据注入与正文按需加载  我们最终选择保留这套原生链路： 123noSkills  + additionalSkillPaths  + 自定义受限 rea">
+<meta property="og:type" content="article">
+<meta property="og:title" content="回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/13/pi-native-skill-runtime-choice/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="这次给 Java Runtime 接入仓管 Skill，我先重新梳理了 Pi 原生的 Skill 链路。 Pi 已经提供了四项可以直接组合的能力：  Skill 自动发现 noSkills additionalSkillPaths Skill 元数据注入与正文按需加载  我们最终选择保留这套原生链路： 123noSkills  + additionalSkillPaths  + 自定义受限 rea">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-13T10:42:15.000Z">
+<meta property="article:modified_time" content="2026-08-13T10:45:09.584Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="Skill">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="Java Runtime">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-13 18:42" pubdate>
+          2026年8月13日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2.5k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          21 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>这次给 Java Runtime 接入仓管 Skill，我先重新梳理了 Pi 原生的 Skill 链路。</p>
+<p>Pi 已经提供了四项可以直接组合的能力：</p>
+<ol>
+<li>Skill 自动发现</li>
+<li><code>noSkills</code></li>
+<li><code>additionalSkillPaths</code></li>
+<li>Skill 元数据注入与正文按需加载</li>
+</ol>
+<p>我们最终选择保留这套原生链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">noSkills<br>  + additionalSkillPaths<br>  + 自定义受限 read<br></code></pre></td></tr></table></figure>
+
+<p>Runtime 不再扫描用户目录和工作目录，只加载随 Runtime 发布的 Skill。模型仍然通过 Pi 原生元数据识别 Skill，再按需读取对应的 <code>SKILL.md</code>。</p>
+<h2 id="一、Skill-自动发现"><a href="#一、Skill-自动发现" class="headerlink" title="一、Skill 自动发现"></a>一、Skill 自动发现</h2><p>Pi 的 Skill 加载入口是 <code>DefaultResourceLoader.reload()</code>。</p>
+<p>它先调用 <code>DefaultPackageManager.resolve()</code>，收集当前会话允许使用的资源。Skill 来源包括：</p>
+<ul>
+<li>项目配置中声明的 Skill</li>
+<li>用户配置中声明的 Skill</li>
+<li>已安装 Package 提供的 Skill</li>
+<li>项目目录自动发现的 Skill</li>
+<li>用户目录自动发现的 Skill</li>
+<li>通过参数显式传入的 Skill</li>
+</ul>
+<p>默认自动发现目录主要有四类：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">&lt;cwd&gt;/.pi/skills<br>&lt;cwd 或上级目录&gt;/.agents/skills<br>&lt;agentDir&gt;/skills<br>~/.agents/skills<br></code></pre></td></tr></table></figure>
+
+<p>项目级目录受 Project Trust 控制。项目未被信任时，Pi 不会自动加载项目里的 <code>.pi/skills</code> 和 <code>.agents/skills</code>。</p>
+<p>用户级 Skill 不依赖当前项目的信任状态。</p>
+<h3 id="pi-skills-和-agents-skills-的发现方式"><a href="#pi-skills-和-agents-skills-的发现方式" class="headerlink" title=".pi/skills 和 .agents/skills 的发现方式"></a><code>.pi/skills</code> 和 <code>.agents/skills</code> 的发现方式</h3><p>Pi 会递归扫描 Skill 目录。</p>
+<p>目录中存在 <code>SKILL.md</code> 时，该目录成为一个完整的 Skill 根目录。扫描在这里停止，不再把其子目录识别为其他 Skill。</p>
+<p>典型结构如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">skills/<br>└── warehouse-manager/<br>    └── SKILL.md<br></code></pre></td></tr></table></figure>
+
+<p><code>.pi/skills</code> 还兼容直接放置 Markdown 文件：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">.pi/skills/<br>├── warehouse-manager.md<br>└── purchase-manager.md<br></code></pre></td></tr></table></figure>
+
+<p>扫描过程会跳过：</p>
+<ul>
+<li>隐藏目录</li>
+<li><code>node_modules</code></li>
+<li>被 <code>.gitignore</code>、<code>.ignore</code> 或 <code>.fdignore</code> 排除的文件</li>
+</ul>
+<p>符号链接可以被跟随，但 Pi 会对最终真实路径去重。同一个文件通过多个路径被发现时，只保留一份。</p>
+<h3 id="从文件到-Skill-对象"><a href="#从文件到-Skill-对象" class="headerlink" title="从文件到 Skill 对象"></a>从文件到 Skill 对象</h3><p>发现 <code>SKILL.md</code> 后，Pi 会读取 YAML frontmatter：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-meta">---</span><br><span class="hljs-attr">name:</span> <span class="hljs-string">warehouse-manager</span><br><span class="hljs-attr">description:</span> <span class="hljs-string">处理仓库入库、出库单据创建和库存校验流程。</span><br><span class="hljs-meta">---</span><br></code></pre></td></tr></table></figure>
+
+<p>随后生成一个 <code>Skill</code> 对象：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">interface</span> <span class="hljs-title class_">Skill</span> &#123;<br>  <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span>;<br>  <span class="hljs-attr">description</span>: <span class="hljs-built_in">string</span>;<br>  <span class="hljs-attr">filePath</span>: <span class="hljs-built_in">string</span>;<br>  <span class="hljs-attr">baseDir</span>: <span class="hljs-built_in">string</span>;<br>  <span class="hljs-attr">sourceInfo</span>: <span class="hljs-title class_">SourceInfo</span>;<br>  <span class="hljs-attr">disableModelInvocation</span>: <span class="hljs-built_in">boolean</span>;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>各字段职责如下：</p>
+<ul>
+<li><code>name</code>：Skill 唯一名称</li>
+<li><code>description</code>：模型判断是否需要使用 Skill 的主要证据</li>
+<li><code>filePath</code>：<code>SKILL.md</code> 的实际位置</li>
+<li><code>baseDir</code>：Skill 内相对引用的解析目录</li>
+<li><code>sourceInfo</code>：Skill 来自用户、项目、Package 或显式路径</li>
+<li><code>disableModelInvocation</code>：是否禁止模型自动调用</li>
+</ul>
+<p>缺少 <code>description</code> 的 Skill 不会被加载。名称格式存在问题时会产生诊断信息。</p>
+<p>同名 Skill 发生冲突时，先进入 Skill 集合的版本保留，后续版本记入 collision diagnostic。</p>
+<h2 id="二、noSkills"><a href="#二、noSkills" class="headerlink" title="二、noSkills"></a>二、noSkills</h2><p><code>noSkills</code> 用于关闭默认 Skill 发现。</p>
+<p>CLI 中对应：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs bash">pi --no-skills<br>pi -ns<br></code></pre></td></tr></table></figure>
+
+<p>SDK 中对应：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> loader = <span class="hljs-keyword">new</span> <span class="hljs-title class_">DefaultResourceLoader</span>(&#123;<br>  cwd,<br>  agentDir,<br>  <span class="hljs-attr">noSkills</span>: <span class="hljs-literal">true</span>,<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>ResourceLoader 组装 Skill 路径时，逻辑可以简化为：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> skillPaths = noSkills<br>  ? <span class="hljs-title function_">merge</span>(cliSkills, additionalSkillPaths)<br>  : <span class="hljs-title function_">merge</span>(cliSkills, discoveredSkills, additionalSkillPaths);<br></code></pre></td></tr></table></figure>
+
+<p><code>noSkills: true</code> 关闭以下来源：</p>
+<ul>
+<li>项目目录自动发现</li>
+<li>用户目录自动发现</li>
+<li>项目和用户配置中的默认 Skill</li>
+<li>Package 解析得到的默认 Skill</li>
+</ul>
+<p>它仍然保留两类显式输入：</p>
+<ul>
+<li>CLI 的 <code>--skill</code></li>
+<li>SDK 的 <code>additionalSkillPaths</code></li>
+</ul>
+<p>所以 <code>noSkills</code> 的准确语义是“关闭默认发现集合”，显式授权的 Skill 仍然可以加载。</p>
+<p>这个行为给 Runtime 提供了一个清晰的安全边界：服务端不接受运行环境自动发现出来的 Skill，只接受部署时明确指定的 Skill。</p>
+<h2 id="三、additionalSkillPaths"><a href="#三、additionalSkillPaths" class="headerlink" title="三、additionalSkillPaths"></a>三、additionalSkillPaths</h2><p><code>additionalSkillPaths</code> 用来向 ResourceLoader 显式提供 Skill 文件或目录。</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> loader = <span class="hljs-keyword">new</span> <span class="hljs-title class_">DefaultResourceLoader</span>(&#123;<br>  cwd,<br>  agentDir,<br>  <span class="hljs-attr">additionalSkillPaths</span>: [<br>    <span class="hljs-string">&quot;/opt/runtime-skills&quot;</span>,<br>  ],<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>它可以指向：</p>
+<ul>
+<li>单个 <code>SKILL.md</code></li>
+<li>单个 Markdown Skill</li>
+<li>包含多个 Skill 的目录</li>
+</ul>
+<p>CLI 的对应能力是：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash">pi --skill /opt/runtime-skills<br></code></pre></td></tr></table></figure>
+
+<p><code>additionalSkillPaths</code> 会和其他 Skill 来源合并。配合 <code>noSkills: true</code> 时，它会成为主要甚至唯一的 Skill 来源：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> loader = <span class="hljs-keyword">new</span> <span class="hljs-title class_">DefaultResourceLoader</span>(&#123;<br>  cwd,<br>  agentDir,<br>  <span class="hljs-attr">noSkills</span>: <span class="hljs-literal">true</span>,<br>  <span class="hljs-attr">additionalSkillPaths</span>: [<br>    <span class="hljs-string">&quot;/opt/runtime-skills&quot;</span>,<br>  ],<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>最终效果是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">项目 Skill         不扫描<br>用户 Skill         不扫描<br>Package Skill      不加载<br>显式 Runtime Skill 加载<br></code></pre></td></tr></table></figure>
+
+<p>Pi 后续的 Skill 解析、冲突检测、元数据生成和 AgentSession 集成都保持不变。</p>
+<h2 id="四、元数据注入与正文按需加载"><a href="#四、元数据注入与正文按需加载" class="headerlink" title="四、元数据注入与正文按需加载"></a>四、元数据注入与正文按需加载</h2><p>Pi 在发现阶段需要读取 <code>SKILL.md</code>，因为它必须解析 frontmatter。</p>
+<p>这次读取发生在 Runtime 内部。完整正文还没有发送给模型。</p>
+<h3 id="第一层：Skill-元数据进入-system-prompt"><a href="#第一层：Skill-元数据进入-system-prompt" class="headerlink" title="第一层：Skill 元数据进入 system prompt"></a>第一层：Skill 元数据进入 system prompt</h3><p><code>AgentSession</code> 重建 system prompt 时，会调用：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs ts">resourceLoader.<span class="hljs-title function_">getSkills</span>()<br></code></pre></td></tr></table></figure>
+
+<p>然后把允许模型自动调用的 Skill 格式化为：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">available_skills</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">skill</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">name</span>&gt;</span>warehouse-manager<span class="hljs-tag">&lt;/<span class="hljs-name">name</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">description</span>&gt;</span><br>      处理仓库入库、出库单据创建和库存校验流程。<br>    <span class="hljs-tag">&lt;/<span class="hljs-name">description</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">location</span>&gt;</span><br>      /opt/runtime-skills/warehouse-manager/SKILL.md<br>    <span class="hljs-tag">&lt;/<span class="hljs-name">location</span>&gt;</span><br>  <span class="hljs-tag">&lt;/<span class="hljs-name">skill</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">available_skills</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>这一步进入上下文的内容只有：</p>
+<ul>
+<li><code>name</code></li>
+<li><code>description</code></li>
+<li><code>location</code></li>
+</ul>
+<p><code>SKILL.md</code> 正文暂时不进入上下文。</p>
+<p>这就是 Pi 的渐进加载机制。每个 Skill 固定占用少量元数据 Token，只有匹配当前请求的 Skill 才加载完整正文。</p>
+<h3 id="第二层：模型判断是否使用-Skill"><a href="#第二层：模型判断是否使用-Skill" class="headerlink" title="第二层：模型判断是否使用 Skill"></a>第二层：模型判断是否使用 Skill</h3><p>模型拿到用户请求后，通过 <code>description</code> 判断相关性。</p>
+<p>例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">用户：帮我创建一张产品出库单<br></code></pre></td></tr></table></figure>
+
+<p>模型看到 <code>warehouse-manager</code> 的描述后，判断当前任务属于仓库单据流程。</p>
+<p>随后调用：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">read(<br>  path=&quot;/opt/runtime-skills/warehouse-manager/SKILL.md&quot;<br>)<br></code></pre></td></tr></table></figure>
+
+<p>工具返回正文后，Skill 中定义的业务规则才进入当前 Agent loop。</p>
+<p>完整链路如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">ResourceLoader 发现 Skill<br>  -&gt; 解析 frontmatter<br>  -&gt; 生成 Skill 元数据<br>  -&gt; AgentSession 构建 system prompt<br>  -&gt; 模型读取 available_skills<br>  -&gt; 模型根据 description 匹配<br>  -&gt; 调用 read 读取 SKILL.md<br>  -&gt; 按 Skill 正文调用业务 Tool<br></code></pre></td></tr></table></figure>
+
+<h3 id="read-是原生链路中的必要条件"><a href="#read-是原生链路中的必要条件" class="headerlink" title="read 是原生链路中的必要条件"></a>read 是原生链路中的必要条件</h3><p>Pi 构建 system prompt 时会检查当前活动工具中是否存在名为 <code>read</code> 的工具。</p>
+<p>存在 <code>read</code>：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">Skill 元数据写入 system prompt<br></code></pre></td></tr></table></figure>
+
+<p>不存在 <code>read</code>：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">不写入 available_skills<br></code></pre></td></tr></table></figure>
+
+<p>这个判断有明确的上下文：模型收到 Skill 的路径后，需要有能力读取对应文件。缺少读取能力时，单独暴露元数据无法完成后续加载。</p>
+<h3 id="显式调用是另一条链路"><a href="#显式调用是另一条链路" class="headerlink" title="显式调用是另一条链路"></a>显式调用是另一条链路</h3><p>Pi 还支持：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">/skill:warehouse-manager<br></code></pre></td></tr></table></figure>
+
+<p>AgentSession 会在处理消息前查找对应 Skill，直接读取文件、去掉 frontmatter，并把正文展开到用户消息中。</p>
+<p>这条路径不需要模型先判断，也不依赖模型主动调用 <code>read</code>：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">用户输入 /skill:name<br>  -&gt; AgentSession 查找 Skill<br>  -&gt; Runtime 读取 SKILL.md<br>  -&gt; 正文展开到当前消息<br>  -&gt; 模型直接执行 Skill<br></code></pre></td></tr></table></figure>
+
+<p>它适合用户明确指定 Skill。自然语言自动触发仍然依赖 <code>&lt;available_skills&gt;</code> 和 <code>read</code>。</p>
+<h2 id="五、我们在-Java-Runtime-中的选择"><a href="#五、我们在-Java-Runtime-中的选择" class="headerlink" title="五、我们在 Java Runtime 中的选择"></a>五、我们在 Java Runtime 中的选择</h2><p>我们的 Java Runtime 已经关闭 Pi 内置工具：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-title function_">createAgentSession</span>(&#123;<br>  customTools,<br>  <span class="hljs-attr">noTools</span>: <span class="hljs-string">&quot;builtin&quot;</span>,<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>这个配置关闭了内置的：</p>
+<ul>
+<li><code>read</code></li>
+<li><code>bash</code></li>
+<li><code>edit</code></li>
+<li><code>write</code></li>
+</ul>
+<p>Java MCP 提供的自定义 Tool 仍然可用。</p>
+<p>关闭内置 <code>read</code> 后，模型无法读取 Runtime 文件系统。这满足服务端最小权限要求，但 Pi 也不会把 Skill 元数据写入 system prompt，自然语言无法自动触发 Skill。</p>
+<h3 id="方案一：恢复内置-read"><a href="#方案一：恢复内置-read" class="headerlink" title="方案一：恢复内置 read"></a>方案一：恢复内置 read</h3><p>这条路改动少，但读取范围过大。</p>
+<p>模型除了能读取 <code>SKILL.md</code>，也可能读取：</p>
+<ul>
+<li>Runtime 配置</li>
+<li>工作目录文件</li>
+<li>挂载卷内容</li>
+<li>会话文件</li>
+<li>其他租户遗留文件</li>
+</ul>
+<p>服务端环境不适合开放这种权限。</p>
+<h3 id="方案二：把-Skill-正文直接拼进-system-prompt"><a href="#方案二：把-Skill-正文直接拼进-system-prompt" class="headerlink" title="方案二：把 Skill 正文直接拼进 system prompt"></a>方案二：把 Skill 正文直接拼进 system prompt</h3><p>这条路不需要 <code>read</code>。</p>
+<p>代价也很明确：</p>
+<ul>
+<li>每次请求都携带完整 Skill</li>
+<li>Skill 增加后上下文持续膨胀</li>
+<li>无关业务规则进入每轮推理</li>
+<li>偏离 Pi 原生渐进加载方式</li>
+</ul>
+<p>第一版只有一个仓管 Skill 时可以工作，后续继续增加采购、生产、质检 Skill 后，维护成本会上升。</p>
+<h3 id="方案三：noSkills-additionalSkillPaths-受限-read"><a href="#方案三：noSkills-additionalSkillPaths-受限-read" class="headerlink" title="方案三：noSkills + additionalSkillPaths + 受限 read"></a>方案三：noSkills + additionalSkillPaths + 受限 read</h3><p>我们最终选择这一版：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> resourceLoader = <span class="hljs-keyword">new</span> <span class="hljs-title class_">DefaultResourceLoader</span>(&#123;<br>  cwd,<br>  agentDir,<br>  <span class="hljs-attr">noSkills</span>: <span class="hljs-literal">true</span>,<br>  <span class="hljs-attr">additionalSkillPaths</span>: [<br>    runtimeBundledSkillsDirectory,<br>  ],<br>&#125;);<br><br><span class="hljs-keyword">const</span> &#123; session &#125; = <span class="hljs-keyword">await</span> <span class="hljs-title function_">createAgentSession</span>(&#123;<br>  resourceLoader,<br>  <span class="hljs-attr">customTools</span>: [<br>    ...javaMcpTools,<br>    restrictedSkillReadTool,<br>  ],<br>  <span class="hljs-attr">noTools</span>: <span class="hljs-string">&quot;builtin&quot;</span>,<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p>三个部分各自承担一个职责。</p>
+<h4 id="noSkills"><a href="#noSkills" class="headerlink" title="noSkills"></a>noSkills</h4><p>关闭项目目录、用户目录和默认 Package Skill 的自动发现。</p>
+<p>Runtime 不会因为挂载目录里多了一个 Markdown 文件，就把它暴露给所有会话。</p>
+<h4 id="additionalSkillPaths"><a href="#additionalSkillPaths" class="headerlink" title="additionalSkillPaths"></a>additionalSkillPaths</h4><p>只加载随 Java Runtime 构建和发布的 Skill 目录。</p>
+<p>第一版仓管 Skill 跟随 Runtime 镜像交付，所有租户使用同一份业务流程规则。Skill 文件中不保存租户数据。</p>
+<h4 id="受限-read"><a href="#受限-read" class="headerlink" title="受限 read"></a>受限 read</h4><p>注册一个名称仍为 <code>read</code> 的自定义 Tool，让 Pi 保留原生 Skill 元数据注入逻辑。</p>
+<p>它只允许读取当前 ResourceLoader 已登记的 <code>SKILL.md</code>：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">模型提交路径<br>  -&gt; 解析真实路径<br>  -&gt; 检查当前会话 Skill 白名单<br>  -&gt; 完全匹配：读取<br>  -&gt; 未匹配：拒绝<br></code></pre></td></tr></table></figure>
+
+<p>白名单应使用规范化后的真实路径，防止：</p>
+<ul>
+<li><code>../</code> 路径穿越</li>
+<li>符号链接跳出 Skill 目录</li>
+<li>伪造相似路径</li>
+<li>读取 Skill 目录之外的文件</li>
+</ul>
+<p>第一版 Skill 只有一个 <code>SKILL.md</code>，因此读取权限可以精确到文件，不需要开放整个 Skill 目录。</p>
+<h2 id="六、这次选择保留了什么，又限制了什么"><a href="#六、这次选择保留了什么，又限制了什么" class="headerlink" title="六、这次选择保留了什么，又限制了什么"></a>六、这次选择保留了什么，又限制了什么</h2><p>保留的 Pi 原生能力：</p>
+<ul>
+<li>Skill 资源模型</li>
+<li>frontmatter 解析</li>
+<li>Skill 诊断</li>
+<li>元数据注入</li>
+<li>description 自动匹配</li>
+<li>正文渐进加载</li>
+<li><code>/skill:name</code> 显式调用</li>
+<li>AgentSession 原生 Tool loop</li>
+</ul>
+<p>Java Runtime 增加的边界：</p>
+<ul>
+<li>默认 Skill 发现关闭</li>
+<li>Skill 来源由 Runtime 明确指定</li>
+<li>内置通用 <code>read</code> 继续关闭</li>
+<li>自定义 <code>read</code> 只能读取会话授权的 <code>SKILL.md</code></li>
+<li>Skill 不携带租户业务数据</li>
+</ul>
+<p>暂未引入：</p>
+<ul>
+<li>云端 Skill 存储</li>
+<li>租户自定义 Skill</li>
+<li>Skill 版本管理</li>
+<li>Skill 审核和发布状态</li>
+<li>对象存储读取</li>
+<li>动态 Skill 缓存</li>
+</ul>
+<p>这些能力等租户自定义 Skill 进入实际需求后再增加。当前本地 Skill 随 Runtime 发布，一套白名单已经覆盖第一版需求。</p>
+<h2 id="源码阅读顺序"><a href="#源码阅读顺序" class="headerlink" title="源码阅读顺序"></a>源码阅读顺序</h2><p>这次理解 Pi Skill，可以按下面的顺序读：</p>
+<ol>
+<li><p><code>packages/coding-agent/src/core/package-manager.ts</code></p>
+<ul>
+<li>Skill 从哪里被发现</li>
+<li>项目和用户资源如何合并</li>
+<li>Project Trust 如何影响项目 Skill</li>
+</ul>
+</li>
+<li><p><code>packages/coding-agent/src/core/resource-loader.ts</code></p>
+<ul>
+<li><code>noSkills</code> 和 <code>additionalSkillPaths</code> 如何组合</li>
+<li>Skill 路径何时交给加载器</li>
+</ul>
+</li>
+<li><p><code>packages/coding-agent/src/core/skills.ts</code></p>
+<ul>
+<li><code>SKILL.md</code> 如何解析</li>
+<li>Skill 如何去重和处理名称冲突</li>
+<li><code>&lt;available_skills&gt;</code> 如何生成</li>
+</ul>
+</li>
+<li><p><code>packages/coding-agent/src/core/system-prompt.ts</code></p>
+<ul>
+<li>Skill 元数据何时进入 system prompt</li>
+<li><code>read</code> 为什么影响 Skill 元数据注入</li>
+</ul>
+</li>
+<li><p><code>packages/coding-agent/src/core/agent-session.ts</code></p>
+<ul>
+<li>ResourceLoader 的结果如何进入 AgentSession</li>
+<li><code>/skill:name</code> 如何直接展开 Skill 正文</li>
+</ul>
+</li>
+<li><p><code>packages/java-agent-runtime/src/runtime.ts</code></p>
+<ul>
+<li>Java Runtime 如何创建 ResourceLoader</li>
+<li>Java MCP Tool 和 Pi AgentSession 如何组合</li>
+<li>我们的受限 Skill 加载方案应落在哪里</li>
+</ul>
+</li>
+</ol>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/Skill/" class="print-no-link">#Skill</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/Java-Runtime/" class="print-no-link">#Java Runtime</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择</div>
+      <div>https://willfordzhan.github.io/2026/08/13/pi-native-skill-runtime-choice/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月13日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/12/pi-java-runtime-sse-interruption/" title="一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影">
+                        <span class="hidden-mobile">一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
