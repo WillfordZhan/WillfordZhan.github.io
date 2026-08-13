@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影</title>
+    <link href="/2026/08/12/pi-java-runtime-sse-interruption/"/>
+    <url>/2026/08/12/pi-java-runtime-sse-interruption/</url>
+    
+    <content type="html"><![CDATA[<p>ERP 里接入数字员工后，普通问答偶尔会同时出现两条提示：一条是“本次业务处理未完成”，另一条是“连接已中断”。发生问题的会话通常已经开始调用 Tool，回答生成到一半就停止。</p><p>这次排查确认了两个问题。Spring MVC 的异步响应先超时，Pi 随后把下游断开解释成会话取消；前端又分别展示了 Tool 失败和连接失败，于是一次断流变成了两条错误提示。</p><h2 id="现场证据"><a href="#现场证据" class="headerlink" title="现场证据"></a>现场证据</h2><p>先看服务端时间线。同一时段里，Java 日志连续出现 4 次 <code>AsyncRequestTimeoutException</code>。对应的 Pi 会话 JSONL 中，Tool 结束状态为 aborted，紧随其后的 assistant 消息也是：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;role&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;assistant&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;stopReason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;aborted&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;errorMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Request aborted&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>对当天相关会话做了一次小范围统计：5 次正常结束，4 次 assistant aborted；Tool 结果里有 2 次中断，另外 2 次是正常的业务失败。这个分布说明业务 Tool 确实会失败，但截图中的高频现象主要来自连接中断，不能统一归类成业务处理失败。</p><h2 id="中断是怎样传到-Pi-的"><a href="#中断是怎样传到-Pi-的" class="headerlink" title="中断是怎样传到 Pi 的"></a>中断是怎样传到 Pi 的</h2><p>当前链路是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">浏览器 fetch SSE<br>  -&gt; Java AiController<br>  -&gt; StreamingResponseBody 转发上游响应<br>  -&gt; Pi streamConversation()<br>  -&gt; PiConversationRuntime.startConversation()<br>  -&gt; AgentSession.prompt()<br>  -&gt; 模型推理 / Tool 调用<br></code></pre></td></tr></table></figure><p>对 Java 后端开发者来说，可以把 <code>AgentSession</code> 看成一个带事件流和持久化历史的有状态执行器。它会产生文本增量、Tool 开始、Tool 结束和最终回答等事件，HTTP 层只负责把这些事件投影成 SSE。</p><p>问题发生时，Spring MVC 的异步请求先达到默认超时并关闭响应。Pi 的 HTTP 层监听了连接关闭：</p><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-title function_">abortOnClose</span> = (<span class="hljs-params"></span>) =&gt; &#123;<br>  clientDisconnected = <span class="hljs-literal">true</span>;<br>  started.<span class="hljs-title function_">abort</span>();<br>&#125;;<br><br>response.<span class="hljs-title function_">once</span>(<span class="hljs-string">&quot;close&quot;</span>, abortOnClose);<br></code></pre></td></tr></table></figure><p><code>started.abort()</code> 触发 <code>AbortController</code>，Runtime 再把信号传给当前 <code>AgentSession</code>：</p><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-title function_">abortSession</span> = (<span class="hljs-params"></span>) =&gt; <span class="hljs-built_in">void</span> session.<span class="hljs-title function_">abort</span>();<br>signal?.<span class="hljs-title function_">addEventListener</span>(<span class="hljs-string">&quot;abort&quot;</span>, abortSession, &#123; <span class="hljs-attr">once</span>: <span class="hljs-literal">true</span> &#125;);<br></code></pre></td></tr></table></figure><p>因此 Pi 记录 aborted 是符合当前实现的。Pi 没有自行把一条正常任务取消掉，它收到了下游连接已经关闭的事实。</p><h2 id="修复分成三层"><a href="#修复分成三层" class="headerlink" title="修复分成三层"></a>修复分成三层</h2><h3 id="1-Pi-每-15-秒发送一次-SSE-心跳"><a href="#1-Pi-每-15-秒发送一次-SSE-心跳" class="headerlink" title="1. Pi 每 15 秒发送一次 SSE 心跳"></a>1. Pi 每 15 秒发送一次 SSE 心跳</h3><p>模型思考和 Tool 执行期间可能暂时没有文本输出。链路中的反向代理、Java HTTP 客户端或移动网络会把这种连接视为空闲连接。</p><p>Pi 的 SSE 接入层增加了最小心跳：</p><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">SSE_HEARTBEAT_INTERVAL_MS</span> = <span class="hljs-number">15_000</span>;<br><br><span class="hljs-keyword">const</span> heartbeat = <span class="hljs-built_in">setInterval</span>(<span class="hljs-function">() =&gt;</span> &#123;<br>  <span class="hljs-title function_">writeSse</span>(response, <span class="hljs-string">&quot;ping&quot;</span>, &#123;<br>    <span class="hljs-attr">timestamp</span>: <span class="hljs-keyword">new</span> <span class="hljs-title class_">Date</span>().<span class="hljs-title function_">toISOString</span>(),<br>  &#125;);<br>&#125;, <span class="hljs-variable constant_">SSE_HEARTBEAT_INTERVAL_MS</span>);<br><br><span class="hljs-keyword">try</span> &#123;<br>  <span class="hljs-keyword">await</span> started.<span class="hljs-property">result</span>;<br>&#125; <span class="hljs-keyword">finally</span> &#123;<br>  <span class="hljs-built_in">clearInterval</span>(heartbeat);<br>&#125;<br></code></pre></td></tr></table></figure><p><code>ping</code> 只维持连接，不进入 Agent 状态机，前端也不需要把它渲染成消息。<code>finally</code> 清理定时器，避免会话结束后残留任务。</p><h3 id="2-Java-把异步响应窗口延长到-10-分钟"><a href="#2-Java-把异步响应窗口延长到-10-分钟" class="headerlink" title="2. Java 把异步响应窗口延长到 10 分钟"></a>2. Java 把异步响应窗口延长到 10 分钟</h3><p>心跳能处理空闲超时，处理不了 Spring MVC 的总时长限制。Java 入口服务同时配置异步执行器和总超时：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">configureAsyncSupport</span><span class="hljs-params">(AsyncSupportConfigurer configurer)</span> &#123;<br>    configurer.setTaskExecutor(taskExecutor);<br>    configurer.setDefaultTimeout(<span class="hljs-number">10</span> * <span class="hljs-number">60</span> * <span class="hljs-number">1000L</span>);<br>&#125;<br></code></pre></td></tr></table></figure><p>这里复用了项目已有的 <code>threadPoolTaskExecutor</code>。启动日志此前提示 <code>SimpleAsyncTaskExecutor</code> 不适合生产负载；继续使用默认执行器，会让每条流式响应缺少统一的线程数、队列和拒绝策略治理。</p><p>10 分钟只是正常 Agent 执行的上限，不承担保活职责。两项配置解决的是不同问题：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">15 秒 ping<br>  -&gt; 避免空闲连接被中间层回收<br><br>10 分钟 MVC timeout<br>  -&gt; 允许模型推理和多轮 Tool 在合理窗口内完成<br></code></pre></td></tr></table></figure><h3 id="3-中断状态由-Pi-结构化投影，前端只展示一次"><a href="#3-中断状态由-Pi-结构化投影，前端只展示一次" class="headerlink" title="3. 中断状态由 Pi 结构化投影，前端只展示一次"></a>3. 中断状态由 Pi 结构化投影，前端只展示一次</h3><p>原来的历史投影看到 <code>toolResult.isError</code> 就显示“业务处理未完成”。连接中断产生的 Tool error 也走了这条分支，无法和库存不足、参数校验失败等真实业务错误区分。</p><p>Pi 的会话历史已经包含结构化的 <code>assistant.stopReason</code>。投影层利用相邻 Entry，把中断标记为单独的失败类型：</p><figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">if</span> (<br>  message.<span class="hljs-property">stopReason</span> === <span class="hljs-string">&quot;aborted&quot;</span> &amp;&amp;<br>  pendingFailedToolResultIndex !== <span class="hljs-literal">undefined</span><br>) &#123;<br>  interrupted.<span class="hljs-property">data</span> = &#123;<br>    <span class="hljs-attr">tool_call_id</span>: toolCallId,<br>    <span class="hljs-attr">is_error</span>: <span class="hljs-literal">true</span>,<br>    <span class="hljs-attr">failure_kind</span>: <span class="hljs-string">&quot;interrupted&quot;</span>,<br>    <span class="hljs-attr">display_text</span>: <span class="hljs-string">&quot;连接中断，业务处理结果未知，请勿重复操作&quot;</span>,<br>  &#125;;<br>&#125;<br></code></pre></td></tr></table></figure><p>这个判断没有匹配错误文案，也没有针对某个 Tool 写例外规则。Pi 原生的终止状态是事实源，<code>failure_kind</code> 是给 UI 使用的展示投影。</p><p>前端在 SSE 没收到 <code>final</code> 时重新加载会话历史。历史中已经存在 <code>failure_kind: interrupted</code>，就不再追加第二条“连接已中断”：</p><figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs js"><span class="hljs-keyword">const</span> recovered = conversationId<br>  ? <span class="hljs-keyword">await</span> <span class="hljs-title function_">loadMessages</span>(conversationId)<br>  : <span class="hljs-literal">false</span><br><br><span class="hljs-keyword">if</span> (!recovered) <span class="hljs-title function_">addNotice</span>(<span class="hljs-string">&#x27;连接已中断，可继续发送消息&#x27;</span>)<br></code></pre></td></tr></table></figure><h2 id="为什么没有自动重放"><a href="#为什么没有自动重放" class="headerlink" title="为什么没有自动重放"></a>为什么没有自动重放</h2><p>断流不等于 Tool 没有执行。写类 Tool 可能已经在 Java 事务里提交成功，只是 Pi 在收到或持久化 <code>toolResult</code> 前失去了连接。此时自动重放可能重复创建单据。</p><p>这次只恢复服务端已经持久化的会话状态，并把文案改成“处理结果未知，请勿重复操作”。写操作的自动恢复需要业务幂等键、结果查证接口或可恢复的执行状态机，不能由前端重发用户问题代替。</p><h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><p>修复后做了三层验证：</p><ul><li>Pi：2 个相关测试文件、14 个测试通过，其中包含“模型暂时无输出时仍发送 ping”和“aborted 与业务失败分开投影”的回归测试。</li><li>Java：入口模块及依赖模块测试通过，并验证 ERP 应用名能够注册异步 MVC 配置。</li><li>前端：生产构建通过；SSE 提前结束后能从历史恢复结构化中断状态，不再重复提示。</li></ul><p>部署到测试环境后，Java 容器健康检查通过，Spring 在 55.451 秒完成启动；Pi Runtime 使用新镜像启动，<code>/healthz</code> 返回 <code>ok</code>。入口健康接口和 AI 状态接口都返回 HTTP 200。</p><h2 id="这次改动的边界"><a href="#这次改动的边界" class="headerlink" title="这次改动的边界"></a>这次改动的边界</h2><p>Pi 心跳只能防止空闲连接被回收，网络真正断开时仍会中断。10 分钟超时也不是无限执行许可，超过窗口的任务更适合改成异步 Job，再通过状态查询或事件通知返回结果。</p><p>当前 Spring 配置作用于入口服务的异步 MVC 响应。以后同一服务增加不同超时口径的异步接口时，需要把超时策略进一步收口到具体入口。当前阶段只有 AI SSE 使用这条长连接路径，先复用原有线程池并设置统一上限，变更面最小。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>SSE</tag>
+      
+      <tag>Spring Boot</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>Java Runtime</tag>
+      
+      <tag>故障复盘</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路</title>
     <link href="/2026/08/12/pi-image-input-context/"/>
     <url>/2026/08/12/pi-image-input-context/</url>
@@ -24,11 +59,11 @@
       
       <tag>Pi</tag>
       
+      <tag>Java Runtime</tag>
+      
       <tag>多模态</tag>
       
       <tag>图片处理</tag>
-      
-      <tag>Java Runtime</tag>
       
       <tag>大模型上下文</tag>
       
@@ -863,11 +898,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>AI Agent</tag>
-      
       <tag>LangGraph</tag>
       
       <tag>ReAct</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>Workflow</tag>
       
@@ -2264,11 +2299,11 @@
       
       <tag>ReAct</tag>
       
-      <tag>Qwen</tag>
-      
       <tag>Orchestrator</tag>
       
       <tag>IntentRouter</tag>
+      
+      <tag>Qwen</tag>
       
       <tag>PolicyEngine</tag>
       

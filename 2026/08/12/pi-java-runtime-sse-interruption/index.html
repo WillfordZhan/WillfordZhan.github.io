@@ -1,0 +1,755 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="ERP 里接入数字员工后，普通问答偶尔会同时出现两条提示：一条是“本次业务处理未完成”，另一条是“连接已中断”。发生问题的会话通常已经开始调用 Tool，回答生成到一半就停止。 这次排查确认了两个问题。Spring MVC 的异步响应先超时，Pi 随后把下游断开解释成会话取消；前端又分别展示了 Tool 失败和连接失败，于是一次断流变成了两条错误提示。 现场证据先看服务端时间线。同一时段里，Jav">
+<meta property="og:type" content="article">
+<meta property="og:title" content="一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/12/pi-java-runtime-sse-interruption/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="ERP 里接入数字员工后，普通问答偶尔会同时出现两条提示：一条是“本次业务处理未完成”，另一条是“连接已中断”。发生问题的会话通常已经开始调用 Tool，回答生成到一半就停止。 这次排查确认了两个问题。Spring MVC 的异步响应先超时，Pi 随后把下游断开解释成会话取消；前端又分别展示了 Tool 失败和连接失败，于是一次断流变成了两条错误提示。 现场证据先看服务端时间线。同一时段里，Jav">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-12T10:58:08.000Z">
+<meta property="article:modified_time" content="2026-08-13T02:11:13.273Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="SSE">
+<meta property="article:tag" content="Spring Boot">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="Java Runtime">
+<meta property="article:tag" content="故障复盘">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-12 18:58" pubdate>
+          2026年8月12日 晚上
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.6k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          14 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>ERP 里接入数字员工后，普通问答偶尔会同时出现两条提示：一条是“本次业务处理未完成”，另一条是“连接已中断”。发生问题的会话通常已经开始调用 Tool，回答生成到一半就停止。</p>
+<p>这次排查确认了两个问题。Spring MVC 的异步响应先超时，Pi 随后把下游断开解释成会话取消；前端又分别展示了 Tool 失败和连接失败，于是一次断流变成了两条错误提示。</p>
+<h2 id="现场证据"><a href="#现场证据" class="headerlink" title="现场证据"></a>现场证据</h2><p>先看服务端时间线。同一时段里，Java 日志连续出现 4 次 <code>AsyncRequestTimeoutException</code>。对应的 Pi 会话 JSONL 中，Tool 结束状态为 aborted，紧随其后的 assistant 消息也是：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;role&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;assistant&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;stopReason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;aborted&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;errorMessage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Request aborted&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>对当天相关会话做了一次小范围统计：5 次正常结束，4 次 assistant aborted；Tool 结果里有 2 次中断，另外 2 次是正常的业务失败。这个分布说明业务 Tool 确实会失败，但截图中的高频现象主要来自连接中断，不能统一归类成业务处理失败。</p>
+<h2 id="中断是怎样传到-Pi-的"><a href="#中断是怎样传到-Pi-的" class="headerlink" title="中断是怎样传到 Pi 的"></a>中断是怎样传到 Pi 的</h2><p>当前链路是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">浏览器 fetch SSE<br>  -&gt; Java AiController<br>  -&gt; StreamingResponseBody 转发上游响应<br>  -&gt; Pi streamConversation()<br>  -&gt; PiConversationRuntime.startConversation()<br>  -&gt; AgentSession.prompt()<br>  -&gt; 模型推理 / Tool 调用<br></code></pre></td></tr></table></figure>
+
+<p>对 Java 后端开发者来说，可以把 <code>AgentSession</code> 看成一个带事件流和持久化历史的有状态执行器。它会产生文本增量、Tool 开始、Tool 结束和最终回答等事件，HTTP 层只负责把这些事件投影成 SSE。</p>
+<p>问题发生时，Spring MVC 的异步请求先达到默认超时并关闭响应。Pi 的 HTTP 层监听了连接关闭：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-title function_">abortOnClose</span> = (<span class="hljs-params"></span>) =&gt; &#123;<br>  clientDisconnected = <span class="hljs-literal">true</span>;<br>  started.<span class="hljs-title function_">abort</span>();<br>&#125;;<br><br>response.<span class="hljs-title function_">once</span>(<span class="hljs-string">&quot;close&quot;</span>, abortOnClose);<br></code></pre></td></tr></table></figure>
+
+<p><code>started.abort()</code> 触发 <code>AbortController</code>，Runtime 再把信号传给当前 <code>AgentSession</code>：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-title function_">abortSession</span> = (<span class="hljs-params"></span>) =&gt; <span class="hljs-built_in">void</span> session.<span class="hljs-title function_">abort</span>();<br>signal?.<span class="hljs-title function_">addEventListener</span>(<span class="hljs-string">&quot;abort&quot;</span>, abortSession, &#123; <span class="hljs-attr">once</span>: <span class="hljs-literal">true</span> &#125;);<br></code></pre></td></tr></table></figure>
+
+<p>因此 Pi 记录 aborted 是符合当前实现的。Pi 没有自行把一条正常任务取消掉，它收到了下游连接已经关闭的事实。</p>
+<h2 id="修复分成三层"><a href="#修复分成三层" class="headerlink" title="修复分成三层"></a>修复分成三层</h2><h3 id="1-Pi-每-15-秒发送一次-SSE-心跳"><a href="#1-Pi-每-15-秒发送一次-SSE-心跳" class="headerlink" title="1. Pi 每 15 秒发送一次 SSE 心跳"></a>1. Pi 每 15 秒发送一次 SSE 心跳</h3><p>模型思考和 Tool 执行期间可能暂时没有文本输出。链路中的反向代理、Java HTTP 客户端或移动网络会把这种连接视为空闲连接。</p>
+<p>Pi 的 SSE 接入层增加了最小心跳：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">SSE_HEARTBEAT_INTERVAL_MS</span> = <span class="hljs-number">15_000</span>;<br><br><span class="hljs-keyword">const</span> heartbeat = <span class="hljs-built_in">setInterval</span>(<span class="hljs-function">() =&gt;</span> &#123;<br>  <span class="hljs-title function_">writeSse</span>(response, <span class="hljs-string">&quot;ping&quot;</span>, &#123;<br>    <span class="hljs-attr">timestamp</span>: <span class="hljs-keyword">new</span> <span class="hljs-title class_">Date</span>().<span class="hljs-title function_">toISOString</span>(),<br>  &#125;);<br>&#125;, <span class="hljs-variable constant_">SSE_HEARTBEAT_INTERVAL_MS</span>);<br><br><span class="hljs-keyword">try</span> &#123;<br>  <span class="hljs-keyword">await</span> started.<span class="hljs-property">result</span>;<br>&#125; <span class="hljs-keyword">finally</span> &#123;<br>  <span class="hljs-built_in">clearInterval</span>(heartbeat);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p><code>ping</code> 只维持连接，不进入 Agent 状态机，前端也不需要把它渲染成消息。<code>finally</code> 清理定时器，避免会话结束后残留任务。</p>
+<h3 id="2-Java-把异步响应窗口延长到-10-分钟"><a href="#2-Java-把异步响应窗口延长到-10-分钟" class="headerlink" title="2. Java 把异步响应窗口延长到 10 分钟"></a>2. Java 把异步响应窗口延长到 10 分钟</h3><p>心跳能处理空闲超时，处理不了 Spring MVC 的总时长限制。Java 入口服务同时配置异步执行器和总超时：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@Override</span><br><span class="hljs-keyword">public</span> <span class="hljs-keyword">void</span> <span class="hljs-title function_">configureAsyncSupport</span><span class="hljs-params">(AsyncSupportConfigurer configurer)</span> &#123;<br>    configurer.setTaskExecutor(taskExecutor);<br>    configurer.setDefaultTimeout(<span class="hljs-number">10</span> * <span class="hljs-number">60</span> * <span class="hljs-number">1000L</span>);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这里复用了项目已有的 <code>threadPoolTaskExecutor</code>。启动日志此前提示 <code>SimpleAsyncTaskExecutor</code> 不适合生产负载；继续使用默认执行器，会让每条流式响应缺少统一的线程数、队列和拒绝策略治理。</p>
+<p>10 分钟只是正常 Agent 执行的上限，不承担保活职责。两项配置解决的是不同问题：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">15 秒 ping<br>  -&gt; 避免空闲连接被中间层回收<br><br>10 分钟 MVC timeout<br>  -&gt; 允许模型推理和多轮 Tool 在合理窗口内完成<br></code></pre></td></tr></table></figure>
+
+<h3 id="3-中断状态由-Pi-结构化投影，前端只展示一次"><a href="#3-中断状态由-Pi-结构化投影，前端只展示一次" class="headerlink" title="3. 中断状态由 Pi 结构化投影，前端只展示一次"></a>3. 中断状态由 Pi 结构化投影，前端只展示一次</h3><p>原来的历史投影看到 <code>toolResult.isError</code> 就显示“业务处理未完成”。连接中断产生的 Tool error 也走了这条分支，无法和库存不足、参数校验失败等真实业务错误区分。</p>
+<p>Pi 的会话历史已经包含结构化的 <code>assistant.stopReason</code>。投影层利用相邻 Entry，把中断标记为单独的失败类型：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">if</span> (<br>  message.<span class="hljs-property">stopReason</span> === <span class="hljs-string">&quot;aborted&quot;</span> &amp;&amp;<br>  pendingFailedToolResultIndex !== <span class="hljs-literal">undefined</span><br>) &#123;<br>  interrupted.<span class="hljs-property">data</span> = &#123;<br>    <span class="hljs-attr">tool_call_id</span>: toolCallId,<br>    <span class="hljs-attr">is_error</span>: <span class="hljs-literal">true</span>,<br>    <span class="hljs-attr">failure_kind</span>: <span class="hljs-string">&quot;interrupted&quot;</span>,<br>    <span class="hljs-attr">display_text</span>: <span class="hljs-string">&quot;连接中断，业务处理结果未知，请勿重复操作&quot;</span>,<br>  &#125;;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>这个判断没有匹配错误文案，也没有针对某个 Tool 写例外规则。Pi 原生的终止状态是事实源，<code>failure_kind</code> 是给 UI 使用的展示投影。</p>
+<p>前端在 SSE 没收到 <code>final</code> 时重新加载会话历史。历史中已经存在 <code>failure_kind: interrupted</code>，就不再追加第二条“连接已中断”：</p>
+<figure class="highlight js"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs js"><span class="hljs-keyword">const</span> recovered = conversationId<br>  ? <span class="hljs-keyword">await</span> <span class="hljs-title function_">loadMessages</span>(conversationId)<br>  : <span class="hljs-literal">false</span><br><br><span class="hljs-keyword">if</span> (!recovered) <span class="hljs-title function_">addNotice</span>(<span class="hljs-string">&#x27;连接已中断，可继续发送消息&#x27;</span>)<br></code></pre></td></tr></table></figure>
+
+<h2 id="为什么没有自动重放"><a href="#为什么没有自动重放" class="headerlink" title="为什么没有自动重放"></a>为什么没有自动重放</h2><p>断流不等于 Tool 没有执行。写类 Tool 可能已经在 Java 事务里提交成功，只是 Pi 在收到或持久化 <code>toolResult</code> 前失去了连接。此时自动重放可能重复创建单据。</p>
+<p>这次只恢复服务端已经持久化的会话状态，并把文案改成“处理结果未知，请勿重复操作”。写操作的自动恢复需要业务幂等键、结果查证接口或可恢复的执行状态机，不能由前端重发用户问题代替。</p>
+<h2 id="验证"><a href="#验证" class="headerlink" title="验证"></a>验证</h2><p>修复后做了三层验证：</p>
+<ul>
+<li>Pi：2 个相关测试文件、14 个测试通过，其中包含“模型暂时无输出时仍发送 ping”和“aborted 与业务失败分开投影”的回归测试。</li>
+<li>Java：入口模块及依赖模块测试通过，并验证 ERP 应用名能够注册异步 MVC 配置。</li>
+<li>前端：生产构建通过；SSE 提前结束后能从历史恢复结构化中断状态，不再重复提示。</li>
+</ul>
+<p>部署到测试环境后，Java 容器健康检查通过，Spring 在 55.451 秒完成启动；Pi Runtime 使用新镜像启动，<code>/healthz</code> 返回 <code>ok</code>。入口健康接口和 AI 状态接口都返回 HTTP 200。</p>
+<h2 id="这次改动的边界"><a href="#这次改动的边界" class="headerlink" title="这次改动的边界"></a>这次改动的边界</h2><p>Pi 心跳只能防止空闲连接被回收，网络真正断开时仍会中断。10 分钟超时也不是无限执行许可，超过窗口的任务更适合改成异步 Job，再通过状态查询或事件通知返回结果。</p>
+<p>当前 Spring 配置作用于入口服务的异步 MVC 响应。以后同一服务增加不同超时口径的异步接口时，需要把超时策略进一步收口到具体入口。当前阶段只有 AI SSE 使用这条长连接路径，先复用原有线程池并设置统一上限，变更面最小。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/SSE/" class="print-no-link">#SSE</a>
+      
+        <a href="/tags/Spring-Boot/" class="print-no-link">#Spring Boot</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/Java-Runtime/" class="print-no-link">#Java Runtime</a>
+      
+        <a href="/tags/%E6%95%85%E9%9A%9C%E5%A4%8D%E7%9B%98/" class="print-no-link">#故障复盘</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影</div>
+      <div>https://willfordzhan.github.io/2026/08/12/pi-java-runtime-sse-interruption/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月12日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/12/pi-image-input-context/" title="5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路">
+                        <span class="hidden-mobile">5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
