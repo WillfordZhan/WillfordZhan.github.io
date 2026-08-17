@@ -241,6 +241,56 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/17/aliyun-flow-runner-cloned-ecs/" target="_self">
+          复制 ECS 后云效 Flow 部署串机：Runner 身份被一并复制
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/17/aliyun-flow-runner-cloned-ecs/" target="_self">
+        <div>
+          复制一台正在承担部署任务的 ECS 后，云效 Flow 开始把制品随机部署到原机器或复制机。两台机器的 ECS 实例 ID 不同，但在 Flow 看来，它们使用的是同一个 Runner 身份。 最后的止血动作很简单：停止并禁用复制机上的 Runner。真正值得记录的是，为什么复制磁盘会复制部署身份，以及 Flow Runner 到底怎样领取和执行任务。 现象原 ECS 承担前端发布。复制实例启动后
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-17 15:10" pubdate>
+              2026-08-17
+            </time>
+          </div>
+        
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/%E9%98%BF%E9%87%8C%E4%BA%91/">#阿里云</a>
+            
+              <a href="/tags/%E4%BA%91%E6%95%88/">#云效</a>
+            
+              <a href="/tags/Flow/">#Flow</a>
+            
+              <a href="/tags/CI-CD/">#CI/CD</a>
+            
+              <a href="/tags/ECS/">#ECS</a>
+            
+              <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/">#故障排查</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/13/agent-auto-test-llm-judge/" target="_self">
           给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案
         </a>
@@ -851,73 +901,6 @@
               <a href="/tags/%E4%BC%9A%E8%AF%9D%E6%8C%81%E4%B9%85%E5%8C%96/">#会话持久化</a>
             
               <a href="/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/">#多租户</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/07/ai-tool-bigint-schema/" target="_self">
-          AI Tool 大数精度丢失：返回值与参数 Schema 必须一起修
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/07/ai-tool-bigint-schema/" target="_self">
-        <div>
-          一次物料出库的 AI Tool 调用失败，表面提示是“物料不存在或不属于当前工厂”。实际物料存在，问题发生在它作为 19 位 ID 穿过 JSON 与工具调用契约时。 第一次排查发现，工具调用收到的 ID 已经和查询结果不一致。随后将工具结果中的大整数序列化为字符串后，最新会话仍失败：返回值正确了，但工具参数 Schema 还是 integer，模型又把字符串 ID 当数字传回。这个问题需要同时修
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-07 14:29" pubdate>
-              2026-08-07
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/AI-Tool/">#AI Tool</a>
-            
-              <a href="/tags/%E8%B8%A9%E5%9D%91%E5%A4%8D%E7%9B%98/">#踩坑复盘</a>
             
           </div>
         

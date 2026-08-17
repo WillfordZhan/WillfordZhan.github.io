@@ -4,6 +4,35 @@
   
   
   <entry>
+    <title>复制 ECS 后云效 Flow 部署串机：Runner 身份被一并复制</title>
+    <link href="/2026/08/17/aliyun-flow-runner-cloned-ecs/"/>
+    <url>/2026/08/17/aliyun-flow-runner-cloned-ecs/</url>
+    
+    <content type="html"><![CDATA[<p>复制一台正在承担部署任务的 ECS 后，云效 Flow 开始把制品随机部署到原机器或复制机。两台机器的 ECS 实例 ID 不同，但在 Flow 看来，它们使用的是同一个 Runner 身份。</p><p>最后的止血动作很简单：停止并禁用复制机上的 Runner。真正值得记录的是，为什么复制磁盘会复制部署身份，以及 Flow Runner 到底怎样领取和执行任务。</p><h2 id="现象"><a href="#现象" class="headerlink" title="现象"></a>现象</h2><p>原 ECS 承担前端发布。复制实例启动后，流水线构建仍然成功，但主机部署阶段不再稳定：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Flow 构建成功<br>  -&gt; 生成并上传制品<br>  -&gt; 进入主机部署阶段<br>  -&gt; 有时部署到原 ECS<br>  -&gt; 有时部署到复制 ECS<br></code></pre></td></tr></table></figure><p>仓库里的 Webhook 脚本只负责触发流水线，并不携带 ECS 地址：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs bash">curl -X POST -H <span class="hljs-string">&quot;Content-Type: application/json&quot;</span> \<br>  --data <span class="hljs-string">&#x27;&#123;&#125;&#x27;</span> \<br>  <span class="hljs-string">&#x27;https://flow-openapi.example.com/pipeline/webhook/&lt;webhook-id&gt;&#x27;</span><br></code></pre></td></tr></table></figure><p>因此问题不在业务代码或 Webhook，而在主机部署阶段使用的 Runner。</p><h2 id="现场证据"><a href="#现场证据" class="headerlink" title="现场证据"></a>现场证据</h2><p>两台 ECS 的真实实例 ID 不同：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">原 ECS:   i-original<br>复制 ECS: i-cloned<br></code></pre></td></tr></table></figure><p>但两台机器上存在完全相同的 systemd 服务：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">runner-v0.3.0-be-&lt;tenant&gt;.service<br></code></pre></td></tr></table></figure><p>Runner 配置位于：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">/root/yunxiao/&lt;tenant&gt;/runner/config/config.yml<br></code></pre></td></tr></table></figure><p>配置结构包含：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">uuid:</span> <span class="hljs-string">&lt;runner-uuid&gt;</span><br><span class="hljs-attr">url:</span> <span class="hljs-string">&lt;flow-server&gt;</span><br><span class="hljs-attr">token:</span> <span class="hljs-string">&lt;runner-token&gt;</span><br><span class="hljs-attr">tenant:</span> <span class="hljs-string">&lt;tenant&gt;</span><br><span class="hljs-attr">instanceId:</span> <span class="hljs-string">i-original</span><br><span class="hljs-attr">workspace:</span> <span class="hljs-string">/root/yunxiao/&lt;tenant&gt;/runner</span><br><span class="hljs-attr">scanInterval:</span> <span class="hljs-number">5</span><br><span class="hljs-attr">concurrency:</span> <span class="hljs-number">50</span><br><span class="hljs-attr">autoUpgrade:</span> <span class="hljs-literal">true</span><br></code></pre></td></tr></table></figure><p>关键证据有两个：</p><ol><li>两台机器的 <code>config.yml</code> SHA-256 完全相同。</li><li>复制机配置中的 <code>instanceId</code> 仍然是原 ECS，而不是复制机自己的实例 ID。</li></ol><p>这说明 ECS 复制过程把 Runner 的 UUID、Token、租户和实例绑定信息一起复制了。hostname 相同只会增加运维混淆，真正导致串机的是 Runner 注册身份相同。</p><h2 id="Flow-Runner-怎么工作"><a href="#Flow-Runner-怎么工作" class="headerlink" title="Flow Runner 怎么工作"></a>Flow Runner 怎么工作</h2><p>云效官方将 Runner 定义为安装在构建机或部署主机上的本地服务。它通过长轮询从 Flow 服务端拉取任务，再同步执行状态和日志。<a href="https://help.aliyun.com/zh/yunxiao/user-guide/pipeline-runner/">流水线 Runner</a></p><p>可以把它理解成一个常驻任务 Worker：</p><table><thead><tr><th>Flow 概念</th><th>后端开发中的对应概念</th></tr></thead><tbody><tr><td>Flow 服务端</td><td>调度中心</td></tr><tr><td>主机组</td><td>Worker 分组和部署范围</td></tr><tr><td>Runner</td><td>常驻任务消费者</td></tr><tr><td>Runner UUID、Token</td><td>Worker 身份和凭证</td></tr><tr><td>Build UUID</td><td>单次任务实例 ID</td></tr><tr><td>Step</td><td>任务中的执行步骤</td></tr><tr><td>Shell Executor</td><td>本机任务执行器</td></tr></tbody></table><p>现场使用的二进制自报版本为 <code>v0.3.0</code>，支持 <code>register</code>、<code>install</code>、<code>run</code>、<code>exec</code> 和 <code>upgrade</code> 等命令。systemd 启动 <code>runner run</code> 后，它会持续执行下面的链路：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">Runner 常驻进程<br>  -&gt; POST /api/v2/builds/request 长轮询任务<br>  -&gt; 没有任务：返回 204，继续轮询<br>  -&gt; 收到任务：取得 Build UUID 和 Steps<br>  -&gt; 创建临时工作目录和 Shell 脚本<br>  -&gt; PUT /api/v2/builds/&#123;uuid&#125; 上报 RUNNING<br>  -&gt; 下载流水线制品<br>  -&gt; 使用 Shell Executor 执行部署脚本<br>  -&gt; POST /steps/&#123;index&#125;/log 分片上传日志<br>  -&gt; PUT /api/v2/builds/&#123;uuid&#125; 上报 SUCCESS 或 FAILED<br>  -&gt; 标记任务完成并延迟清理目录<br></code></pre></td></tr></table></figure><p>一次任务在本机留下的结构大致如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">/root/yunxiao/&lt;tenant&gt;/runner/<br>  -&gt; config/config.yml<br>  -&gt; __flow_work/__flow_temp/&lt;build-uuid&gt;/<br>       -&gt; scripts/step-0.sh<br>       -&gt; scripts/step-1.sh<br>       -&gt; set_env.command<br>  -&gt; __flow_logs/builds/&lt;build-uuid&gt;/<br>       -&gt; step_0.log<br>       -&gt; step_1.log<br>       -&gt; finish<br></code></pre></td></tr></table></figure><p>当前主机部署任务的实际动作也很直接：创建制品目录、下载压缩包、生成用户命令脚本、解压到站点目录，然后把退出码和日志回传给 Flow。</p><p>主机组决定部署范围。Flow 可以把上游制品下载到主机组中的机器，并支持分批发布；YAML 流水线则通过 <code>machineGroup</code> 指定主机组。<a href="https://help.aliyun.com/zh/yunxiao/user-guide/analysis-of-key-concepts-of-pipeline">流水线关键概念</a></p><h2 id="为什么会随机部署"><a href="#为什么会随机部署" class="headerlink" title="为什么会随机部署"></a>为什么会随机部署</h2><p>复制完成后，实际形成了两个使用相同身份的消费者：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">原 ECS Runner<br>  -&gt; 使用身份 A 长轮询<br><br>复制 ECS Runner<br>  -&gt; 也使用身份 A 长轮询<br><br>Flow 服务端<br>  -&gt; 为身份 A 准备部署任务<br>  -&gt; 两个进程同时请求<br>  -&gt; 任务可能被任意一个进程领取<br></code></pre></td></tr></table></figure><p>Flow 服务端如何处理重复 Runner 身份没有公开实现，无法从源码确认；但两台机器的配置完全相同、日志显示它们使用相同 Runner 标识轮询，而且部署记录确实分别落到两台机器，已经足以确认故障链路。</p><h2 id="修复与验证"><a href="#修复与验证" class="headerlink" title="修复与验证"></a>修复与验证</h2><p>复制机暂时不需要参与 Flow 部署，因此直接停止并禁用它的 Runner：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">sudo</span> systemctl <span class="hljs-built_in">disable</span> --now runner-v0.3.0-be-&lt;tenant&gt;.service<br></code></pre></td></tr></table></figure><p>验证结果：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">原 ECS<br>  -&gt; Runner active/running<br>  -&gt; enabled<br>  -&gt; 正常领取部署任务<br><br>复制 ECS<br>  -&gt; Runner inactive/dead<br>  -&gt; disabled<br>  -&gt; 不再请求 Flow 任务<br></code></pre></td></tr></table></figure><p>后续流水线重新稳定部署到原 ECS，说明止血动作与根因一致。</p><h2 id="停用不等于彻底清理"><a href="#停用不等于彻底清理" class="headerlink" title="停用不等于彻底清理"></a>停用不等于彻底清理</h2><p><code>disable --now</code> 只停止进程并取消开机启动，复制机磁盘中仍然保留原 Runner Token 和配置。有人重新启用该服务，问题还会复发。</p><p>长期处理应根据复制机用途二选一：</p><ul><li>不需要 Flow：卸载复制过来的 Runner，并删除对应注册配置。</li><li>需要独立部署：清理旧 Runner，再从 Flow 控制台重新接入，让它获得新的 UUID、Token 和实例绑定，并加入独立主机组。</li></ul><p>阿里云的主机部署故障文档也建议：通过镜像生成的新主机，不应继续使用复制的代理身份，应卸载后重新添加。<a href="https://help.aliyun.com/zh/yunxiao/user-guide/common-issues-in-host-deployment/">主机部署问题</a></p><p>以后复制 ECS 或制作系统镜像时，应该额外检查这些有注册身份的常驻代理：</p><ul><li>CI&#x2F;CD Runner</li><li>GitLab Runner</li><li>监控和日志采集 Agent</li><li>服务注册 Agent</li><li>节点证书和机器级 Token</li></ul><p>这类组件不是普通软件包。复制磁盘不仅复制了程序，也可能复制它在外部控制平面中的身份。</p><ul><li>写正文</li><li>本地预览：<code>npm run server</code></li><li>发布：<code>bash bin/publish.sh -m &quot;post: ...&quot;</code></li></ul>]]></content>
+    
+    
+    
+    <tags>
+      
+      <tag>阿里云</tag>
+      
+      <tag>云效</tag>
+      
+      <tag>Flow</tag>
+      
+      <tag>CI/CD</tag>
+      
+      <tag>ECS</tag>
+      
+      <tag>故障排查</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案</title>
     <link href="/2026/08/13/agent-auto-test-llm-judge/"/>
     <url>/2026/08/13/agent-auto-test-llm-judge/</url>
@@ -549,9 +578,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>开发回顾</tag>
+      
+      <tag>Agent</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -582,9 +611,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>开发回顾</tag>
+      
+      <tag>Agent</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -737,9 +766,9 @@
     
     <tags>
       
-      <tag>SSH</tag>
-      
       <tag>故障排查</tag>
+      
+      <tag>SSH</tag>
       
       <tag>Docker</tag>
       
@@ -865,11 +894,11 @@
       
       <tag>Function Calling</tag>
       
+      <tag>复盘</tag>
+      
       <tag>Prompt</tag>
       
       <tag>上下文管理</tag>
-      
-      <tag>复盘</tag>
       
     </tags>
     
@@ -929,9 +958,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>开发回顾</tag>
+      
+      <tag>Agent</tag>
       
       <tag>Dify</tag>
       
@@ -1003,11 +1032,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>架构评审</tag>
+      
       <tag>MCP</tag>
       
       <tag>Python</tag>
-      
-      <tag>架构评审</tag>
       
       <tag>LLM</tag>
       
@@ -1071,9 +1100,9 @@
       
       <tag>Agent</tag>
       
-      <tag>Prompt</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>Prompt</tag>
       
       <tag>MCP</tag>
       
@@ -1318,13 +1347,13 @@
       
       <tag>Java</tag>
       
+      <tag>AI</tag>
+      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
-      
-      <tag>AI</tag>
       
     </tags>
     
@@ -1390,11 +1419,11 @@
       
       <tag>LangGraph</tag>
       
-      <tag>复盘</tag>
-      
       <tag>ReAct</tag>
       
       <tag>架构重构</tag>
+      
+      <tag>复盘</tag>
       
     </tags>
     
@@ -2190,11 +2219,11 @@
       
       <tag>FastAPI</tag>
       
+      <tag>Python</tag>
+      
       <tag>AI网关</tag>
       
       <tag>Java</tag>
-      
-      <tag>Python</tag>
       
       <tag>鉴权</tag>
       
@@ -2435,9 +2464,9 @@
       
       <tag>MCP</tag>
       
-      <tag>Java</tag>
-      
       <tag>Python</tag>
+      
+      <tag>Java</tag>
       
       <tag>里程碑</tag>
       
@@ -2579,9 +2608,9 @@
       
       <tag>知识库</tag>
       
-      <tag>RAG</tag>
-      
       <tag>AI工程</tag>
+      
+      <tag>RAG</tag>
       
       <tag>架构设计</tag>
       
@@ -2688,9 +2717,9 @@
       
       <tag>MCP</tag>
       
-      <tag>Java</tag>
-      
       <tag>Python</tag>
+      
+      <tag>Java</tag>
       
       <tag>AI工程</tag>
       
