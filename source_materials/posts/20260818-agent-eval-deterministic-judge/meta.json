@@ -1,0 +1,8 @@
+{
+  "archive_id": "20260818-agent-eval-deterministic-judge",
+  "post_name": "把 Agent 评测器落到代码里：确定性断言、Golden 与双 LLM Judge",
+  "post_rel_path": "source/_posts/agent-evaluation-deterministic-assertions-llm-judge.md",
+  "conversation_file": "conversation.jsonl",
+  "archived_at": "2026-08-18T14:23:48+08:00",
+  "source_file": "/Users/willfordzhan/.codex/sessions/2026/08/18/rollout-2026-08-18T10-44-32-01a012c1-97fc-7fa1-b744-78c495ddbadf.jsonl"
+}
