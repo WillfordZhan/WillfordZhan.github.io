@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/18/erp-ai-tool-command-query-framework/" target="_self">
+          给 ERP AI Tools 收一套统一协议：commandType、prepare-confirm 与 Query Framework
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/18/erp-ai-tool-command-query-framework/" target="_self">
+        <div>
+          ERP Tool 接到第三类单据时，重复代码已经很明显了。 每个创建工具都要判断 prepare 和 confirm，补全主数据，重新校验表单，再处理幂等和并发。查询工具也各自维护 page、pageSize 和返回总数。字段名字看着接近，默认值、上限和错误语义却散在不同 Service 里。 当前链路已经能稳定完成 Tool 发现和调用：Pi Runtime 从 Java 获取 Tool Sch
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-18 10:52" pubdate>
+              2026-08-18
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
+            
+              <a href="/tags/Tool-Calling/">#Tool Calling</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/17/aliyun-flow-runner-cloned-ecs/" target="_self">
           复制 ECS 后云效 Flow 部署串机：Runner 身份被一并复制
         </a>
@@ -338,13 +409,13 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
               <a href="/tags/AI-Agent/">#AI Agent</a>
             
               <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">#自动化测试</a>
             
               <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
           </div>
         
@@ -549,11 +620,11 @@
             
               <a href="/tags/Pi/">#Pi</a>
             
-              <a href="/tags/Java-Runtime/">#Java Runtime</a>
-            
               <a href="/tags/%E5%A4%9A%E6%A8%A1%E6%80%81/">#多模态</a>
             
               <a href="/tags/%E5%9B%BE%E7%89%87%E5%A4%84%E7%90%86/">#图片处理</a>
+            
+              <a href="/tags/Java-Runtime/">#Java Runtime</a>
             
               <a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B%E4%B8%8A%E4%B8%8B%E6%96%87/">#大模型上下文</a>
             
@@ -834,73 +905,6 @@
               <a href="/tags/Pi/">#Pi</a>
             
               <a href="/tags/Java-Runtime/">#Java Runtime</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/07/pi-java-runtime-cloud-session-todo/" target="_self">
-          Pi Java Runtime 的云端会话恢复 TODO
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/07/pi-java-runtime-cloud-session-todo/" target="_self">
-        <div>
-          Pi Java Runtime 目前把 Pi 的 AgentSession 写到本地 JSONL，再把原始 Entry 镜像到 Java 数据库。这个实现足以支持单机运行和管理台回放，但不适合作为云端部署后的会话恢复方案。 核心问题很直接：Runtime 续聊时仍从本机 sessions/*.jsonl 打开会话。如果实例重启、容器迁移或扩容到另一台机器，数据库虽然还保留管理台记录，Agent 却
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-07 15:44" pubdate>
-              2026-08-07
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI-TODO/">#AI TODO</a>
-            
-              <a href="/tags/%E4%BC%9A%E8%AF%9D%E6%8C%81%E4%B9%85%E5%8C%96/">#会话持久化</a>
-            
-              <a href="/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/">#多租户</a>
             
           </div>
         

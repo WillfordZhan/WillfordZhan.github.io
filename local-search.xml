@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>给 ERP AI Tools 收一套统一协议：commandType、prepare-confirm 与 Query Framework</title>
+    <link href="/2026/08/18/erp-ai-tool-command-query-framework/"/>
+    <url>/2026/08/18/erp-ai-tool-command-query-framework/</url>
+    
+    <content type="html"><![CDATA[<p>ERP Tool 接到第三类单据时，重复代码已经很明显了。</p><p>每个创建工具都要判断 <code>prepare</code> 和 <code>confirm</code>，补全主数据，重新校验表单，再处理幂等和并发。查询工具也各自维护 <code>page</code>、<code>pageSize</code> 和返回总数。字段名字看着接近，默认值、上限和错误语义却散在不同 Service 里。</p><p>当前链路已经能稳定完成 Tool 发现和调用：Pi Runtime 从 Java 获取 Tool Schema，把 tenant&#x2F;user 固定进调用上下文，再由 Java MCP 调度到具体业务 Tool。缺口落在 Tool 进入 Java 之后。写操作和查询操作还没有共用一套业务协议。</p><p>本文记录准备采用的设计。现有代码仍以“完整 form 二次提交”和各 Service 自行处理分页为主，下面的 Command Framework、Redis preparation 和 Query Framework 还属于拟议方案。</p><h2 id="当前-Tool-调用停在哪一层"><a href="#当前-Tool-调用停在哪一层" class="headerlink" title="当前 Tool 调用停在哪一层"></a>当前 Tool 调用停在哪一层</h2><p>现有调用顺序可以压缩成下面这条链路：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">用户请求<br>  → Pi AgentSession<br>  → Java MCP tools/call<br>  → MCP Dispatcher 注入运行上下文<br>  → Tool Registry 校验参数并调用 Tool<br>  → 业务 Tool<br>  → ERP Service<br></code></pre></td></tr></table></figure><p>Pi Runtime 负责两件事：</p><ol><li>让模型看到当前可用的 Tool Schema。</li><li>把模型产生的 Tool Call 交给 Java，并附上可信的 tenant&#x2F;user。</li></ol><p>Java MCP 入口继续做鉴权、上下文解析、Schema 校验和异常归一。Tool 方法拿到的 <code>AiRunContext</code> 已经包含服务端确认过的用户和租户，模型不需要也不允许自己提交这些字段。</p><p>因此，两个公共 Framework 应该放在 Java Tool 与业务 Service 之间。Pi 保持通用 Agent Runtime，不感知采购订单、入库单或者某个查询字段。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Pi Runtime<br>  → Java MCP<br>  → Command / Query Framework<br>  → 领域 Handler<br>  → 现有 ERP Service<br></code></pre></td></tr></table></figure><h2 id="旧的-prepare-confirm-为什么开始不顺"><a href="#旧的-prepare-confirm-为什么开始不顺" class="headerlink" title="旧的 prepare-confirm 为什么开始不顺"></a>旧的 prepare-confirm 为什么开始不顺</h2><p>当前写操作大致采用下面的接口：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">createDocument(action, form)<br></code></pre></td></tr></table></figure><p><code>action=prepare</code> 时，服务端补齐产品、供应商、仓库、金额等字段，返回完整 form。<code>action=confirm</code> 时，Agent 把完整 form 再提交一次，服务端重新执行 prepare 校验，然后调用原有 ERP Service 落库。</p><p>这套实现已经守住了几条重要边界：</p><ul><li>主数据由服务端重新读取。</li><li>confirm 不信任预览阶段计算出的金额。</li><li>tenant&#x2F;user 来自运行时上下文。</li><li>业务 Service 继续负责数据库事务。</li><li>原始业务单号承担最终幂等校验。</li></ul><p>麻烦出在“确认对象”不够明确。用户看到的是第一次 prepare 的预览，confirm 收到的却是模型重新发送的完整 form。服务端能重新校验，却无法证明第二份 form 与用户刚才确认的预览完全相同。</p><p>随着单据类型增加，另外几类重复也开始出现：</p><ul><li>每个 Tool 重写一次 action 判断。</li><li>每个 Service 定义一套 <code>prepared</code>、<code>preview_ready</code>、<code>created</code> 状态。</li><li>每个 Skill 再描述一遍“先 prepare，等待明确确认，再 confirm”。</li><li>某个 Skill 已经要求使用“确认标识”，实际 Tool 结果却还没有该字段。</li></ul><p>最后一条已经属于契约漂移。继续复制实现只会让 Tool、Skill 和测试各自维护一套事实。</p><h2 id="commandType-是-Java-内部的路由键"><a href="#commandType-是-Java-内部的路由键" class="headerlink" title="commandType 是 Java 内部的路由键"></a>commandType 是 Java 内部的路由键</h2><p>统一写协议需要一个稳定标识，用来说明一份 preparation 最终会执行哪类业务命令。这里把它叫作 <code>commandType</code>。</p><p>示例：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">erp.purchase_requisition.create<br>erp.purchase_order.create<br>erp.stock_inbound.create<br>erp.outsource_order.create<br>furnace.stock_inbound.create<br>furnace.stock_outbound.create<br></code></pre></td></tr></table></figure><p>项目里同时存在三个容易混淆的标识：</p><table><thead><tr><th>标识</th><th>消费者</th><th>用途</th></tr></thead><tbody><tr><td><code>toolName</code></td><td>LLM &#x2F; Pi</td><td>选择要调用的 AI 能力</td></tr><tr><td><code>commandType</code></td><td>Java Framework</td><td>找到 Handler，校验 preparation 没有串业务</td></tr><tr><td><code>documentKind</code></td><td>ERP 领域代码</td><td>表示请购单、采购订单、其他入库等业务类型</td></tr></tbody></table><p>一次采购订单创建可以对应：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">toolName     = prepare_erp_purchase_order<br>commandType  = erp.purchase_order.create<br>documentKind = PURCHASE_ORDER<br></code></pre></td></tr></table></figure><p><code>commandType</code> 不进入模型参数。Tool 在 Java 代码里选择已经注册的常量：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">return</span> commandFramework.prepare(<br>    PurchaseOrderCreateHandler.COMMAND_TYPE,<br>    form,<br>    context<br>);<br></code></pre></td></tr></table></figure><p>这层约束挡住了一类串用错误：采购订单生成的 <code>preparationId</code> 无法交给委外订单 Handler 执行。</p><h2 id="Command-Framework：prepare-保存快照，confirm-只收-ID"><a href="#Command-Framework：prepare-保存快照，confirm-只收-ID" class="headerlink" title="Command Framework：prepare 保存快照，confirm 只收 ID"></a>Command Framework：prepare 保存快照，confirm 只收 ID</h2><p>写操作对模型暴露两个语义清晰的动作：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">prepare_xxx(form) → PreparedCommand<br>confirm_xxx(preparationId) → CommandReceipt<br></code></pre></td></tr></table></figure><p>各类单据继续保留自己的 Tool 名和强类型表单。一个包含全部单据联合 Schema 的 <code>execute_document</code> 会让工具描述和参数分支迅速膨胀，模型选中 Tool 之后仍要猜业务类型，省下的 Java 方法换成了更高的调用失败率。</p><h3 id="prepare-的数据流"><a href="#prepare-的数据流" class="headerlink" title="prepare 的数据流"></a>prepare 的数据流</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">Tool 接收领域表单<br>  → 写死 commandType<br>  → Framework 从 AiRunContext 读取 tenant/user<br>  → 找到对应 CommandHandler<br>  → Handler 规范化表单并校验领域规则<br>  → Handler 生成预览<br>  → Framework 把规范化快照写入 Redis<br>  → 返回 preparationId、expiresAt 和 preview<br></code></pre></td></tr></table></figure><p>公共结果可以保持很小：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;state&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PREPARED&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;preparationId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;随机 UUID&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-18T11:30:00+08:00&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;preview&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;documentKind&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PURCHASE_ORDER&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;lineCount&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;amountTotal&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">12500.00</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>预览只放用户确认所需的稳定业务字段。规范化后的完整 payload 留在 Redis，confirm 阶段不再让模型搬运。</p><h3 id="Redis-preparation"><a href="#Redis-preparation" class="headerlink" title="Redis preparation"></a>Redis preparation</h3><p>Redis key 不需要编码业务字段：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">ai:command:preparation:&#123;preparationId&#125;<br></code></pre></td></tr></table></figure><p>value 至少包含：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;commandType&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;erp.purchase_order.create&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;tenantId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;tenant-id&gt;&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;userId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;user-id&gt;&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PREPARED&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;normalizedPayload&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;snapshotHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;sha256...&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;createdAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-18T11:00:00+08:00&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-18T11:30:00+08:00&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;receipt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">null</span></span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>项目已经使用 Redisson <code>RBucket</code> 和 TTL，第一版可以直接复用：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">bucket.set(preparation, ttl, TimeUnit.SECONDS);<br></code></pre></td></tr></table></figure><p>过期数据交给 Redis 清理，不增加定时任务。Redis key 缺失时统一返回 <code>preparation_not_found_or_expired</code>，第一版不再维护一份过期墓碑来区分“从未存在”和“已经过期”。两种情况对 Agent 的恢复动作相同：重新 prepare。</p><h3 id="confirm-的数据流"><a href="#confirm-的数据流" class="headerlink" title="confirm 的数据流"></a>confirm 的数据流</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">Tool 接收 preparationId<br>  → Framework 从 Redis 读取 preparation<br>  → 校验 tenant/user<br>  → 校验当前 Tool 绑定的 commandType<br>  → 对 preparationId 加分布式锁<br>  → 检查是否已经完成<br>  → Handler 重查易变业务条件<br>  → 调用现有 ERP Service 落库<br>  → 保存 CONFIRMED 和 receipt<br>  → 返回创建结果<br></code></pre></td></tr></table></figure><p>快照字段在 prepare 后不能修改。库存、来源单状态、仓库是否启用等数据会变化，Handler 在 confirm 时仍要重新查询。</p><p>状态先收成四个就够用：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">PREPARED<br>  → CONFIRMING<br>  → CONFIRMED<br>  → REJECTED<br></code></pre></td></tr></table></figure><p>执行期间的临时错误可以退回 <code>PREPARED</code> 供重试。不可恢复的业务错误进入 <code>REJECTED</code>。成功 receipt 保留到 Redis TTL 结束，网络超时造成的重复 confirm 可以直接拿到上次结果。</p><p>Redis 只承担短期流程状态。最终幂等仍由业务数据库负责。Redis 重启、淘汰 key 或跨环境切换都可能让 preparation 消失，数据库唯一键和原始业务单号必须继续拦住重复落库。</p><h3 id="Handler-只写领域差异"><a href="#Handler-只写领域差异" class="headerlink" title="Handler 只写领域差异"></a>Handler 只写领域差异</h3><p>公共 Framework 不读取采购金额，也不理解库存方向。Handler 负责这些差异：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">interface</span> <span class="hljs-title class_">CommandHandler</span>&lt;F, P, R&gt; &#123;<br>    String <span class="hljs-title function_">commandType</span><span class="hljs-params">()</span>;<br><br>    PreparedPayload&lt;F, P&gt; <span class="hljs-title function_">prepare</span><span class="hljs-params">(F input, AiRunContext context)</span>;<br><br>    R <span class="hljs-title function_">confirm</span><span class="hljs-params">(F normalizedPayload, AiRunContext context)</span>;<br>&#125;<br></code></pre></td></tr></table></figure><p>职责分配如下：</p><table><thead><tr><th>公共 Framework</th><th>领域 Handler</th></tr></thead><tbody><tr><td>tenant&#x2F;user 绑定</td><td>主数据查询</td></tr><tr><td>preparationId</td><td>领域表单规范化</td></tr><tr><td>Redis TTL</td><td>金额、数量和状态校验</td></tr><tr><td>commandType 路由</td><td>预览内容</td></tr><tr><td>状态和分布式锁</td><td>调用现有 ERP Service</td></tr><tr><td>通用错误码</td><td>业务错误码和创建结果</td></tr></tbody></table><p>Framework 抽走的是每类写操作都重复的生命周期。业务规则继续留在业务模块里。</p><h2 id="Query-Framework：统一调用形状，不造动态查询语言"><a href="#Query-Framework：统一调用形状，不造动态查询语言" class="headerlink" title="Query Framework：统一调用形状，不造动态查询语言"></a>Query Framework：统一调用形状，不造动态查询语言</h2><p>当前查询 Tool 已经有分页雏形。库存查询会返回 <code>page</code>、<code>pageSize</code> 和 <code>total</code>，两个库存域也复用了接近的查询对象。分页默认值、上限和日期规范化仍由各 Service 分别处理，排序协议还没有进入公共结果。</p><p>统一后的请求分成三块：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">class</span> <span class="hljs-title class_">QueryRequest</span>&lt;F&gt; &#123;<br>    F filter;<br>    PageRequest page;<br>    List&lt;SortItem&gt; sort;<br>&#125;<br></code></pre></td></tr></table></figure><p>示例：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;filter&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;materialName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;球墨铸铁&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;warehouseName&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;成品库&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;page&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;number&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">50</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;sort&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;documentDate&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;direction&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DESC&quot;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>filter</code> 使用领域强类型对象。<code>Map&lt;String, Object&gt;</code> 或任意 <code>field/operator/value</code> AST 会把字段白名单、类型校验和权限压力推给运行时，还给 SQL 注入和数据越权留出更大入口。现有 Tool Schema 已经能生成嵌套对象约束，沿用强类型 DTO 更省代码。</p><h3 id="统一结果"><a href="#统一结果" class="headerlink" title="统一结果"></a>统一结果</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">class</span> <span class="hljs-title class_">QueryResult</span>&lt;T&gt; &#123;<br>    List&lt;T&gt; items;<br>    PageResult page;<br>    List&lt;SortItem&gt; appliedSort;<br>    List&lt;String&gt; warnings;<br>&#125;<br></code></pre></td></tr></table></figure><p>返回示例：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;items&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;page&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;number&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;size&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">50</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;total&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">128</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;hasMore&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;appliedSort&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;documentDate&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;direction&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DESC&quot;</span><br>    <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;id&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;direction&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DESC&quot;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;warnings&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>appliedSort</code> 返回实际生效的完整排序。数组顺序就是优先级。字段名使用 Tool 公共 Schema 的名字，不能把 <code>oper_time</code>、<code>create_time</code> 之类数据库列名暴露给 Agent。</p><p>上面的 <code>id DESC</code> 由 Framework 自动追加。仅按业务日期翻页时，同一天的数据没有稳定顺序，前后两次查询可能重复或漏项。唯一 ID 作为最后一层排序可以把顺序固定下来。Agent 不必向最终用户复述这段元数据，测试和后续翻页会用到它。</p><p><code>total</code> 允许为空。部分外部系统只能可靠提供 <code>hasMore</code>，强制补总数会多执行一次昂贵查询。当前 ERP 查询继续沿用 <code>page/size</code>，第一版不加 cursor；数据规模和并发变化确实造成翻页漂移后，再升级游标协议。</p><h3 id="Query-Framework-的边界"><a href="#Query-Framework-的边界" class="headerlink" title="Query Framework 的边界"></a>Query Framework 的边界</h3><p>公共层负责：</p><ul><li>补默认页码和页大小。</li><li>限制最大 page size。</li><li>校验 <code>ASC/DESC</code>。</li><li>校验排序字段白名单。</li><li>追加稳定排序字段。</li><li>构造统一分页结果。</li></ul><p>领域 Handler 负责：</p><ul><li>定义强类型 filter。</li><li>声明公共排序字段及数据库映射。</li><li>注入租户、用户和数据权限条件。</li><li>执行具体 Mapper 或既有 Service。</li></ul><p>排序字段不在白名单时直接返回 <code>query_sort_field_not_allowed</code>。Framework 不猜别名，也不静默忽略。模型拿到稳定错误后可以修正参数，测试也能准确定位失败原因。</p><h2 id="Tool-统一以后，Skill-可以少写一批重复规则"><a href="#Tool-统一以后，Skill-可以少写一批重复规则" class="headerlink" title="Tool 统一以后，Skill 可以少写一批重复规则"></a>Tool 统一以后，Skill 可以少写一批重复规则</h2><p>Tool 负责原子能力，Skill 负责业务编排。两层都需要，但承担的内容不同。</p><p>写协议统一后，模块 Skill 不再逐个解释每张单据如何保存临时状态。它只需要写业务顺序：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">查询主数据<br>  → 补齐缺失字段<br>  → 调用 prepare<br>  → 完整展示 preview<br>  → 等待用户明确确认<br>  → 使用 preparationId 调用 confirm<br></code></pre></td></tr></table></figure><p>查询协议统一后，Skill 也不需要记住不同 Tool 的 <code>pageNum/page/pageIndex</code> 和 <code>rows/limit/pageSize</code>。跨模块 Skill 可以沿用同一套分页和排序语义，把篇幅留给领域路由、证据要求和禁止操作。</p><p>Tool Schema、Skill 和 Scenario 仍要做一致性校验。Skill 引用的 Tool、参数、状态和结果字段应当能从 Tool Registry 中验证。这样能提前抓住“Skill 已经要求 confirmation ID，Tool 还在返回完整 form”这类漂移。</p><h2 id="这两套-Framework-怎么测试"><a href="#这两套-Framework-怎么测试" class="headerlink" title="这两套 Framework 怎么测试"></a>这两套 Framework 怎么测试</h2><p>公共框架只需要一组集中测试，各领域 Handler 再补自己的业务用例。</p><p>Command Framework 至少覆盖：</p><ul><li>prepare 不写业务表。</li><li>preparation 绑定 tenant&#x2F;user&#x2F;commandType。</li><li>过期 ID 被拒绝。</li><li>跨用户和跨租户确认被拒绝。</li><li>commandType 不匹配被拒绝。</li><li>confirm 使用 Redis 快照，不接收修改后的 form。</li><li>并发 confirm 只产生一次业务写入。</li><li>网络重试返回同一 receipt。</li><li>Redis 状态丢失后，数据库幂等仍能拦住重复单据。</li></ul><p>Query Framework 至少覆盖：</p><ul><li>默认分页和最大页大小。</li><li>非法排序方向。</li><li>非白名单排序字段。</li><li>自动追加稳定排序。</li><li><code>appliedSort</code> 使用公共字段名。</li><li><code>total</code> 为空时仍能正确计算或返回 <code>hasMore</code>。</li></ul><p>Agent Scenario 再验证模型行为：写操作是否先 prepare、普通回复是否被误当成确认、confirm 是否传入刚才返回的 <code>preparationId</code>，以及查询 Tool 是否遵循统一分页字段。</p><h2 id="新增的复杂度和适用边界"><a href="#新增的复杂度和适用边界" class="headerlink" title="新增的复杂度和适用边界"></a>新增的复杂度和适用边界</h2><p>Command Framework 引入了 Redis 状态、TTL、分布式锁和一次额外读取。它适合创建单据、审批、删除、发起流程等需要用户确认且副作用明显的操作。普通收藏、标记已读等低风险幂等动作继续直接执行更省事。</p><p>Query Framework 统一的是请求和结果外壳。领域过滤条件、权限和 Mapper 不会因此自动通用。试图继续抽成一个万能查询引擎，会把简单 DTO 变成一门新的查询语言。</p><p>这次先收两层重复：写操作的生命周期和查询操作的协议形状。Redis 复用现有 Redisson，分页沿用当前 page&#x2F;size，Tool 保留领域名称和强类型 Schema。后续扩展需要由真实单据和查询场景推动。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>Java</tag>
+      
+      <tag>架构设计</tag>
+      
+      <tag>Tool Calling</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>复制 ECS 后云效 Flow 部署串机：Runner 身份被一并复制</title>
     <link href="/2026/08/17/aliyun-flow-runner-cloned-ecs/"/>
     <url>/2026/08/17/aliyun-flow-runner-cloned-ecs/</url>
@@ -49,13 +84,13 @@
     
     <tags>
       
+      <tag>AI工作日志</tag>
+      
       <tag>AI Agent</tag>
       
       <tag>自动化测试</tag>
       
       <tag>LLM 评测</tag>
-      
-      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -152,11 +187,11 @@
       
       <tag>Pi</tag>
       
-      <tag>Java Runtime</tag>
-      
       <tag>多模态</tag>
       
       <tag>图片处理</tag>
+      
+      <tag>Java Runtime</tag>
       
       <tag>大模型上下文</tag>
       
@@ -437,9 +472,9 @@
     
     <tags>
       
-      <tag>AI Agent</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>自动化部署</tag>
       
@@ -710,9 +745,9 @@
     
     <tags>
       
-      <tag>AI Agent</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>自动化部署</tag>
       
@@ -820,9 +855,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>React</tag>
       
@@ -894,11 +929,11 @@
       
       <tag>Function Calling</tag>
       
-      <tag>复盘</tag>
-      
       <tag>Prompt</tag>
       
       <tag>上下文管理</tag>
+      
+      <tag>复盘</tag>
       
     </tags>
     
@@ -962,9 +997,9 @@
       
       <tag>Agent</tag>
       
-      <tag>Dify</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>Dify</tag>
       
     </tags>
     
@@ -989,9 +1024,9 @@
     
     <tags>
       
-      <tag>AI Agent</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>LangGraph</tag>
       
@@ -1028,9 +1063,9 @@
     
     <tags>
       
-      <tag>AI Agent</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>架构评审</tag>
       
@@ -1100,9 +1135,9 @@
       
       <tag>Agent</tag>
       
-      <tag>复盘</tag>
-      
       <tag>Prompt</tag>
+      
+      <tag>复盘</tag>
       
       <tag>MCP</tag>
       
@@ -1131,9 +1166,9 @@
     
     <tags>
       
-      <tag>AI Agent</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>Function Calling</tag>
       
@@ -1172,9 +1207,9 @@
       
       <tag>Python</tag>
       
-      <tag>Dify</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>Dify</tag>
       
       <tag>DashScope</tag>
       
@@ -1244,9 +1279,9 @@
       
       <tag>Function Calling</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>React Loop</tag>
       
@@ -1314,9 +1349,9 @@
       
       <tag>AI</tag>
       
-      <tag>知识库</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>知识库</tag>
       
     </tags>
     
@@ -1417,13 +1452,13 @@
       
       <tag>Agent</tag>
       
+      <tag>复盘</tag>
+      
       <tag>LangGraph</tag>
       
       <tag>ReAct</tag>
       
       <tag>架构重构</tag>
-      
-      <tag>复盘</tag>
       
     </tags>
     
@@ -1448,9 +1483,9 @@
     
     <tags>
       
-      <tag>AI Agent</tag>
-      
       <tag>AI工作日志</tag>
+      
+      <tag>AI Agent</tag>
       
       <tag>Function Calling</tag>
       
@@ -1565,11 +1600,11 @@
       
       <tag>LangGraph</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>Security</tag>
       
       <tag>Prompt Injection</tag>
-      
-      <tag>FastAPI</tag>
       
     </tags>
     
@@ -1695,9 +1730,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>Checkpoint</tag>
       
@@ -1728,9 +1763,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>编排</tag>
       
@@ -1858,9 +1893,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>编排</tag>
       
@@ -1889,9 +1924,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>复盘</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>ats_iot_ai</tag>
       
@@ -2046,13 +2081,13 @@
       
       <tag>工程复盘</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
       
-      <tag>Guardrails</tag>
+      <tag>FastAPI</tag>
       
       <tag>Memory</tag>
+      
+      <tag>Guardrails</tag>
       
       <tag>Prompt Engineering</tag>
       
@@ -2083,9 +2118,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>技术选型</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>技术选型</tag>
       
       <tag>LlamaIndex</tag>
       
@@ -2118,17 +2153,17 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>ReAct</tag>
+      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>Prompt Injection</tag>
       
-      <tag>Guardrails</tag>
-      
       <tag>Memory</tag>
+      
+      <tag>Guardrails</tag>
       
     </tags>
     
@@ -2159,11 +2194,11 @@
       
       <tag>OpenClaw</tag>
       
-      <tag>Memory</tag>
-      
       <tag>AI Orchestrator</tag>
       
       <tag>Tool Guardrails</tag>
+      
+      <tag>Memory</tag>
       
     </tags>
     
@@ -2217,13 +2252,13 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
       
       <tag>AI网关</tag>
       
       <tag>Java</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -2256,9 +2291,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>OpenClaw</tag>
-      
       <tag>ReAct</tag>
+      
+      <tag>OpenClaw</tag>
       
       <tag>FastAPI</tag>
       
@@ -2318,9 +2353,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>调试</tag>
       
@@ -2355,9 +2390,9 @@
       
       <tag>ReAct</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>Qwen</tag>
       
@@ -2604,15 +2639,15 @@
       
       <tag>MCP</tag>
       
-      <tag>Dify</tag>
-      
-      <tag>知识库</tag>
-      
       <tag>AI工程</tag>
       
       <tag>RAG</tag>
       
+      <tag>Dify</tag>
+      
       <tag>架构设计</tag>
+      
+      <tag>知识库</tag>
       
     </tags>
     
