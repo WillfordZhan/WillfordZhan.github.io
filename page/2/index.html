@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/07/pi-skill-progressive-loading/" target="_self">
+          Pi Skill 的渐进加载：元数据、System Prompt 与正文
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/07/pi-skill-progressive-loading/" target="_self">
+        <div>
+          Pi 的 Skill 不是在启动时把所有 SKILL.md 正文塞进模型上下文。它采用渐进加载：启动或重载时发现 Skill 并保存元数据，构建 System Prompt 时只向模型展示目录，真正选中某个 Skill 后才读取正文。 理解这三层状态很重要：磁盘上的 Skill、运行时内存里的 Skill 元数据、模型上下文里的 Skill 正文不是同一件事。 三个加载时机完整链路可以压缩成三步：
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-07 18:38" pubdate>
+              2026-08-07
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/Java-Runtime/">#Java Runtime</a>
+            
+              <a href="/tags/Skill/">#Skill</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/07/pi-java-runtime-cloud-session-todo/" target="_self">
           Pi Java Runtime 的云端会话恢复 TODO
         </a>
@@ -537,9 +606,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">#自动化部署</a>
             
@@ -751,75 +820,6 @@
               <a href="/tags/NPS/">#NPS</a>
             
               <a href="/tags/%E7%BD%91%E7%BB%9C/">#网络</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/05/14/llm-wiki-change-delivered/" target="_self">
-          LLM-wiki：把交付事实从 code ref 里拆出来
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/05/14/llm-wiki-change-delivered/" target="_self">
-        <div>
-          前两篇把 LLM-wiki 的文档模型和治理 CLI 跑起来了：topic 承接长期业务知识，change 承接一次需求或修复过程，code.path 让代码变更可以反向找到文档。今天继续往前推了一步，主要解决一个更细的问题：change.code 到底是不是交付事实源。 结论是：不是。change.code 应该只是索引快照，真正证明一个 change 已经交付的事实源应该是 commit。基于
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-05-14 18:44" pubdate>
-              2026-05-14
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/LLM-wiki/">#LLM-wiki</a>
-            
-              <a href="/tags/%E6%96%87%E6%A1%A3%E6%B2%BB%E7%90%86/">#文档治理</a>
             
           </div>
         

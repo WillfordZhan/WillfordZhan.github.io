@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>把 Agent 评测器落到代码里：确定性断言、Golden 与双 LLM Judge</title>
+    <link href="/2026/08/18/agent-evaluation-deterministic-assertions-llm-judge/"/>
+    <url>/2026/08/18/agent-evaluation-deterministic-assertions-llm-judge/</url>
+    
+    <content type="html"><![CDATA[<p>现有评测仓库已经能登录 Java Gateway，创建 Pi 会话，再检查 Tool 调用次数、Tool 名和内部字段泄露。仓库里目前有 7 组 Scenario、20 个 Case，评测框架自身的 20 个离线测试可以全部通过。</p><p>双 LLM Judge 还没有进入运行链路。配置模板里虽然有 <code>judge</code> 节点，<code>Config</code>、<code>Runner</code> 和报告对象都没有读取或执行它。Golden 也只是一个 <code>type + note</code> 的文字说明，尚不能作为机器可校验的业务事实。</p><p>上一篇《<a href="/2026/08/13/agent-auto-test-llm-judge/">给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案</a>》讲了整体思路。这一篇继续往代码里走，把证据怎么采、硬断言怎么执行、Golden 怎么生成、Judge 看什么、最终结果由谁决定写清楚。</p><h2 id="先看评测请求实际经过哪些模块"><a href="#先看评测请求实际经过哪些模块" class="headerlink" title="先看评测请求实际经过哪些模块"></a>先看评测请求实际经过哪些模块</h2><p>当前端到端链路如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs text">Scenario YAML<br>  -&gt; Runner 渲染问题并登录测试账号<br>  -&gt; POST /api/ai/conversations<br>  -&gt; Java Gateway 解析当前用户和工厂<br>  -&gt; Java Gateway 签发可信业务上下文<br>  -&gt; Pi Runtime /ai/conversations<br>  -&gt; Pi AgentSession 执行 agent loop<br>  -&gt; Java MCP Tool 查询 ERP<br>  -&gt; Pi JSONL 保存原始 SessionEntry<br>  -&gt; Java Store 镜像 SessionEntry<br>  -&gt; Runner 读取受保护的原生 SessionEntry<br>  -&gt; 生成 AgentTrace<br>  -&gt; 确定性断言<br>  -&gt; Golden + 双 LLM Judge<br>  -&gt; CaseReport<br></code></pre></td></tr></table></figure><p>Java Gateway 仍是用户身份和当前工厂的可信入口。它把 <code>tenantId/userId</code> 签进请求头，Pi 的 <code>http-server.ts</code> 验签后才创建会话。<code>runtime.ts</code> 再把调用人快照写入 <code>java_gateway_context</code>，创建 <code>AgentSession</code>，并将本轮 Tool Call 和 Tool Result 落进 Pi JSONL。</p><p>评测器从 Java Gateway 发起请求，可以覆盖登录、业务上下文、Pi Runtime、Java MCP 和 ERP Tool 的完整链路。直接调用 Pi Runtime 会跳过 Java 身份解析，不适合作为 L2 端到端验收入口。</p><h2 id="评测证据直接使用原生-SessionEntry"><a href="#评测证据直接使用原生-SessionEntry" class="headerlink" title="评测证据直接使用原生 SessionEntry"></a>评测证据直接使用原生 SessionEntry</h2><p>Scenario 不再定义自有消息类型，也不依赖面向 UI 的消息投影。评测器等待 create&#x2F;chat 请求完成，再从受保护的 Java Store 读取 Pi 原生 <code>SessionEntry</code>。HTTP 超时、上游异常和 Store 读取失败直接归入运行错误，不进入 Scenario 的业务期望。</p><p>原生 Entry 保留完整 Agent 消息：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">assistant.content[].type = toolCall<br>assistant.content[].name = production_plan_search<br>assistant.content[].arguments = &#123;...&#125;<br><br>toolResult.toolCallId = call-1<br>toolResult.toolName = production_plan_search<br>toolResult.content = [...]<br>toolResult.isError = false<br></code></pre></td></tr></table></figure><p>现有 <code>client.py</code> 已经通过 Java 内部 Store 读取 raw entries，但只提取了 Tool 名。下一步应把这层扩成完整 Trace Collector，同时继续使用内部 Token 和会话 owner 约束。管理台和用户侧消息投影继续服务展示，不进入评测协议。</p><h2 id="先归一成-AgentTrace"><a href="#先归一成-AgentTrace" class="headerlink" title="先归一成 AgentTrace"></a>先归一成 AgentTrace</h2><p>断言逻辑直接操作原始 Entry，会逐渐堆出重复的遍历和关联代码。中间增加一个只负责归一化的 <code>AgentTrace</code>，后续断言和 Judge 都消费它。</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-meta">@dataclass(<span class="hljs-params">frozen=<span class="hljs-literal">True</span></span>)</span><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">ToolExecution</span>:<br>    call_id: <span class="hljs-built_in">str</span><br>    name: <span class="hljs-built_in">str</span><br>    arguments: <span class="hljs-built_in">dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-built_in">object</span>]<br>    result: <span class="hljs-built_in">object</span> | <span class="hljs-literal">None</span><br>    is_error: <span class="hljs-built_in">bool</span><br><br><br><span class="hljs-meta">@dataclass(<span class="hljs-params">frozen=<span class="hljs-literal">True</span></span>)</span><br><span class="hljs-keyword">class</span> <span class="hljs-title class_">AgentTrace</span>:<br>    conversation_id: <span class="hljs-built_in">str</span><br>    answer_text: <span class="hljs-built_in">str</span><br>    tool_executions: <span class="hljs-built_in">list</span>[ToolExecution]<br>    caller_context: <span class="hljs-built_in">dict</span>[<span class="hljs-built_in">str</span>, <span class="hljs-built_in">str</span>]<br></code></pre></td></tr></table></figure><p>Trace Collector 的处理顺序保持固定：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">等待 create/chat 请求完成<br>  -&gt; 读取原生 SessionEntry<br>提取最后一条 assistant 文本<br>  -&gt; answer_text<br>提取 toolCall 名称、参数和 toolResult<br>按 tool_call_id 关联调用与结果<br>  -&gt; 缺失结果标记为 incomplete<br>读取 java_gateway_context<br>  -&gt; 取得会话创建时的 tenant/user 快照<br>输出不可变 AgentTrace<br></code></pre></td></tr></table></figure><p>Trace 保留 <code>incomplete</code>，因为测试报告需要区分业务 Tool 返回失败、网络中断和没有配对结果。这项判断来自原生 Tool Call 与 Tool Result 的关联，不依赖额外消息类型。</p><h2 id="Scenario-只描述输入、硬约束和语义目标"><a href="#Scenario-只描述输入、硬约束和语义目标" class="headerlink" title="Scenario 只描述输入、硬约束和语义目标"></a>Scenario 只描述输入、硬约束和语义目标</h2><p>当前 Scenario 可以表达单轮问题和几项基础断言：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">id:</span> <span class="hljs-string">pp-detail-001</span><br><span class="hljs-attr">query:</span> <span class="hljs-string">&quot;查询今天 3 号炉的炉次安排&quot;</span><br><span class="hljs-attr">expects:</span><br>  <span class="hljs-attr">min_tools:</span> <span class="hljs-number">2</span><br>  <span class="hljs-attr">tools:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">production_plan_search</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-string">production_plan_detail</span><br>  <span class="hljs-attr">ordered_tools:</span> <span class="hljs-literal">true</span><br></code></pre></td></tr></table></figure><p>这个结构足够跑第一批只读 Case。多轮澄清、prepare-confirm、动态 Golden 和 Judge 还缺少稳定入口。扩展后的 Scenario 可以收成四块：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">id:</span> <span class="hljs-string">pp-detail-001</span><br><span class="hljs-attr">stability:</span> <span class="hljs-string">P0</span><br><br><span class="hljs-attr">input:</span><br>  <span class="hljs-attr">turns:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">user:</span> <span class="hljs-string">&quot;查询今天 3 号炉的炉次安排&quot;</span><br><br><span class="hljs-attr">expects:</span><br>  <span class="hljs-attr">tools:</span><br>    <span class="hljs-attr">mode:</span> <span class="hljs-string">subsequence</span><br>    <span class="hljs-attr">names:</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">production_plan_search</span><br>      <span class="hljs-bullet">-</span> <span class="hljs-string">production_plan_detail</span><br>  <span class="hljs-attr">tool_results:</span> <span class="hljs-string">all_success</span><br>  <span class="hljs-attr">leakage_policy:</span> <span class="hljs-string">erp_public_answer</span><br><br><span class="hljs-attr">golden:</span><br>  <span class="hljs-attr">provider:</span> <span class="hljs-string">db_query</span><br>  <span class="hljs-attr">query_ref:</span> <span class="hljs-string">production_plan_by_furnace_and_date</span><br>  <span class="hljs-attr">params:</span><br>    <span class="hljs-attr">furnace:</span> <span class="hljs-string">&quot;3号炉&quot;</span><br>    <span class="hljs-attr">date:</span> <span class="hljs-string">&quot;$&#123;today&#125;&quot;</span><br><br><span class="hljs-attr">judge:</span><br>  <span class="hljs-attr">rubric:</span> <span class="hljs-string">erp_answer_v1</span><br>  <span class="hljs-attr">required:</span> <span class="hljs-literal">true</span><br></code></pre></td></tr></table></figure><p>YAML 不存 SQL、Python 表达式或任意代码。<code>query_ref</code> 指向代码中登记并评审过的只读 Golden Provider。复杂领域校验继续写成有名字的断言函数，避免把 Scenario DSL 扩成另一门编程语言。</p><p>Tool 序列使用显式模式：</p><table><thead><tr><th>模式</th><th>语义</th><th>适用场景</th></tr></thead><tbody><tr><td><code>exact</code></td><td>名称和顺序完全一致</td><td>固定的 prepare-confirm 协议</td></tr><tr><td><code>subsequence</code></td><td>期望序列按顺序出现，允许中间多一次辅助查询</td><td>多跳查询</td></tr><tr><td><code>set</code></td><td>只要求调用集合，不关心顺序</td><td>可并行的独立查询</td></tr><tr><td><code>none</code></td><td>不允许调用 Tool</td><td>闲聊、缺参数澄清</td></tr></tbody></table><p>现有 <code>ordered_tools: true</code> 采用完整数组相等。Agent 多调用一次无害的主数据查询也会失败。<code>subsequence</code> 能表达“先搜索计划，再查详情”这类业务约束，同时不给每一步辅助动作写死位置。</p><h2 id="确定性断言负责硬事实"><a href="#确定性断言负责硬事实" class="headerlink" title="确定性断言负责硬事实"></a>确定性断言负责硬事实</h2><p>确定性断言在 Judge 之前执行。失败后直接结束当前 Case，LLM 没有权力覆盖这些结果。</p><h3 id="运行错误和链路完整性"><a href="#运行错误和链路完整性" class="headerlink" title="运行错误和链路完整性"></a>运行错误和链路完整性</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">create/chat 请求完成，并能读取原生 Entry<br>  -&gt; 继续执行 Trace 断言<br>HTTP 超时 / 上游失败 / Store 读取失败<br>  -&gt; Case = ERROR<br>只有 tool_call，没有配对 tool_result<br>  -&gt; Case = FAIL 或 ERROR，由 failure_kind 决定<br></code></pre></td></tr></table></figure><p><code>FAIL</code> 表示 Agent 行为违反期望，<code>ERROR</code> 表示测试基础设施、网络或被测服务没有完成一次可判定运行。两者分开后，发布报告不会把环境故障统计成模型能力下降。</p><h3 id="Tool-调用与结果"><a href="#Tool-调用与结果" class="headerlink" title="Tool 调用与结果"></a>Tool 调用与结果</h3><p>通用断言至少覆盖：</p><ul><li>Tool 调用数量的上下限。</li><li><code>exact/subsequence/set/none</code> 序列策略。</li><li>禁止调用的 Tool。</li><li>每个 <code>tool_call_id</code> 都有且只有一个结果。</li><li><code>toolResult.isError</code> 是否符合期望。</li><li>动态参数是否来自前一步结果。</li></ul><p>最后一项适合 prepare-confirm。<code>prepare</code> 返回的 <code>preparationId</code> 每次不同，Scenario 不应硬编码具体值。Trace Collector 先捕获返回值，再校验 confirm 参数引用了同一个 ID：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">prepare_purchase_order.result.preparationId<br>  -&gt; capture: preparation_id<br>confirm_purchase_order.arguments.preparationId<br>  -&gt; assert equals capture(preparation_id)<br></code></pre></td></tr></table></figure><p>这种关联检查验证的是通用协议，没有依赖某个样例 ID。</p><h3 id="tenant-user-与业务上下文"><a href="#tenant-user-与业务上下文" class="headerlink" title="tenant&#x2F;user 与业务上下文"></a>tenant&#x2F;user 与业务上下文</h3><p>Runner 登录后已经能取得当前 <code>userId/deptId</code>。Trace Collector 再从 <code>java_gateway_context</code> 读取会话快照，两者必须一致：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">登录身份<br>  -&gt; expected tenant/user<br>会话 raw entries<br>  -&gt; actual java_gateway_context<br>expected == actual<br>  -&gt; 上下文传播通过<br></code></pre></td></tr></table></figure><p>Tool 的 tenant&#x2F;user 不应来自 LLM 参数。需要验证 Tool 执行范围时，应读取 Java 服务端审计信息或受保护 Trace，不能在 Prompt 里要求模型复述内部 ID。</p><h3 id="内部字段泄露"><a href="#内部字段泄露" class="headerlink" title="内部字段泄露"></a>内部字段泄露</h3><p>当前 Case 会重复配置 <code>planId</code>、<code>statusName</code>、<code>fnCode</code>。新增 Tool 后容易漏配。更稳定的做法是给 Tool 输出字段增加投影策略：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">PUBLIC       可进入最终回答<br>BUSINESS     需转换为业务语义后展示<br>INTERNAL     禁止进入最终回答<br>SENSITIVE    禁止进入 Judge 输入和最终回答<br></code></pre></td></tr></table></figure><p>评测器根据 Tool Schema 元数据和模块级 <code>leakage_policy</code> 自动生成禁用字段集合。Scenario 的 <code>no_leak</code> 只补少量特殊词，不再复制整份字段黑名单。</p><h2 id="Golden-要保存事实，不保存一段“标准作文”"><a href="#Golden-要保存事实，不保存一段“标准作文”" class="headerlink" title="Golden 要保存事实，不保存一段“标准作文”"></a>Golden 要保存事实，不保存一段“标准作文”</h2><p>现有 Golden 只有一段 <code>note</code>：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">golden:</span><br>  <span class="hljs-attr">type:</span> <span class="hljs-string">fixture</span><br>  <span class="hljs-attr">note:</span> <span class="hljs-string">&quot;返回今天的生产计划，状态使用中文表达&quot;</span><br></code></pre></td></tr></table></figure><p>这段文字能帮助人读用例，无法让 Judge 核对数量、状态和时间范围。Golden Provider 应输出结构化快照：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;source&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;db_query&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;queryRef&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;production_plan_by_furnace_and_date&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;generatedAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-18T11:00:00+08:00&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;scope&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;tenant&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;current-test-tenant&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;facts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;fact-1&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;planCount&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">1</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;fact-2&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;batchCount&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">5</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-punctuation">&#123;</span><span class="hljs-attr">&quot;id&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;fact-3&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;field&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;status&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-attr">&quot;value&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;IN_PROGRESS&quot;</span><span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;answerRequirements&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-string">&quot;回答计划数量和炉次数量&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-string">&quot;状态转换为业务中文&quot;</span><br>  <span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>Golden 有两种来源：</p><ul><li><code>fixture</code>：适合闲聊、能力拒绝、固定协议和稳定的模拟数据。</li><li><code>db_query</code>：适合库存、生产计划、单据状态等持续变化的数据。</li></ul><p>动态 Golden 在 Agent 请求前生成，并记录查询时间、租户范围和参数。前后版本对比要复用同一份 Golden 快照，避免数据库变化被误判成 Prompt 回归。</p><p>SQL 不直接放在 YAML。Golden Registry 按 <code>query_ref</code> 找到只读实现，数据库账号只授予查询权限，查询中强制注入测试租户。Provider 返回业务字段投影，不把数据库列名、内部主键或客户数据原样交给 Judge。</p><h2 id="Faithfulness-和-Correctness-使用不同证据"><a href="#Faithfulness-和-Correctness-使用不同证据" class="headerlink" title="Faithfulness 和 Correctness 使用不同证据"></a>Faithfulness 和 Correctness 使用不同证据</h2><p>Tool Result 与 Golden 都是证据，含义不同。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">Tool Evidence<br>  -&gt; Agent 本轮实际看到的数据<br>  -&gt; 用于判断 Faithfulness<br><br>Golden Snapshot<br>  -&gt; 独立数据源给出的业务事实<br>  -&gt; 用于判断 Correctness<br></code></pre></td></tr></table></figure><p>Tool 错误地返回 6 个炉次，Agent 如实回答 6。此时 Faithfulness 可以判好，Correctness 应判差。报告会把根因指向 Tool 或数据查询层，而不是笼统写成“Agent 回答错误”。</p><p>Agent 看到 5 个炉次却回答 6，Faithfulness 直接判差。Golden 同样是 5 时，Correctness 也会判差。</p><p>给 Judge 的 Tool Evidence 必须先做语义投影，只保留回答所需事实。原始 Tool Result 可能包含内部主键和权限字段，直接塞进另一个模型会扩大敏感数据暴露面。</p><h2 id="Judge-只判档位，运行器负责算分"><a href="#Judge-只判档位，运行器负责算分" class="headerlink" title="Judge 只判档位，运行器负责算分"></a>Judge 只判档位，运行器负责算分</h2><p>Judge 输入固定为一个不可变评测包：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;question&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;查询今天 3 号炉的炉次安排&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;scenarioRequirements&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;回答炉次数量和状态&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;agentAnswer&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;今天有 5 个炉次，计划正在进行中。&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;toolEvidence&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;goldenFacts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;deterministicChecks&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>Agent 回答按不可信数据处理。Judge 的系统指令明确禁止执行 <code>agentAnswer</code>、Tool Evidence 或 Golden 字段中的任何命令。输入使用 JSON 结构和独立字段，避免把整段材料拼成一段可继续对话的 Prompt。</p><p>四个 Metric 沿用现有设计：</p><table><thead><tr><th>Metric</th><th align="right">权重</th><th>硬门禁</th><th>读取的主要证据</th></tr></thead><tbody><tr><td>Faithfulness</td><td align="right">0.4</td><td>是</td><td>Agent Answer + Tool Evidence</td></tr><tr><td>Correctness</td><td align="right">0.4</td><td>是</td><td>Agent Answer + Golden Facts</td></tr><tr><td>Business Appropriateness</td><td align="right">0.1</td><td>否</td><td>Scenario 要求 + Agent Answer</td></tr><tr><td>Boundary Compliance</td><td align="right">0.1</td><td>否</td><td>能力边界 + Agent Answer</td></tr></tbody></table><p>Judge 输出只包含档位、理由和证据引用：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;schemaVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;1&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;metrics&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;faithfulness&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;GOOD&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;回答中的炉次数量与 Tool Evidence 一致&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;evidenceRefs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;tool.fact-2&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;answer&quot;</span><span class="hljs-punctuation">]</span><br>    <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;correctness&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;GOOD&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;数量与状态均匹配 Golden&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;evidenceRefs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;golden.fact-2&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;golden.fact-3&quot;</span><span class="hljs-punctuation">]</span><br>    <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;businessAppropriateness&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;GOOD&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;状态已转换为业务中文&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;evidenceRefs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;answer&quot;</span><span class="hljs-punctuation">]</span><br>    <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;boundaryCompliance&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;grade&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;GOOD&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;reason&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;回答未扩展到系统未提供的能力&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;evidenceRefs&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;answer&quot;</span><span class="hljs-punctuation">]</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>weighted_total</code> 和 <code>verdict</code> 不让 LLM 输出。模型可能算错小数，也可能给出与四个档位矛盾的结论。运行器校验 JSON Schema 后统一计算：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs python">GRADE_SCORE = &#123;<span class="hljs-string">&quot;GOOD&quot;</span>: <span class="hljs-number">10</span>, <span class="hljs-string">&quot;PARTIAL&quot;</span>: <span class="hljs-number">5</span>, <span class="hljs-string">&quot;BAD&quot;</span>: <span class="hljs-number">0</span>&#125;<br><br><br><span class="hljs-keyword">def</span> <span class="hljs-title function_">score</span>(<span class="hljs-params">metrics: <span class="hljs-built_in">dict</span>[<span class="hljs-built_in">str</span>, MetricGrade]</span>) -&gt; JudgeScore:<br>    total = <span class="hljs-built_in">sum</span>(GRADE_SCORE[item.grade] * WEIGHTS[name]<br>                <span class="hljs-keyword">for</span> name, item <span class="hljs-keyword">in</span> metrics.items())<br>    hard_fail = <span class="hljs-built_in">any</span>(metrics[name].grade == <span class="hljs-string">&quot;BAD&quot;</span><br>                    <span class="hljs-keyword">for</span> name <span class="hljs-keyword">in</span> (<span class="hljs-string">&quot;faithfulness&quot;</span>, <span class="hljs-string">&quot;correctness&quot;</span>))<br>    verdict = <span class="hljs-string">&quot;FAIL&quot;</span> <span class="hljs-keyword">if</span> hard_fail <span class="hljs-keyword">else</span> <span class="hljs-string">&quot;PASS&quot;</span> <span class="hljs-keyword">if</span> total &gt;= <span class="hljs-number">8.0</span> <span class="hljs-keyword">else</span> <span class="hljs-string">&quot;WARN&quot;</span><br>    <span class="hljs-keyword">return</span> JudgeScore(total=total, verdict=verdict)<br></code></pre></td></tr></table></figure><p>这段计算需要普通单元测试覆盖全部档位组合。Judge 只提供语义判断，算术、阈值和发布门禁继续由确定性代码掌握。</p><p>两个模型共用一个很薄的 Provider 接口：</p><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs python"><span class="hljs-keyword">class</span> <span class="hljs-title class_">JudgeClient</span>(<span class="hljs-title class_ inherited__">Protocol</span>):<br>    <span class="hljs-keyword">def</span> <span class="hljs-title function_">judge</span>(<span class="hljs-params">self, package: JudgePackage, rubric: Rubric</span>) -&gt; JudgeOutput:<br>        ...<br></code></pre></td></tr></table></figure><p>Qwen 和 Codex Adapter 只处理鉴权、模型参数、请求发送与结构化响应解析。Rubric、Schema 校验、计分、重试和聚合不能分别写进两个 Adapter，否则同一个 Case 会被两套规则解释。</p><p>Judge 请求关闭 Tool、文件读取和网络搜索，只允许单轮结构化输出。它们与被测 Agent 使用不同的会话和上下文，也不继承 Pi 的 Skill、Java MCP Tool 或历史消息。</p><h2 id="双-Judge-怎么聚合"><a href="#双-Judge-怎么聚合" class="headerlink" title="双 Judge 怎么聚合"></a>双 Judge 怎么聚合</h2><p>Qwen 与 Codex 使用同一份冻结后的评测包，各自独立执行。两边看不到对方的输出。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">Judge Package<br>  -&gt; Qwen Judge -&gt; Schema 校验 -&gt; 本地算分 -&gt; verdict A<br>  -&gt; Codex Judge -&gt; Schema 校验 -&gt; 本地算分 -&gt; verdict B<br><br>A == B<br>  -&gt; 使用共同 verdict<br>A != B<br>  -&gt; 两个 Judge 各自重判一次<br>  -&gt; 第二轮一致：使用第二轮 verdict<br>  -&gt; 第二轮仍分歧：WARN + 人工复核<br></code></pre></td></tr></table></figure><p>Judge 请求失败、超时或 JSON Schema 不合法时，结果记为 <code>JUDGE_ERROR</code>。它表示评测基础设施没有产出语义结论，不能写成 Agent <code>FAIL</code>。P0&#x2F;P1 是否允许 <code>JUDGE_ERROR</code> 放行，由发布策略单独配置。</p><p>每次 Judge 记录这些版本信息：</p><ul><li>provider 和 model ID。</li><li>Judge Prompt 版本与哈希。</li><li>Rubric 版本。</li><li>temperature 等采样参数。</li><li>原始结构化输出。</li><li>本地计算出的分数和 verdict。</li></ul><p>低温可以降低波动，不能让 LLM 变成确定性函数。双模型、Golden、结构化输出和人工校准都保留。</p><h2 id="prepare-confirm-写操作怎么评"><a href="#prepare-confirm-写操作怎么评" class="headerlink" title="prepare-confirm 写操作怎么评"></a>prepare-confirm 写操作怎么评</h2><p>写操作需要多轮 Scenario：</p><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs yaml"><span class="hljs-attr">input:</span><br>  <span class="hljs-attr">turns:</span><br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">user:</span> <span class="hljs-string">&quot;创建一张采购订单&quot;</span><br>      <span class="hljs-attr">expects:</span><br>        <span class="hljs-attr">tools:</span><br>          <span class="hljs-attr">mode:</span> <span class="hljs-string">exact</span><br>          <span class="hljs-attr">names:</span> [<span class="hljs-string">prepare_purchase_order</span>]<br>        <span class="hljs-attr">capture:</span><br>          <span class="hljs-attr">preparation_id:</span> <span class="hljs-string">&quot;prepare_purchase_order.result.preparationId&quot;</span><br><br>    <span class="hljs-bullet">-</span> <span class="hljs-attr">user:</span> <span class="hljs-string">&quot;确认创建&quot;</span><br>      <span class="hljs-attr">expects:</span><br>        <span class="hljs-attr">tools:</span><br>          <span class="hljs-attr">mode:</span> <span class="hljs-string">exact</span><br>          <span class="hljs-attr">names:</span> [<span class="hljs-string">confirm_purchase_order</span>]<br>        <span class="hljs-attr">arguments:</span><br>          <span class="hljs-attr">preparationId:</span> <span class="hljs-string">&quot;$&#123;capture.preparation_id&#125;&quot;</span><br></code></pre></td></tr></table></figure><p>第一轮确定性断言检查 prepare 已调用、confirm 未调用，并捕获 <code>preparationId</code>。第二轮检查用户明确确认后才调用 confirm，且参数引用同一份 preparation。</p><p>副作用验证仍由数据库或业务查询接口完成：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">confirm 返回业务单号<br>  -&gt; 只读查询该单号<br>  -&gt; 校验租户、单据类型、行数和业务状态<br>  -&gt; 重复 confirm<br>  -&gt; 校验只存在一张单据并返回同一 receipt<br></code></pre></td></tr></table></figure><p>写操作只能运行在隔离测试租户，并使用可追踪的幂等键或测试标识。共享测试数据无法可靠清理时，发布必跑集应保留 prepare，confirm 放进受控验收阶段。</p><h2 id="Runner-的完整执行顺序"><a href="#Runner-的完整执行顺序" class="headerlink" title="Runner 的完整执行顺序"></a>Runner 的完整执行顺序</h2><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs text">加载 Scenario<br>  -&gt; 校验 DSL 与引用的 policy/query_ref/rubric<br>  -&gt; 登录并解析测试身份<br>  -&gt; 生成 Golden Snapshot<br>  -&gt; 创建或续聊 Pi 会话<br>  -&gt; 等待 create/chat 请求完成<br>  -&gt; 读取受保护的原生 SessionEntry<br>  -&gt; 归一化 AgentTrace<br>  -&gt; 运行确定性断言<br>      -&gt; FAIL：停止，不调用 Judge<br>      -&gt; ERROR：停止，记录环境问题<br>      -&gt; PASS：继续<br>  -&gt; 投影 Tool Evidence<br>  -&gt; 构建冻结 Judge Package<br>  -&gt; 并行调用两个 Judge<br>  -&gt; JSON Schema 校验与本地算分<br>  -&gt; 聚合 PASS / FAIL / WARN / JUDGE_ERROR<br>  -&gt; 写 CaseReport<br></code></pre></td></tr></table></figure><p>确定性断言先行还能控制费用。Tool 序列已经错、内部字段已经泄露、上下文已经串租户时，再调用两个模型不会增加判定信息。</p><h2 id="报告必须能回答“错在哪一层”"><a href="#报告必须能回答“错在哪一层”" class="headerlink" title="报告必须能回答“错在哪一层”"></a>报告必须能回答“错在哪一层”</h2><p><code>CaseResult</code> 目前保存 PASS&#x2F;FAIL&#x2F;ERROR、回答文本、Tool 次数和断言结果。完整报告还需要补充证据和版本：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;caseId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;pp-detail-001&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;outcome&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;FAIL&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;stage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;semantic_judge&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;deterministic&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;verdict&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;PASS&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;checks&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;golden&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;snapshotId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;golden-...&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;facts&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;judges&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;versions&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;agentCommit&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;commit&gt;&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;agentModel&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;model&gt;&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;toolCatalogHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;hash&gt;&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;skillBundleHash&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;hash&gt;&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;judgePromptVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;erp-judge-v1&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>stage</code> 至少区分：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">setup<br>agent_runtime<br>deterministic_assertion<br>golden_generation<br>semantic_judge<br>aggregation<br></code></pre></td></tr></table></figure><p>报告看到 Tool 序列失败，可以先查 Skill、Tool Schema 和 Agent 计划；Tool 数据与 Golden 不一致，进入 Java Tool 或查询口径；Tool 数据正确但 Agent 回答编错，进入 Prompt、模型或上下文；两个 Judge 长期分歧，进入 Rubric 校准。</p><p>Prompt、Skill 或 Tool 描述变化时，前后两次运行必须复用同一组 Scenario 和 Golden Snapshot。否则分数变化里会混入业务数据变化，无法说明语义改动带来了什么影响。</p><h2 id="评测器自身也要测试"><a href="#评测器自身也要测试" class="headerlink" title="评测器自身也要测试"></a>评测器自身也要测试</h2><p>评测系统不能只靠线上跑几条 Case 证明自己可用。它至少需要四类测试：</p><h3 id="Trace-和确定性断言"><a href="#Trace-和确定性断言" class="headerlink" title="Trace 和确定性断言"></a>Trace 和确定性断言</h3><ul><li>raw Entry 中 Tool 名和参数的提取。</li><li><code>tool_call_id</code> 与 Tool Result 的配对。</li><li><code>exact/subsequence/set/none</code> 的完整真值表。</li><li>悬挂调用、重复结果和失败结果。</li><li>tenant&#x2F;user 快照不一致。</li><li>投影策略生成的字段泄露集合。</li></ul><p>这些都是离线单元测试，不调用真实模型。</p><h3 id="Golden-Provider"><a href="#Golden-Provider" class="headerlink" title="Golden Provider"></a>Golden Provider</h3><ul><li><code>query_ref</code> 白名单。</li><li>参数与租户范围强制注入。</li><li>只读查询限制。</li><li>DB 结果到业务 Facts 的投影。</li><li>空数据、重复数据和时间边界。</li></ul><h3 id="Judge-Contract"><a href="#Judge-Contract" class="headerlink" title="Judge Contract"></a>Judge Contract</h3><ul><li>缺少 Metric、非法 grade、额外字段和坏 JSON。</li><li>档位到分值的映射。</li><li>硬门禁和阈值边界。</li><li>双 Judge 全部聚合组合。</li><li>超时、限流和重判次数上限。</li></ul><p>这里使用假的 Judge Client 返回固定 JSON，普通单元测试不消耗模型 Token。</p><h3 id="Judge-校准集"><a href="#Judge-校准集" class="headerlink" title="Judge 校准集"></a>Judge 校准集</h3><p>从真实回归 Case 中保留一批由人标注的 <code>Judge Package + 期望档位</code>。修改 Rubric、Prompt 或 Judge 模型后重跑校准集，比较误放行、误拦截和各 Metric 的一致率。</p><p>Judge 校准集与业务 Scenario 分开维护。业务 Scenario 检查 Agent，校准集检查 Judge。</p><h2 id="现有仓库到完整设计还差哪些模块"><a href="#现有仓库到完整设计还差哪些模块" class="headerlink" title="现有仓库到完整设计还差哪些模块"></a>现有仓库到完整设计还差哪些模块</h2><p>当前代码已经有：</p><ul><li>Scenario YAML 加载与参数化。</li><li>Java Gateway 登录和 Pi 会话调用。</li><li>内部 Store Tool 名提取。</li><li>Tool 次数、成功状态、Tool 名和泄露断言。</li><li>JSON 汇总输出。</li><li>20 个离线单元测试。</li></ul><p>后续可以按下面顺序补齐：</p><ol><li><code>TraceCollector</code>：把原生 SessionEntry 归一成 <code>AgentTrace</code>。</li><li>确定性断言扩展：Tool 配对、序列模式、上下文、动态值捕获和投影策略。</li><li><code>GoldenProvider</code>：先支持 fixture，再接只读 DB <code>query_ref</code>。</li><li><code>JudgeClient</code>：两个 Provider 共用同一输入与输出 Schema。</li><li><code>JudgeScorer/Aggregator</code>：代码侧算分、硬门禁、重判和分歧升级。</li><li><code>CaseReport</code>：记录证据、版本、失败阶段和 Prompt 前后对比。</li></ol><p>README 里的 M2 仍标记为未完成，但 Runner 和基础断言已经存在并通过测试。这类进度漂移也应在实现 Judge 前修正，避免后续 Agent 根据旧清单重复建设。</p><h2 id="代价和边界"><a href="#代价和边界" class="headerlink" title="代价和边界"></a>代价和边界</h2><p>这套设计新增了受保护 Trace 读取、Golden 查询、两个 Judge 调用、重判和报告存储。语义验收会比普通接口测试慢，也会产生模型费用。</p><p>Golden 与 Tool Evidence 仍可能受动态数据影响。动态查询要记录时间窗口，回归对比要冻结快照，写操作要隔离测试租户。Judge 仍会误判，发布策略需要保留 WARN 和人工复核入口。</p><p>确定性协议继续留在代码里，业务事实进入 Golden，语义质量交给 Judge。三层证据各管一段，评测失败后才能沿着 Pi Runtime、Java Tool、业务数据或 Judge Rubric 继续定位。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI Agent</tag>
+      
+      <tag>自动化测试</tag>
+      
+      <tag>LLM 评测</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>Java Runtime</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>给 ERP AI Tools 收一套统一协议：commandType、prepare-confirm 与 Query Framework</title>
     <link href="/2026/08/18/erp-ai-tool-command-query-framework/"/>
     <url>/2026/08/18/erp-ai-tool-command-query-framework/</url>
@@ -20,9 +55,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>MCP</tag>
       
@@ -84,13 +119,13 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
       
       <tag>自动化测试</tag>
       
       <tag>LLM 评测</tag>
+      
+      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -119,11 +154,11 @@
       
       <tag>Agent</tag>
       
-      <tag>Skill</tag>
-      
       <tag>Pi</tag>
       
       <tag>Java Runtime</tag>
+      
+      <tag>Skill</tag>
       
     </tags>
     
@@ -152,11 +187,11 @@
       
       <tag>SSE</tag>
       
-      <tag>Spring Boot</tag>
-      
       <tag>Pi</tag>
       
       <tag>Java Runtime</tag>
+      
+      <tag>Spring Boot</tag>
       
       <tag>故障复盘</tag>
       
@@ -187,11 +222,11 @@
       
       <tag>Pi</tag>
       
+      <tag>Java Runtime</tag>
+      
       <tag>多模态</tag>
       
       <tag>图片处理</tag>
-      
-      <tag>Java Runtime</tag>
       
       <tag>大模型上下文</tag>
       
@@ -323,11 +358,11 @@
       
       <tag>Agent</tag>
       
-      <tag>Skill</tag>
-      
       <tag>Pi</tag>
       
       <tag>Java Runtime</tag>
+      
+      <tag>Skill</tag>
       
     </tags>
     
@@ -472,9 +507,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>自动化部署</tag>
       
@@ -745,9 +780,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>自动化部署</tag>
       
@@ -997,9 +1032,9 @@
       
       <tag>Agent</tag>
       
-      <tag>RAG</tag>
-      
       <tag>Dify</tag>
+      
+      <tag>RAG</tag>
       
     </tags>
     
@@ -1024,15 +1059,15 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>LangGraph</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>Workflow</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Skills</tag>
       
@@ -1063,9 +1098,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>架构评审</tag>
       
@@ -1166,9 +1201,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Function Calling</tag>
       
@@ -1207,9 +1242,9 @@
       
       <tag>Python</tag>
       
-      <tag>RAG</tag>
-      
       <tag>Dify</tag>
+      
+      <tag>RAG</tag>
       
       <tag>DashScope</tag>
       
@@ -1279,9 +1314,9 @@
       
       <tag>Function Calling</tag>
       
-      <tag>复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>复盘</tag>
       
       <tag>React Loop</tag>
       
@@ -1382,13 +1417,13 @@
       
       <tag>Java</tag>
       
-      <tag>AI</tag>
-      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
+      
+      <tag>AI</tag>
       
     </tags>
     
@@ -1452,9 +1487,9 @@
       
       <tag>Agent</tag>
       
-      <tag>复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>复盘</tag>
       
       <tag>ReAct</tag>
       
@@ -1483,9 +1518,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Function Calling</tag>
       
@@ -1600,11 +1635,11 @@
       
       <tag>LangGraph</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>Security</tag>
       
       <tag>Prompt Injection</tag>
+      
+      <tag>FastAPI</tag>
       
     </tags>
     
@@ -1668,9 +1703,9 @@
       
       <tag>LangGraph</tag>
       
-      <tag>架构重构</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>架构重构</tag>
       
     </tags>
     
@@ -1730,9 +1765,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>复盘</tag>
       
       <tag>Checkpoint</tag>
       
@@ -1763,9 +1798,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>复盘</tag>
       
       <tag>编排</tag>
       
@@ -1893,9 +1928,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>复盘</tag>
       
       <tag>编排</tag>
       
@@ -1924,9 +1959,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>复盘</tag>
       
       <tag>ats_iot_ai</tag>
       
@@ -2085,9 +2120,9 @@
       
       <tag>FastAPI</tag>
       
-      <tag>Memory</tag>
-      
       <tag>Guardrails</tag>
+      
+      <tag>Memory</tag>
       
       <tag>Prompt Engineering</tag>
       
@@ -2118,9 +2153,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>技术选型</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>LlamaIndex</tag>
       
@@ -2153,17 +2188,17 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
       
       <tag>Prompt Injection</tag>
       
-      <tag>Memory</tag>
+      <tag>ReAct</tag>
       
       <tag>Guardrails</tag>
+      
+      <tag>Memory</tag>
       
     </tags>
     
@@ -2194,11 +2229,11 @@
       
       <tag>OpenClaw</tag>
       
+      <tag>Memory</tag>
+      
       <tag>AI Orchestrator</tag>
       
       <tag>Tool Guardrails</tag>
-      
-      <tag>Memory</tag>
       
     </tags>
     
@@ -2254,11 +2289,11 @@
       
       <tag>Python</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>AI网关</tag>
       
       <tag>Java</tag>
-      
-      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -2291,11 +2326,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>OpenClaw</tag>
       
       <tag>FastAPI</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Orchestrator</tag>
       
@@ -2388,11 +2423,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>MCP</tag>
       
       <tag>FastAPI</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Qwen</tag>
       
@@ -2600,9 +2635,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Orchestrator</tag>
       
@@ -2639,11 +2674,11 @@
       
       <tag>MCP</tag>
       
-      <tag>AI工程</tag>
+      <tag>Dify</tag>
       
       <tag>RAG</tag>
       
-      <tag>Dify</tag>
+      <tag>AI工程</tag>
       
       <tag>架构设计</tag>
       
@@ -2711,9 +2746,9 @@
       
       <tag>Agent</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Orchestrator</tag>
       
