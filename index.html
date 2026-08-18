@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/18/pi-java-session-store-native-entry/" target="_self">
+          从 Pi JSONL 到 Java Session Store：保留原生 Session Entry，只替换存储
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/18/pi-java-session-store-native-entry/" target="_self">
+        <div>
+          这次 Java Runtime 的会话迁移里，最容易混淆的是 Entry 名字。管理台里曾经出现过 final、tool_call、tool_result，本地会话里又有若干业务自定义 Entry。它们看起来都像“会话事件”，实际分属不同层次。 Java Runtime 现在不再创建本地会话文件。它直接把 Java Session Store 接到了 Pi 的 SessionRepository
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-18 15:38" pubdate>
+              2026-08-18
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/Java/">#Java</a>
+            
+              <a href="/tags/Session-Store/">#Session Store</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/18/agent-evaluation-deterministic-assertions-llm-judge/" target="_self">
           把 Agent 评测器落到代码里：确定性断言、Golden 与双 LLM Judge
         </a>
@@ -618,11 +687,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/SSE/">#SSE</a>
-            
               <a href="/tags/Pi/">#Pi</a>
             
               <a href="/tags/Java-Runtime/">#Java Runtime</a>
+            
+              <a href="/tags/SSE/">#SSE</a>
             
               <a href="/tags/Spring-Boot/">#Spring Boot</a>
             
@@ -760,11 +829,11 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/SSE/">#SSE</a>
-            
               <a href="/tags/Pi/">#Pi</a>
             
               <a href="/tags/Java-Runtime/">#Java Runtime</a>
+            
+              <a href="/tags/SSE/">#SSE</a>
             
               <a href="/tags/%E8%AF%AD%E9%9F%B3%E8%AF%86%E5%88%AB/">#语音识别</a>
             
@@ -831,82 +900,13 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/MCP/">#MCP</a>
-            
               <a href="/tags/Pi/">#Pi</a>
             
               <a href="/tags/Java-Runtime/">#Java Runtime</a>
             
+              <a href="/tags/MCP/">#MCP</a>
+            
               <a href="/tags/Tool-Use/">#Tool Use</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/09/pi-runtime-docker-compose-deployment/" target="_self">
-          Docker 镜像、Compose 和环境变量：拆解 Pi Runtime 的部署边界
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/09/pi-runtime-docker-compose-deployment/" target="_self">
-        <div>
-          这次要把 Pi Runtime 部署到一台已经安装 Docker 的 x86_64 Linux 主机上。代码还没有进入代码托管和构建流水线，因此第一版不接镜像仓库，也不做自动发布，只要求本地构建镜像、传到服务器、接入 Nginx，并把环境变量和运行数据放到镜像外面。 讨论到最后，真正需要理清的不是 Dockerfile 语法，而是三个边界：镜像负责什么，Compose 负责什么，环境变量和文件挂载
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-09 19:50" pubdate>
-              2026-08-09
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Docker/">#Docker</a>
-            
-              <a href="/tags/Docker-Compose/">#Docker Compose</a>
-            
-              <a href="/tags/Pi-Runtime/">#Pi Runtime</a>
-            
-              <a href="/tags/%E9%83%A8%E7%BD%B2/">#部署</a>
             
           </div>
         

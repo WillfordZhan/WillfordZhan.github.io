@@ -27,7 +27,7 @@
 <meta property="og:description" content="一次物料出库的 AI Tool 调用失败，表面提示是“物料不存在或不属于当前工厂”。实际物料存在，问题发生在它作为 19 位 ID 穿过 JSON 与工具调用契约时。 第一次排查发现，工具调用收到的 ID 已经和查询结果不一致。随后将工具结果中的大整数序列化为字符串后，最新会话仍失败：返回值正确了，但工具参数 Schema 还是 integer，模型又把字符串 ID 当数字传回。这个问题需要同时修">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-08-07T06:29:56.000Z">
-<meta property="article:modified_time" content="2026-08-18T06:29:46.558Z">
+<meta property="article:modified_time" content="2026-08-18T08:48:17.189Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
 <meta property="article:tag" content="MCP">
