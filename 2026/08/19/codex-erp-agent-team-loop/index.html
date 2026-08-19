@@ -1,0 +1,1055 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="接入一个 ERP 模块，交付物远不止一个 Tool 方法。 开发者要先从代码和 UI 里还原业务能力，找领域人员确认规则，再决定 Tool 粒度；实现完成后还要补模块 Skill、单元测试、Agent Scenario、Canary 和开发环境验收。查询和创建单据还有公共协议，模块实现不能各写一份。 我们准备把这条链路交给一支 Codex Sub-agent Team。人只处理领域知识、模块优先级">
+<meta property="og:type" content="article">
+<meta property="og:title" content="给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/19/codex-erp-agent-team-loop/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="接入一个 ERP 模块，交付物远不止一个 Tool 方法。 开发者要先从代码和 UI 里还原业务能力，找领域人员确认规则，再决定 Tool 粒度；实现完成后还要补模块 Skill、单元测试、Agent Scenario、Canary 和开发环境验收。查询和创建单据还有公共协议，模块实现不能各写一份。 我们准备把这条链路交给一支 Codex Sub-agent Team。人只处理领域知识、模块优先级">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-19T01:49:47.000Z">
+<meta property="article:modified_time" content="2026-08-19T01:58:19.820Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI Agent">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="Java Runtime">
+<meta property="article:tag" content="ERP">
+<meta property="article:tag" content="Codex">
+<meta property="article:tag" content="Sub-agent">
+<meta property="article:tag" content="架构设计">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-19 09:49" pubdate>
+          2026年8月19日 上午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          4.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          36 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>接入一个 ERP 模块，交付物远不止一个 Tool 方法。</p>
+<p>开发者要先从代码和 UI 里还原业务能力，找领域人员确认规则，再决定 Tool 粒度；实现完成后还要补模块 Skill、单元测试、Agent Scenario、Canary 和开发环境验收。查询和创建单据还有公共协议，模块实现不能各写一份。</p>
+<p>我们准备把这条链路交给一支 Codex Sub-agent Team。人只处理领域知识、模块优先级和跨领域冲突。代码调研、实现、测试、部署和验收由固定 Loop 推进。</p>
+<p>这套 Team 目前处于设计阶段。当前代码中已经存在 Pi Runtime、Java MCP 适配和仓管 Skill；四个 Agent TOML、Loop Skill、Contract Protocol 和标准化 Run 产物尚未落地。下面会把代码事实和拟议设计分开写。</p>
+<h2 id="Pi-与-Java-Runtime-已经提供了哪些基础能力"><a href="#Pi-与-Java-Runtime-已经提供了哪些基础能力" class="headerlink" title="Pi 与 Java Runtime 已经提供了哪些基础能力"></a>Pi 与 Java Runtime 已经提供了哪些基础能力</h2><p>当前 ERP Agent 的调用链可以压缩成下面几层：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">ERP / APP<br>  -&gt; Java Gateway<br>  -&gt; Pi Java Runtime<br>  -&gt; Pi AgentSession<br>  -&gt; Java MCP Tool<br>  -&gt; ERP Service<br></code></pre></td></tr></table></figure>
+
+<p>Java Gateway 负责可信用户上下文。Pi Runtime 负责会话、模型调用和 Agent loop。Java MCP 继续持有 Tool 目录、Schema、鉴权和业务执行。ERP Service 处理最终查询或写入。</p>
+<h3 id="PiConversationRuntime-持有会话和-Agent-loop"><a href="#PiConversationRuntime-持有会话和-Agent-loop" class="headerlink" title="PiConversationRuntime 持有会话和 Agent loop"></a><code>PiConversationRuntime</code> 持有会话和 Agent loop</h3><p><code>runtime.ts</code> 中的 <code>PiConversationRuntime.runConversation()</code> 先按 <code>conversationId</code> 排队，再打开或恢复 Session，随后调用 <code>session.prompt()</code>。同一会话的请求串行执行，避免两个 <code>AgentSession</code> 同时追加会话历史；不同会话仍可并行。</p>
+<p>调用完成后，Runtime 从 Session 里取得最后一条 Assistant 文本，并把新增 Entry 同步到 Java Conversation Store。模型失败和 Tool 失败已经落入 Session 时，同步仍会尝试执行。索引同步失败只记录旁路错误，不会把已经生成的回答伪装成对话失败。</p>
+<p>对 Java 后端开发者来说，这一层接近“会话级事务协调器”：它负责打开上下文、执行一次 Agent loop、回收资源和推进持久化，但不实现采购、库存或生产计划规则。</p>
+<h3 id="Java-MCP-每轮提供当前-Tool-目录"><a href="#Java-MCP-每轮提供当前-Tool-目录" class="headerlink" title="Java MCP 每轮提供当前 Tool 目录"></a>Java MCP 每轮提供当前 Tool 目录</h3><p><code>PiConversationRuntime.openSession()</code> 每次打开会话都会调用 <code>JavaMcpClient.createTools()</code>。Java 返回当前 Tool 描述，Runtime 再转换成 Pi 的 <code>ToolDefinition</code>，并在执行闭包中绑定本轮调用人。</p>
+<p><code>java-mcp.ts</code> 中的 <code>toPiTool()</code> 把三项可信数据固定进执行闭包：</p>
+<ul>
+<li><code>conversationId</code></li>
+<li><code>tenantId</code></li>
+<li><code>userId</code></li>
+</ul>
+<p>模型只能提交 Tool 的业务参数。它无法在参数中替换会话、租户或用户。Tool 调用统一经过 Java <code>/tools/call</code>，内部鉴权头、超时、业务错误和结果格式也集中在这一层处理。</p>
+<p>这条边界对后续 Agent Team 很重要。Sub-agent 可以设计和实现 Tool，可信身份、权限和业务事务仍留在 Java 服务端。Prompt 无法代替运行时安全边界。</p>
+<h3 id="Skill-使用受限的渐进加载"><a href="#Skill-使用受限的渐进加载" class="headerlink" title="Skill 使用受限的渐进加载"></a>Skill 使用受限的渐进加载</h3><p><code>openSession()</code> 创建 <code>DefaultResourceLoader</code> 时关闭工作目录 Context 和全局 Skill，只加载随 Runtime 发布的 Skill 目录。内置 Tool 也被关闭，模型只能使用 Java 业务 Tool 和一个受限 <code>read</code>。</p>
+<p><code>skill-read.ts</code> 的 <code>createSkillReadTool()</code> 会先把已登记 Skill 路径解析成真实路径白名单。模型传入绝对路径、<code>..</code> 或符号链接都不能扩大读取范围。单个 Skill 还受 64 KiB 上限约束。</p>
+<p>因此，模块 Skill 可以随 Runtime 评审和发布，同时保留 Pi 的渐进加载机制。Agent Team 后续创建 Skill 时，可以直接接入这条现有链路。</p>
+<h2 id="一个万能开发-Agent-会把职责搅在一起"><a href="#一个万能开发-Agent-会把职责搅在一起" class="headerlink" title="一个万能开发 Agent 会把职责搅在一起"></a>一个万能开发 Agent 会把职责搅在一起</h2><p>这项工作最初可以交给一个 Agent：读代码、问需求、写 Tool、跑测试。模块变多后，几个冲突会同时出现。</p>
+<p>第一，代码证据和领域判断容易混在一起。页面上有一个按钮，只能证明当前 UI 暴露了这个动作，不能直接推出它是一个独立领域命令。</p>
+<p>第二，实现者自己定义测试期望，失败时很容易把合同改成“当前代码的行为”。测试失去了独立验收作用。</p>
+<p>第三，多个 Agent 同时修改业务代码会增加共享工作区冲突。并行调研可以节省时间，并行写同一组 Tool、Skill 和测试通常会增加返工。</p>
+<p>第四，聊天记录承载不了长期交接。另一名员工或另一个 Codex 会话接手时，需要重新猜测哪些结论已经批准、当前卡在哪个阶段、哪些测试证据仍然有效。</p>
+<p>设计因此固定为四个执行角色，再由主 Agent 持有状态机。</p>
+<h2 id="四个角色分别交付什么"><a href="#四个角色分别交付什么" class="headerlink" title="四个角色分别交付什么"></a>四个角色分别交付什么</h2><table>
+<thead>
+<tr>
+<th>角色</th>
+<th>主要输入</th>
+<th>主要输出</th>
+<th>边界</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Explorer</td>
+<td>Run Contract、目标模块、允许访问的仓库与环境</td>
+<td>代码&#x2F;UI 证据、调用链、能力清单、Tool 规范基线、未知项</td>
+<td>只读，不补业务规则，不决定 Tool 粒度</td>
+</tr>
+<tr>
+<td>Domain Modeler</td>
+<td>Explorer 证据、领域人员回答</td>
+<td>领域模型、Tool Catalog、Skill Topology、待确认问题</td>
+<td>不修改代码，不用页面结构代替领域边界</td>
+</tr>
+<tr>
+<td>Implementer</td>
+<td>已批准合同、现行 Tool 规范基线</td>
+<td>Tool、Skill、单元&#x2F;契约测试、部署证据</td>
+<td>唯一业务代码写入者，不改合同迁就实现</td>
+</tr>
+<tr>
+<td>Evaluator</td>
+<td>领域模型、Tool&#x2F;Skill 合同、实现证据</td>
+<td>Scenario、确定性断言、LLM Judge 结果、失败归因</td>
+<td>不修改业务实现，不让 Judge 覆盖硬失败</td>
+</tr>
+</tbody></table>
+<h3 id="Explorer：先把事实收干净"><a href="#Explorer：先把事实收干净" class="headerlink" title="Explorer：先把事实收干净"></a>Explorer：先把事实收干净</h3><p>Explorer 同时看 Java 服务、Pi Runtime、ERP 前端和业务 UI。它要追踪真实入口、DTO、校验、权限、数据库查询和异常路径，并把四类信息分开：</p>
+<ul>
+<li>代码事实</li>
+<li>UI 事实</li>
+<li>文档描述</li>
+<li>工程推断</li>
+</ul>
+<p>代码和 UI 互不依赖时，可以启动两个 Explorer 并行调研。主 Agent 合并证据后再推进状态，避免 Domain Modeler 在证据不完整时开始建模。</p>
+<p>Explorer 还负责定位当前生效的查询 Tool、创建单据流程、公共实现、规范文档和契约测试。这些来源会形成 <code>sourceBaselines</code>，供后续角色引用。</p>
+<h3 id="Domain-Modeler：把业务语言变成-Tool-和-Skill-合同"><a href="#Domain-Modeler：把业务语言变成-Tool-和-Skill-合同" class="headerlink" title="Domain Modeler：把业务语言变成 Tool 和 Skill 合同"></a>Domain Modeler：把业务语言变成 Tool 和 Skill 合同</h3><p>Domain Modeler 兼产品职责。它根据证据整理统一语言、实体、值对象、聚合、命令、查询、不变量和状态变化，再输出两份目录：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Tool Catalog<br>  -&gt; 每个 Tool 的业务意图、领域、输入输出、错误、权限和边界<br><br>Skill Topology<br>  -&gt; 模块 Skill、跨模块 Skill、使用的 Tool、澄清点和停止条件<br></code></pre></td></tr></table></figure>
+
+<p>领域知识缺失时，它返回 <code>domain_gap</code>。主 Agent 再向领域负责人提一个窄问题。日常代码选择、测试实现和部署操作不需要反复找人确认。</p>
+<h3 id="Implementer：串行持有业务代码"><a href="#Implementer：串行持有业务代码" class="headerlink" title="Implementer：串行持有业务代码"></a>Implementer：串行持有业务代码</h3><p>Implementer 是唯一允许修改业务代码的角色。它消费已通过门禁的合同，复用现行查询和创建单据框架，补齐 Tool、Skill、单元测试和契约测试。</p>
+<p>合同无法落地时，Implementer 返回 <code>contract_defect</code>。它不能通过放宽测试、增加样例特判或在模块里复制一套公共协议来完成任务。</p>
+<p>部署也由 Implementer 执行，但只能推进到 Run Contract 授权的环境。生产发布、破坏性迁移和权限扩大继续要求单独授权。</p>
+<h3 id="Evaluator：从合同生成验收证据"><a href="#Evaluator：从合同生成验收证据" class="headerlink" title="Evaluator：从合同生成验收证据"></a>Evaluator：从合同生成验收证据</h3><p>Evaluator 从领域模型和 Tool&#x2F;Skill 合同派生 Scenario。每个 Scenario 明确：</p>
+<ul>
+<li>期望调用的 Tool</li>
+<li>允许出现的 Tool</li>
+<li>禁止调用的 Tool</li>
+<li>参数和结果约束</li>
+<li>最终回答的业务目标</li>
+</ul>
+<p>确定性断言先检查 Tool 调用、参数、结果、身份上下文和确认流程。硬断言通过后，LLM Judge 再评估 Faithfulness、Correctness、Business Appropriateness 和 Boundary Compliance。</p>
+<p>这种顺序保留了测试的判定边界。LLM 可以评价语义质量，没有权力把“调用了禁止 Tool”改判成通过。</p>
+<h2 id="主-Agent-是-Loop-Owner，不增加第五个角色"><a href="#主-Agent-是-Loop-Owner，不增加第五个角色" class="headerlink" title="主 Agent 是 Loop Owner，不增加第五个角色"></a>主 Agent 是 Loop Owner，不增加第五个角色</h2><p>主 Agent 已经拥有创建 Sub-agent、等待结果、追加任务和收敛输出的能力。再增加一个“编排专家”会多出一层交接，同时出现两个全局状态持有者。</p>
+<p>设计中只有主 Agent 可以写 <code>run.json</code>。四个执行角色提交阶段结果，主 Agent 校验门禁、记录状态、分类失败并选择下一步。</p>
+<p>用 Java 工作流的说法，主 Agent 接近状态机引擎，四个角色接近各状态的 Handler。Handler 处理局部任务，状态迁移由引擎统一提交。</p>
+<p>主流程如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">INIT<br>  -&gt; DISCOVERY<br>  -&gt; DOMAIN_MODELING<br>  -&gt; CONTRACT_DESIGN<br>  -&gt; IMPLEMENTATION<br>  -&gt; LOCAL_VERIFICATION<br>  -&gt; CANARY_VERIFICATION<br>  -&gt; DEV_ACCEPTANCE<br>  -&gt; DONE<br></code></pre></td></tr></table></figure>
+
+<p>还有三个辅助状态：</p>
+<ul>
+<li><code>WAITING_USER</code>：等待领域知识、模块优先级或跨领域决定</li>
+<li><code>BLOCKED</code>：权限、环境或外部依赖持续阻塞</li>
+<li><code>CANCELLED</code>：用户终止 Run</li>
+</ul>
+<p>状态与角色保持固定归属：</p>
+<table>
+<thead>
+<tr>
+<th>状态</th>
+<th>主执行者</th>
+<th>交接动作</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>INIT</code></td>
+<td>主 Agent</td>
+<td>固化授权范围和成功条件</td>
+</tr>
+<tr>
+<td><code>DISCOVERY</code></td>
+<td>Explorer</td>
+<td>交付证据和规范基线</td>
+</tr>
+<tr>
+<td><code>DOMAIN_MODELING</code></td>
+<td>Domain Modeler</td>
+<td>交付领域模型、Tool Catalog 和 Skill Topology</td>
+</tr>
+<tr>
+<td><code>CONTRACT_DESIGN</code></td>
+<td>Domain Modeler</td>
+<td>Evaluator 从可测性反审合同</td>
+</tr>
+<tr>
+<td><code>IMPLEMENTATION</code></td>
+<td>Implementer</td>
+<td>交付实现、测试和变更证据</td>
+</tr>
+<tr>
+<td><code>LOCAL_VERIFICATION</code></td>
+<td>Evaluator</td>
+<td>执行本地验收并归因失败</td>
+</tr>
+<tr>
+<td><code>CANARY_VERIFICATION</code></td>
+<td>Implementer + Evaluator</td>
+<td>一个部署，一个验收</td>
+</tr>
+<tr>
+<td><code>DEV_ACCEPTANCE</code></td>
+<td>Implementer + Evaluator</td>
+<td>一个部署，一个验收</td>
+</tr>
+<tr>
+<td><code>DONE</code></td>
+<td>主 Agent</td>
+<td>汇总通过门禁的交付证据</td>
+</tr>
+</tbody></table>
+<p><code>targetStage</code> 控制本次 Run 的授权上限。一次只读调研可以在 <code>DISCOVERY</code> 停止；一次本地开发可以在 <code>LOCAL_VERIFICATION</code> 停止。状态机不会因为后面存在部署阶段就自动扩大权限。</p>
+<h2 id="Run-Contract-先限定这次允许做什么"><a href="#Run-Contract-先限定这次允许做什么" class="headerlink" title="Run Contract 先限定这次允许做什么"></a>Run Contract 先限定这次允许做什么</h2><p>每次启动 Loop，主 Agent 先写一份 Run Contract：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;runId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;run-20260819-001&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;objective&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;完成目标模块的 Tool、Skill 和本地验收&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;scope&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;modules&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;target-module&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;repositories&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;agent-runtime&quot;</span><span class="hljs-punctuation">,</span> <span class="hljs-string">&quot;java-erp-service&quot;</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;environments&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-string">&quot;local&quot;</span><span class="hljs-punctuation">]</span><br>  <span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;targetStage&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;LOCAL_VERIFICATION&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;constraints&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;successCriteria&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-string">&quot;Tool 和模块 Skill 同时交付&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-string">&quot;L0/L1/L2 本地门禁通过&quot;</span><br>  <span class="hljs-punctuation">]</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;userDecisionTopics&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-string">&quot;领域知识&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-string">&quot;模块优先级&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-string">&quot;跨领域冲突&quot;</span><br>  <span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>Run Contract 保存用户授权。<code>sourceBaselines</code> 属于运行元数据，由 Explorer 在 Discovery 阶段补齐。两者分开以后，代码版本变化不会被误写成用户授权变化。</p>
+<h2 id="交接靠文件，不靠聊天记忆"><a href="#交接靠文件，不靠聊天记忆" class="headerlink" title="交接靠文件，不靠聊天记忆"></a>交接靠文件，不靠聊天记忆</h2><p>计划创建的 Team 资产分成几层：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">AGENTS.md<br>  -&gt; Loop SKILL.md<br>       -&gt; loop.md<br>       -&gt; contract-protocol.md<br>       -&gt; evaluation-protocol.md<br>       -&gt; Agent TOML<br><br>当前 Tool 实现 / 规范 / 契约测试<br>  -&gt; discovery.md 中的 source baseline<br>  -&gt; design.md 中的能力映射<br>  -&gt; verification.json 中的验收证据<br></code></pre></td></tr></table></figure>
+
+<p>每个文件只持有一种信息：</p>
+<table>
+<thead>
+<tr>
+<th>资产</th>
+<th>保存内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>AGENTS.md</code></td>
+<td>仓库工程、安全和操作约束</td>
+</tr>
+<tr>
+<td><code>SKILL.md</code></td>
+<td>Loop 入口、触发条件和引用加载顺序</td>
+</tr>
+<tr>
+<td><code>loop.md</code></td>
+<td>状态、门禁、失败路由和停止条件</td>
+</tr>
+<tr>
+<td><code>contract-protocol.md</code></td>
+<td>Run Contract、阶段输入输出和交接校验</td>
+</tr>
+<tr>
+<td><code>evaluation-protocol.md</code></td>
+<td>Scenario、断言、Judge 和 verdict</td>
+</tr>
+<tr>
+<td>Agent TOML</td>
+<td>单一角色的职责、证据要求和禁止事项</td>
+</tr>
+<tr>
+<td><code>run.json</code></td>
+<td>本次 Run 的状态、授权、基线、失败和产物路径</td>
+</tr>
+<tr>
+<td><code>discovery.md</code></td>
+<td>代码&#x2F;UI 证据、调用链、能力清单和未知项</td>
+</tr>
+<tr>
+<td><code>design.md</code></td>
+<td>领域模型、Tool Catalog、Skill Topology 和测试合同</td>
+</tr>
+<tr>
+<td><code>verification.json</code></td>
+<td>硬断言、Tool Trace、Judge 和失败归因</td>
+</tr>
+<tr>
+<td><code>delivery.md</code></td>
+<td>变更、测试、部署和剩余风险</td>
+</tr>
+</tbody></table>
+<p>主 Agent 给 Sub-agent 的上下文只包含 Run Contract、已通过门禁的上游产物和当前基线引用。聊天里的临时讨论不能直接进入下游实现。</p>
+<h2 id="Loop-不复制-Tool-协议"><a href="#Loop-不复制-Tool-协议" class="headerlink" title="Loop 不复制 Tool 协议"></a>Loop 不复制 Tool 协议</h2><p>查询 Framework 和创建单据 Framework 由独立工作流建设，已经有单独的设计记录：《<a href="/2026/08/18/erp-ai-tool-command-query-framework/">给 ERP AI Tools 收一套统一协议：commandType、prepare-confirm 与 Query Framework</a>》。</p>
+<p>Loop 只要求各角色读取当时仓库里的现行查询 Tool、创建单据流程、规范文档和契约测试。它不再维护另一份 <code>tool-protocol.md</code>。</p>
+<p>Explorer 为这些来源记录路径、版本或内容摘要。Implementer 和 Evaluator 开始工作前，主 Agent 重新检查基线。基线发生变化时，当前失败类型记为 <code>baseline_changed</code>，状态回到 <code>DISCOVERY</code>，受影响的下游产物失效。</p>
+<p>这项设计会增加一次基线复核，也避免并行工作流更新公共协议后，模块 Agent 继续拿旧字段和旧测试开发。</p>
+<p>规范文档、公共实现和契约测试互相矛盾时，Explorer 把差异写入证据，主 Agent 返回 <code>contract_defect</code>。任何角色都不能静默挑选一份更方便的解释。</p>
+<h2 id="Tool-和-Skill-必须一起交付"><a href="#Tool-和-Skill-必须一起交付" class="headerlink" title="Tool 和 Skill 必须一起交付"></a>Tool 和 Skill 必须一起交付</h2><p>Tool 提供稳定、结构化、可验证的业务能力。Skill 负责选择 Tool、组织调用顺序、检查证据、澄清信息和停止流程。</p>
+<p>当前仓管 Skill 已经展示了这条分工：</p>
+<ol>
+<li>先查询两类主数据，用查询结果区分业务链路。</li>
+<li>主数据未唯一确定时继续查询或询问用户。</li>
+<li>创建出库单前检查仓库和库存。</li>
+<li>创建单据先生成预览，再等待明确确认。</li>
+<li>出库确认前重新查询库存。</li>
+<li>物料、仓库、数量或方向变化后，旧预览失效。</li>
+</ol>
+<p>这些编排规则适合留在 Skill。租户鉴权、数据库事务、幂等、并发控制和参数安全校验仍由 Java Runtime 与业务服务执行。</p>
+<p>每个业务模块至少交付一个模块级 Skill。跨模块场景可以增加跨模块 Skill，但不能用一个庞大的总 Skill 取代各模块的基础能力组织。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">领域模型<br>  -&gt; Tool Catalog<br>  -&gt; Tool 实现<br>  -&gt; Module Skill / Cross-domain Skill<br>  -&gt; Scenario Cases<br>  -&gt; 确定性断言 + LLM Judge<br></code></pre></td></tr></table></figure>
+
+<h2 id="失败要退回产生缺陷的阶段"><a href="#失败要退回产生缺陷的阶段" class="headerlink" title="失败要退回产生缺陷的阶段"></a>失败要退回产生缺陷的阶段</h2><p>整个 Loop 无差别重跑会浪费调研和测试成本。失败路由按能力缺口分类：</p>
+<table>
+<thead>
+<tr>
+<th>failureType</th>
+<th>含义</th>
+<th>回退状态</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>evidence_gap</code></td>
+<td>缺少代码、UI、接口或数据证据</td>
+<td><code>DISCOVERY</code></td>
+</tr>
+<tr>
+<td><code>baseline_changed</code></td>
+<td>Tool 规范或公共实现已变化</td>
+<td><code>DISCOVERY</code></td>
+</tr>
+<tr>
+<td><code>domain_gap</code></td>
+<td>缺少业务知识或领域决定</td>
+<td><code>WAITING_USER</code></td>
+</tr>
+<tr>
+<td><code>contract_defect</code></td>
+<td>Tool、Skill 或测试合同矛盾</td>
+<td><code>CONTRACT_DESIGN</code></td>
+</tr>
+<tr>
+<td><code>implementation_defect</code></td>
+<td>实现不符合合同</td>
+<td><code>IMPLEMENTATION</code></td>
+</tr>
+<tr>
+<td><code>environment_failure</code></td>
+<td>网络、凭证、服务或部署环境异常</td>
+<td>当前阶段重试，持续失败后阻塞</td>
+</tr>
+<tr>
+<td><code>evaluation_warning</code></td>
+<td>Judge 分歧或非门禁语义问题</td>
+<td>当前状态人工复核或记录风险</td>
+</tr>
+</tbody></table>
+<p>同一根因最多自动重试两次。第三次仍失败，主 Agent 停止循环并保存已执行动作、证据和恢复条件。这里按结构化失败类型路由，不根据模块名、问题文本或固定样例写分支。</p>
+<h2 id="评测沿用硬断言加-LLM-Judge"><a href="#评测沿用硬断言加-LLM-Judge" class="headerlink" title="评测沿用硬断言加 LLM Judge"></a>评测沿用硬断言加 LLM Judge</h2><p>评测部分直接复用现有分层设计，不在 Team Loop 中再造一套运行器：</p>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>检查内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>L0</td>
+<td>单元测试和纯函数验证</td>
+</tr>
+<tr>
+<td>L1</td>
+<td>Tool Schema、错误、权限和副作用合同</td>
+</tr>
+<tr>
+<td>L2</td>
+<td>Agent Scenario、Tool 选择和编排</td>
+</tr>
+<tr>
+<td>L3</td>
+<td>Canary&#x2F;DEV 健康检查和关键冒烟</td>
+</tr>
+</tbody></table>
+<p>确定性断言先读取 Pi 的结构化 Tool Call 和 Tool Result，检查期望&#x2F;禁止 Tool、参数、结果、身份上下文和流程约束。通过后才运行 LLM Judge。</p>
+<p>Judge 的输入包含用户问题、结构化 Tool 证据、Golden 和最终回答。双 Judge、分歧处理与 Golden Provider 的详细设计记录在《<a href="/2026/08/18/agent-evaluation-deterministic-assertions-llm-judge/">把 Agent 评测器落到代码里：确定性断言、Golden 与双 LLM Judge</a>》中。</p>
+<h2 id="第一轮先验证-Team，不开发新模块"><a href="#第一轮先验证-Team，不开发新模块" class="headerlink" title="第一轮先验证 Team，不开发新模块"></a>第一轮先验证 Team，不开发新模块</h2><p>Tool 公共规范改造完成后，第一轮 Run 计划使用已有仓管和生产计划能力做只读校准，目标停在 <code>LOCAL_VERIFICATION</code>。</p>
+<p>执行顺序如下：</p>
+<ol>
+<li>Explorer 从代码、Skill、接口、规范和测试建立 Tool 基线。</li>
+<li>Domain Modeler 独立还原领域模型、Tool Catalog 和 Skill Topology。</li>
+<li>Evaluator 根据合同设计 Scenario，并与现有测试对照。</li>
+<li>Implementer 只修复 Agent TOML、Loop 文档和交接协议，不改业务实现。</li>
+<li>主 Agent 输出 Team 验证报告。</li>
+</ol>
+<p>验证里还会注入几类通用故障：证据缺失、领域规则歧义、合同冲突、实现测试失败、Judge 与硬断言冲突、环境不可用。验收目标是确认失败能退回正确阶段，而非证明某个仓管样例可以跑通。</p>
+<p>Team 通过校准后，再进入 BOM 和物料管理等新模块。这样能先暴露角色 Prompt、交接字段和状态路由的问题，避免把 Team 缺陷混进首个新模块的业务代码。</p>
+<h2 id="这套设计增加了哪些维护成本"><a href="#这套设计增加了哪些维护成本" class="headerlink" title="这套设计增加了哪些维护成本"></a>这套设计增加了哪些维护成本</h2><p>四个角色会产生更多交接。模块较小、规则清楚、只改一个 Tool 时，完整 Loop 可能比单 Agent 慢。MVP 保留四个角色，不继续拆分代码 Explorer、UI Explorer、部署者或独立 Judge 角色。</p>
+<p><code>sourceBaselines</code> 需要记录和复核版本。它解决的是并行工作流造成的规范漂移，不承担通用依赖管理。公共协议稳定后，这部分开销会下降。</p>
+<p>LLM Judge 会增加调用成本和非确定性。硬约束继续放在确定性断言，Judge 只处理语义判断，可以控制这部分影响。</p>
+<p>多个员工使用各自的 Codex 账号时，无法共享正在运行的 Sub-agent 树。<code>run.json</code> 和阶段产物只支持基于 Git 的异步交接。实时队列、集中锁和统一审计出现明确需求后，再评估独立控制面。</p>
+<p>MVP 也不创建 Plugin、不开发新的 Agent RPC、不写单独的线程池或队列。Codex 已经提供 Sub-agent 调度能力，Markdown、TOML 和 JSON 足以完成第一轮验证。</p>
+<p>接下来的实现顺序已经收窄为六步：</p>
+<ol>
+<li>定义 <code>contract-protocol.md</code> 和 <code>run.json</code>。</li>
+<li>定义 <code>loop.md</code> 的状态、门禁和失败路由。</li>
+<li>创建四个 Agent TOML。</li>
+<li>创建 Loop <code>SKILL.md</code>。</li>
+<li>定义 <code>evaluation-protocol.md</code>，接入现有 Scenario 仓库。</li>
+<li>对仓管和生产计划做只读校准。</li>
+</ol>
+<p>做到第六步，才能判断这支 Team 是否值得接手第一个新 ERP 模块。</p>
+<h2 id="相关资料"><a href="#相关资料" class="headerlink" title="相关资料"></a>相关资料</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://developers.openai.com/codex/use-cases">Codex use cases</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.chatgpt.com/docs/agent-configuration/subagents">Codex Subagents</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.chatgpt.com/docs/build-skills">Build skills</a></li>
+<li><a target="_blank" rel="noopener" href="https://learn.chatgpt.com/docs/agent-configuration/agents-md">Custom instructions with AGENTS.md</a></li>
+</ul>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI-Agent/" class="print-no-link">#AI Agent</a>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/Java-Runtime/" class="print-no-link">#Java Runtime</a>
+      
+        <a href="/tags/ERP/" class="print-no-link">#ERP</a>
+      
+        <a href="/tags/Codex/" class="print-no-link">#Codex</a>
+      
+        <a href="/tags/Sub-agent/" class="print-no-link">#Sub-agent</a>
+      
+        <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/" class="print-no-link">#架构设计</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同</div>
+      <div>https://willfordzhan.github.io/2026/08/19/codex-erp-agent-team-loop/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月19日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/18/pi-java-session-store-native-entry/" title="从 Pi JSONL 到 Java Session Store：保留原生 Session Entry，只替换存储">
+                        <span class="hidden-mobile">从 Pi JSONL 到 Java Session Store：保留原生 Session Entry，只替换存储</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
