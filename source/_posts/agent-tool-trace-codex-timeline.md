@@ -1,7 +1,7 @@
 ---
 title: "把 Agent 工具调用收成一条 Codex 轨迹"
 date: 2026-08-20 16:13:00
-description: "把连续工具调用收成可展开的 Codex 风格轨迹，并说明 Pi、Java Gateway 与页面事件投影的真实链路。"
+description: "把用户问题、工具调用和助手结果组合成可展开的 Codex 风格轨迹，并说明 Pi、Java Gateway 与页面事件投影的真实链路。"
 categories:
   - "AI"
 tags:
@@ -19,14 +19,60 @@ source_archive:
 
 一轮 Agent 对话可能连续调用多个工具。旧页面把每次调用都显示成一张大卡片，8 次调用就能占满一屏，最终业务结果反而被推到下面。
 
-这次选择的是 A：Codex 轨迹。运行时展开，任务结束后收成一句“已调用 8 个工具”；需要排查时，再点击查看每一步。
+这次选择的是 A：Codex 轨迹。下面把用户问题、工具过程和助手结果放进同一次对话；演示默认展开，便于看清三者关系，真实产品仍在任务结束后收成一句“已调用 8 个工具”。
 
 <style>
+  .agent-conversation-demo {
+    display: grid;
+    gap: 20px;
+    margin: 24px 0 30px;
+    padding: 24px;
+    border: 1px solid #e1e7f0;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #f7f9fd 0%, #f1f5fb 100%);
+  }
+  .agent-demo-turn {
+    display: flex;
+    width: min(78%, 620px);
+    flex-direction: column;
+    gap: 6px;
+  }
+  .agent-demo-turn.user {
+    justify-self: end;
+    align-items: flex-end;
+  }
+  .agent-demo-turn.assistant { align-items: flex-start; }
+  .agent-demo-role {
+    color: #8993a5;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .agent-demo-bubble {
+    padding: 13px 16px;
+    border: 1px solid #dfe5ef;
+    border-radius: 15px;
+    background: rgba(255, 255, 255, 0.96);
+    color: #344054;
+    font-size: 14px;
+    line-height: 1.7;
+    box-shadow: 0 8px 22px rgba(28, 39, 58, 0.05);
+  }
+  .agent-demo-bubble p { margin: 0; }
+  .agent-demo-turn.user .agent-demo-bubble {
+    border-color: #d3def6;
+    background: #e7efff;
+    color: #2f3f5d;
+  }
+  .agent-demo-process {
+    display: grid;
+    width: min(92%, 760px);
+    gap: 6px;
+  }
   .agent-trace-demo {
     --trace-border: #dfe5ef;
     --trace-text: #4c596c;
     --trace-muted: #8b95a5;
-    margin: 24px 0 30px;
+    margin: 0;
     overflow: hidden;
     border: 1px solid var(--trace-border);
     border-radius: 14px;
@@ -131,31 +177,53 @@ source_archive:
     content: "!";
   }
   @media (max-width: 560px) {
+    .agent-conversation-demo { padding: 16px; }
+    .agent-demo-turn,
+    .agent-demo-process { width: 94%; }
     .agent-trace-demo .trace-warning { display: none; }
     .agent-trace-demo .trace-step { gap: 6px; }
   }
 </style>
 
-<details class="agent-trace-demo">
-  <summary aria-label="展开或收起工具调用过程">
-    <span class="trace-check">✓</span>
-    <span class="trace-title"></span>
-    <span class="trace-count">8 个工具</span>
-    <span class="trace-warning">1 个未完成</span>
-    <span class="trace-chevron">⌄</span>
-  </summary>
-  <p class="trace-note">正在核对物料库存、库存变化和最近入库记录。</p>
-  <div class="trace-timeline">
-    <div class="trace-step"><span>查询物料库存</span><small>完成</small></div>
-    <div class="trace-step"><span>查询库存变化</span><small>完成</small></div>
-    <div class="trace-step"><span>核对仓库信息</span><small>完成</small></div>
-    <div class="trace-step failed"><span>读取一项业务记录</span><small>未完成</small></div>
-    <div class="trace-step"><span>查询采购入库</span><small>完成</small></div>
-    <div class="trace-step"><span>查询调拨记录</span><small>完成</small></div>
-    <div class="trace-step"><span>汇总最近入库记录</span><small>完成</small></div>
-    <div class="trace-step"><span>生成结果摘要</span><small>完成</small></div>
+<div class="agent-conversation-demo" aria-label="用户、工具轨迹与助手结果组成的完整对话示例">
+  <div class="agent-demo-turn user">
+    <span class="agent-demo-role">用户</span>
+    <div class="agent-demo-bubble">
+      <p>帮我查一下物料 A 最近的库存变化，并总结最近一次入库情况。</p>
+    </div>
   </div>
-</details>
+
+  <div class="agent-demo-process">
+    <span class="agent-demo-role">助手 · 处理过程</span>
+    <details class="agent-trace-demo" open>
+      <summary aria-label="展开或收起工具调用过程">
+        <span class="trace-check">✓</span>
+        <span class="trace-title"></span>
+        <span class="trace-count">8 个工具</span>
+        <span class="trace-warning">1 个未完成</span>
+        <span class="trace-chevron">⌄</span>
+      </summary>
+      <p class="trace-note">已核对物料库存、库存变化和最近入库记录。</p>
+      <div class="trace-timeline">
+        <div class="trace-step"><span>查询物料库存</span><small>完成</small></div>
+        <div class="trace-step"><span>查询库存变化</span><small>完成</small></div>
+        <div class="trace-step"><span>核对仓库信息</span><small>完成</small></div>
+        <div class="trace-step failed"><span>读取一项业务记录</span><small>未完成</small></div>
+        <div class="trace-step"><span>查询采购入库</span><small>完成</small></div>
+        <div class="trace-step"><span>查询调拨记录</span><small>完成</small></div>
+        <div class="trace-step"><span>汇总最近入库记录</span><small>完成</small></div>
+        <div class="trace-step"><span>生成结果摘要</span><small>完成</small></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="agent-demo-turn assistant">
+    <span class="agent-demo-role">助手</span>
+    <div class="agent-demo-bubble">
+      <p>已完成库存、库存变化和最近入库记录的查询。其中一项历史业务记录未读取成功，但不影响本次库存结论。</p>
+    </div>
+  </div>
+</div>
 
 ## 为什么不用一堆工具卡片
 
