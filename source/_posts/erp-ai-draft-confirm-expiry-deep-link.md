@@ -1,6 +1,7 @@
 ---
 title: "从 Prepare–Confirm 到 Draft–Confirm：ERP AI 单据的过期、校对与页面回链"
 date: 2026-08-20 14:40:30
+updated: 2026-08-20 15:36:32
 categories:
   - "AI"
 tags:
@@ -23,7 +24,38 @@ source_archive:
 
 我们因此准备把已经实现的 `Prepare–Confirm` 升级成 `Draft–Confirm`。同一个 `draftId` 既能直接确认，也能持续修改；默认有效期改为 6 小时；确认成功后，聊天卡片还能跳回 ERP 对应菜单并定位刚创建的单据。
 
-本文记录的是下一阶段设计。当前代码仍使用 `preparationId` 和 15 分钟 Redis TTL，Draft、续期和单据回链尚未实现。
+本文记录的是下一阶段设计。当前代码仍使用 `preparationId` 和 15 分钟 Redis TTL，Draft、续期和结构化校对页尚未实现。第一阶段的 Confirm 页面回链已经落地：Java 在确认成功后生成单据引用，Pi 使用原生 ToolResult 保存展示信息，ERP 前端再从当前用户的权限菜单解析路由并定位单据。
+
+## 实施更新：先完成 Confirm 页面回链
+
+这次实现没有同时重写 Draft 状态机，而是先打通一条可独立验收的纵向链路：
+
+```text
+Confirm 领域写入成功
+  → Java 从创建结果读取 documentKind/documentId/documentNo
+  → 按 commandType + documentKind 精确查询模块绑定
+  → 生成 presentation.document
+  → Pi 合并静态 Tool title，并写入原生 ToolResult.details.presentation
+  → 实时 SSE 与历史消息读取同一份 presentation
+  → ERP 前端用 documentModuleKey 查询当前用户 permissionList
+  → 跳转菜单列表，并按 documentId/documentNo 精确定位
+```
+
+Java 只返回稳定单据引用，不返回 URL。模块绑定不存在、查询异常或 presentation 序列化失败时，只降级导航按钮，不能把已经成功落库的 Confirm 改判成失败。重复 Confirm 会从 Redis 恢复第一次生成的 presentation，保证幂等结果不漂移。
+
+Pi Runtime 在 Java MCP 信任边界只接收 `documentModuleKey`、`documentId` 和 `documentNo`，再与工具目录中的静态标题合并。业务 payload 继续提供给模型推理，presentation 只服务 UI；两者没有重新混在同一个返回结构里。
+
+ERP 前端已经覆盖实时卡片和历史会话恢复。点击“前往 ERP 单据”时，页面只信任当前用户权限菜单里的路由；没有对应菜单权限时不跳转。列表页面保持正常 locate 语义，不自动打开只读详情。
+
+DEV 验收结果如下：
+
+- 排除明确要求原始 PDF 的 3 个写入场景后，23 个 E2E case 全部通过；
+- 16 个非 PDF Tool 全部至少真实成功调用一次；
+- 11 个查询 Tool 均返回统一的 `items/page/total/hasMore`；
+- 炉料入库 Confirm 卡片支持实时展示、刷新后的历史恢复和单号精确定位，列表只命中目标单据；
+- 浏览器控制台没有 error 或 warning。
+
+这些结果只证明 Confirm 回链与现有 Tool 协议已经贯通。`draftId`、默认 6 小时 TTL、修改续期和结构化校对页仍是后续设计，本文下面相关章节继续使用将来时。
 
 ## 当前实现已经守住了哪些边界
 
@@ -167,7 +199,7 @@ Confirm 的展示结果增加三个字段：
 
 ```text
 Confirm 成功
-  → presentation.navigation
+  → presentation.document
   → documentModuleKey 查当前用户 permissionList
   → 找到 menu.url
   → router.push(menu.url + Query Deep Link)
@@ -227,7 +259,7 @@ Java Tool 返回结构化业务结果
   └─ presentation → 提供给聊天 UI
 
 Pi Java MCP Adapter
-  → 合并静态 Tool title 与动态 draft/navigation
+  → 合并静态 Tool title 与动态 document
   → 写入 ToolResult.details.presentation
 
 Pi Session
@@ -240,10 +272,11 @@ Pi Session
   → Session Entry 投影读取同一份 presentation
 
 ERP 前端
-  → Draft 卡片 / 结构化校对入口 / 单据导航按钮
+  → 当前：单据导航按钮
+  → 后续：Draft 卡片 / 结构化校对入口
 ```
 
-当前 Runtime 的 Tool Hook 会根据工具目录补充静态 `title`。改造时需要做字段合并，不能用静态对象覆盖 Java Tool 执行结果中的动态 presentation。历史恢复也应保留 `draft` 和 `navigation`，不能继续只投影标题和成功状态。
+当前 Runtime 的 Tool Hook 会根据工具目录补充静态 `title`，并与 Java Tool 执行结果中的动态 `document` 合并，避免静态目录覆盖业务执行结果。历史恢复已经保留同一份 `document`。后续实现 Draft 时，再让同一合并与投影链路识别 `draft`，不新增平行会话协议。
 
 这套链路没有新增自定义消息 Entry。每次 Draft 创建、修改和 Confirm 本来就会产生原生 ToolResult；UI 只需要识别其中的 presentation。会话存储继续保存 Pi 原生消息，Draft 明细继续留在后端。
 
@@ -251,12 +284,12 @@ ERP 前端
 
 按纵向链路拆成三步更容易回归：
 
-1. 先完成 Confirm receipt、绑定表、`documentModuleKey` 和列表 locate，验证创建成功后的页面回链。
-2. 再把 `preparationId`、`PREPARED` 和 15 分钟 TTL 改为 `draftId`、`DRAFT` 和默认 6 小时续期。
+1. 已完成 Confirm receipt、绑定表、`documentModuleKey` 和列表 locate，并通过真实创建与历史恢复验收。
+2. 下一步把 `preparationId`、`PREPARED` 和 15 分钟 TTL 改为 `draftId`、`DRAFT` 和默认 6 小时续期。
 3. 最后接入结构化校对页，以及同一 `draftId` 的旧 presentation 失效规则。
 
 Draft 增加了可变状态。更新请求需要重新执行领域校验，Confirm 仍要复核库存、来源单状态和主数据。Redis 与业务数据库之间依旧没有分布式事务，数据库提交后、Redis receipt 写回前发生进程故障时，仍要依靠业务单号幂等兜底。
 
 页面回链也不是零成本。已有单号筛选的列表页只需读取 Query Deep Link；缺少 ID、单号过滤的页面要补一条精确查询条件。自动打开详情、统一高亮和跨页面操作编排暂不进入首版。
 
-这轮改造收在三个稳定对象上：可编辑的 `draftId`、后端生成的 `expiresAt`、Confirm receipt 中的 `documentModuleKey/documentId/documentNo`。其余能力由真实单据场景继续推动。
+第一阶段已经把 Confirm receipt 中的 `documentModuleKey/documentId/documentNo` 落成稳定协议。下一阶段再处理可编辑的 `draftId` 和后端生成的 `expiresAt`，不把尚未实现的 Draft 能力混入当前交付结论。
