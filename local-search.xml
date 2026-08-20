@@ -4,6 +4,43 @@
   
   
   <entry>
+    <title>从 Prepare–Confirm 到 Draft–Confirm：ERP AI 单据的过期、校对与页面回链</title>
+    <link href="/2026/08/20/erp-ai-draft-confirm-expiry-deep-link/"/>
+    <url>/2026/08/20/erp-ai-draft-confirm-expiry-deep-link/</url>
+    
+    <content type="html"><![CDATA[<p>创建一张只有一两行明细的入库单，Agent 生成预览，用户看一眼再确认，<code>Prepare–Confirm</code> 已经够用。</p><p>文件导入把这个流程推到了另一种规模。一个 Excel 或 PDF 可能包含几十到几百行明细，模型识别出九成字段仍然不够：漏掉的物料、错位的数量和串列的备注都会进入正式单据。聊天里展示一段摘要也接不住逐行校对，用户需要一个可以直接修改的结构化页面。</p><p>我们因此准备把已经实现的 <code>Prepare–Confirm</code> 升级成 <code>Draft–Confirm</code>。同一个 <code>draftId</code> 既能直接确认，也能持续修改；默认有效期改为 6 小时；确认成功后，聊天卡片还能跳回 ERP 对应菜单并定位刚创建的单据。</p><p>本文记录的是下一阶段设计。当前代码仍使用 <code>preparationId</code> 和 15 分钟 Redis TTL，Draft、续期和单据回链尚未实现。</p><h2 id="当前实现已经守住了哪些边界"><a href="#当前实现已经守住了哪些边界" class="headerlink" title="当前实现已经守住了哪些边界"></a>当前实现已经守住了哪些边界</h2><p>上一篇《<a href="/2026/08/18/erp-ai-tool-command-query-framework/">给 ERP AI Tools 收一套统一协议：commandType、prepare-confirm 与 Query Framework</a>》完成后，Java MCP 的写操作已经有一条稳定主链路：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">领域 prepare Tool<br>  → 领域 Service 校验并规范化表单<br>  → PreparedCommandService 生成 preparationId<br>  → Redis 保存规范化命令、预览、tenant、user、commandType 和绝对过期时间<br>  → 用户确认<br>  → 通用 confirm Tool 只提交 preparationId<br>  → Redisson 按 preparationId 加锁<br>  → Handler 再次校验实时业务条件并落库<br>  → Redis 保存 CONFIRMED 和创建结果<br></code></pre></td></tr></table></figure><p><code>commandType</code> 是 Java 内部的 Handler 路由键。采购、产品入库、炉料出入库和委外订单分别注册处理器，模型不能提交或替换这个值。<code>documentKind</code> 继续表示大类内部的业务子类型，例如采购类中的请购单、采购订单，产品入库中的采购入库、委外入库、其他入库。</p><p>当前实现还处理了几类容易被忽略的失败：</p><ul><li>preparation 绑定创建它的租户和用户，跨租户、跨用户确认会被拒绝；</li><li>同一 ID 的并发确认由 Redisson 锁串行化；</li><li>Handler 失败时保留 <code>PREPARED</code>，凭证有效期内仍可重试；</li><li>成功结果写回 Redis，重复确认返回同一结果；</li><li>Redis 的 TTL 与记录中的绝对过期时间同时校验；</li><li>ERP 原有业务单号幂等继续保留，Redis 不接管业务数据库的一致性职责。</li></ul><p>Pi Runtime 也已经有合适的展示落点。Java MCP Tool 执行结束后，动态信息可以进入原生 <code>ToolResult.details.presentation</code>；Pi Session 保存这条 ToolResult，实时 SSE 和历史消息都能读取同一份 presentation。这里不需要再造一套平行会话事件。</p><h2 id="Prepare-快照接不住持续修改"><a href="#Prepare-快照接不住持续修改" class="headerlink" title="Prepare 快照接不住持续修改"></a>Prepare 快照接不住持续修改</h2><p><code>preparationId</code> 表达的是一份不可变确认快照。用户改了数量、仓库或任意一行明细，旧快照就应该失效，Agent 重新 prepare，再让用户确认新预览。</p><p>这个约束适合短表单。结构化校对页会让用户连续改很多次，系统也无法提前知道哪一次修改是最后一次。用户在页面里已经把单据校对完成，随后说“帮我生成”，再返回一张 prepare 卡片要求确认，会多出一次没有业务价值的往返。</p><p>继续给 preparation 增加 <code>editable</code>、<code>reviewed</code>、<code>preparedAgain</code> 等状态，会让同一对象同时承担“草稿”和“确认凭证”两种含义。我们选择收掉 preparation 概念，对外只保留 Draft：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">DRAFT<br>  ├─ 修改成功 → DRAFT，并续期<br>  ├─ 确认成功 → CONFIRMED<br>  └─ TTL 到期 → 不可用<br></code></pre></td></tr></table></figure><p>简单单据也是 Draft。区别落在 presentation：简单数据使用紧凑卡片，复杂数据打开结构化校对页。模型可以根据行数、来源文件和识别风险选择 <code>reviewMode</code>，但 <code>reviewMode</code> 只决定 UI 投影，不改变服务端生命周期。</p><h2 id="一个-draftId-同时支持修改和确认"><a href="#一个-draftId-同时支持修改和确认" class="headerlink" title="一个 draftId 同时支持修改和确认"></a>一个 draftId 同时支持修改和确认</h2><p>统一 Draft 协议保留一个 ID：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">创建 Draft<br>  → 返回 draftId<br><br>修改 Draft<br>  → 提交同一个 draftId<br>  → 领域 Handler 重新校验并保存规范化数据<br>  → 返回同一个 draftId 和新的 expiresAt<br><br>确认 Draft<br>  → confirm_document_draft(draftId)<br>  → 使用 Redis 中的最新规范化数据落库<br></code></pre></td></tr></table></figure><p>MVP 不增加 <code>versionId</code> 或 <code>expectedVersion</code>。当前会话请求在 Pi Runtime 内按 conversation 串行，结构化页面每次修改后重新加载服务端 Draft。聊天里更新 Draft 时，新的 ToolResult presentation 会让同一 <code>draftId</code> 的旧卡片失效，只保留最新卡片可操作。</p><p>这里可以复用 Pi 原生 Entry 顺序：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">第一次保存 Draft<br>  → ToolResult.details.presentation.draft(draftId=D)<br><br>Agent 修改 Draft<br>  → 新 ToolResult.details.presentation.draft(draftId=D)<br><br>前端按 Entry 顺序扫描<br>  → 较早的 D 标记为失效<br>  → 最新的 D 从后端重新加载完整数据<br></code></pre></td></tr></table></figure><p>模型不负责重述整张表，Session 也不复制大体积明细。presentation 保存稳定引用，Draft 数据继续以 Redis 为事实源。</p><p>这项简化接受 last-write-wins。多浏览器或多人同时编辑同一 Draft 的需求出现后，再引入版本校验；当前没有证据支撑这部分并发协议。</p><h2 id="过期时间由后端决定"><a href="#过期时间由后端决定" class="headerlink" title="过期时间由后端决定"></a>过期时间由后端决定</h2><p>Draft 默认有效期定为 6 小时。Tool 参数不开放 TTL，模型也不负责计算 <code>expiresAt</code>。</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs text">创建成功<br>  → 后端读取当前 Handler 的 TTL 配置<br>  → 未配置时使用 6 小时<br>  → Redis 原子写入 value + TTL<br>  → 返回后端计算出的 expiresAt<br><br>修改成功<br>  → 后端重新校验并保存 Draft<br>  → 按同一规则续期<br>  → 返回新的 expiresAt<br><br>读取 Draft<br>  → 不续期<br></code></pre></td></tr></table></figure><p>框架需要保留 Handler 自定义 TTL 的入口，首版所有 Handler 都使用 6 小时默认值。敏感单据以后可以缩短，长周期计划也可以延长，不需要改 Tool Schema。</p><p>Draft presentation 只保存 UI 需要的最小信息：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;title&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;编辑单据草稿&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;draft&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;draftId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;uuid&gt;&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;status&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;DRAFT&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;expiresAt&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;2026-08-20T20:40:30+08:00&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;reviewMode&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;structured&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p>前端可以根据 <code>expiresAt</code> 立即禁用过期卡片，减少一次无效请求。后端仍会检查 Redis key 和记录中的绝对过期时间，浏览器时间不能成为确认依据。Redis 自然淘汰数据即可，不增加定时清理任务，也不保存过期墓碑。</p><h2 id="Confirm-返回的是业务结果和页面回链"><a href="#Confirm-返回的是业务结果和页面回链" class="headerlink" title="Confirm 返回的是业务结果和页面回链"></a>Confirm 返回的是业务结果和页面回链</h2><p>单据创建成功后，用户还要进入 ERP 查看、修改、审核、上传附件或执行后续操作。聊天只回复“创建成功”会迫使用户重新找菜单、输入单号再查询。</p><p>Confirm 的展示结果增加三个字段：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;documentModuleKey&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;menu-function-number&gt;&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;documentId&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;document-id&gt;&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;documentNo&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;&lt;document-number&gt;&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>documentId</code> 使用字符串，避免 JavaScript 对 64 位整数的精度损失；部分流水型单据没有统一单头 ID，该字段允许为空，页面改用 <code>documentNo</code> 定位。</p><p><code>documentModuleKey</code> 对应 ERP 菜单表里的 <code>function_number</code>，它不是 URL。前端从当前用户已经加载的权限菜单中查找这个 key，再取得真实路由：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs text">Confirm 成功<br>  → presentation.navigation<br>  → documentModuleKey 查当前用户 permissionList<br>  → 找到 menu.url<br>  → router.push(menu.url + Query Deep Link)<br>  → 列表页按 documentId/documentNo 精确查询<br>  → 用户继续使用页面原有的修改、审核、附件等操作<br></code></pre></td></tr></table></figure><p>Deep Link 统一使用 locate 语义：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">?aiDocumentId=&lt;string&gt;&amp;aiDocumentNo=&lt;string&gt;<br></code></pre></td></tr></table></figure><p>页面优先使用 ID，接口暂不支持 ID 时使用单号。定位完成后展示正常菜单列表，不自动打开只读详情。现有列表页普遍已经有查询、分页和行操作，适配 locate 的改动远小于统一各种弹窗、抽屉和专用详情组件。</p><p>当前用户的权限菜单里找不到 <code>documentModuleKey</code> 时，前端不生成跳转按钮。后端也不直接下发 URL，从而保留菜单调整和业务代码之间的解耦。</p><h2 id="路由绑定留在数据库"><a href="#路由绑定留在数据库" class="headerlink" title="路由绑定留在数据库"></a>路由绑定留在数据库</h2><p>Handler 里声明页面地址会把 Java 业务代码和 Vue 路由绑在一起。页面迁移、菜单改号或插件页改造成普通页面，都要重新发布后端。</p><p>绑定表只保存业务命令和菜单编号的关系：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs sql">ai_document_module_binding<br>  command_type    <span class="hljs-type">varchar</span>(...) <span class="hljs-keyword">not null</span><br>  document_kind   <span class="hljs-type">varchar</span>(...) <span class="hljs-keyword">not null</span> <span class="hljs-keyword">default</span> <span class="hljs-string">&#x27;&#x27;</span><br>  function_number <span class="hljs-type">varchar</span>(...) <span class="hljs-keyword">not null</span><br>  enabled         tinyint      <span class="hljs-keyword">not null</span><br><br><span class="hljs-keyword">unique</span>(command_type, document_kind)<br></code></pre></td></tr></table></figure><p>查询规则使用精确匹配：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">commandType 有值、documentKind 为空<br>  → 查询 (command_type, &#x27;&#x27;)<br><br>commandType 与 documentKind 都有值<br>  → 查询 (command_type, document_kind)<br></code></pre></td></tr></table></figure><p>联合绑定不存在时不回退到 commandType 默认项。静默回退可能把采购订单导航到请购单页面，缺少按钮比错误页面更容易排查。</p><p>Tool 粒度继续按业务大类收口。采购 Tool 可以覆盖请购单和采购订单，产品入库 Tool 可以覆盖采购入库、委外入库和其他入库；这些子类型共享相同输入骨架和内部 Facade，没有必要为每个 <code>documentKind</code> 扩张一组 Tool。<code>documentKind</code> 使用受限枚举，模型不能传自由文本。</p><p>导航解析发生在 Confirm 成功之后。绑定缺失或查询异常不能把已经落库的业务单据改判成失败：Confirm 仍返回创建结果，presentation 不显示导航，并记录配置错误。重复 Confirm 返回的 receipt 也应包含当时生成的导航信息，避免重试前后结果漂移。</p><h2 id="presentation-在-Pi-链路中的位置"><a href="#presentation-在-Pi-链路中的位置" class="headerlink" title="presentation 在 Pi 链路中的位置"></a>presentation 在 Pi 链路中的位置</h2><p>业务数据和 UI 展示数据需要分开走：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><code class="hljs text">Java Tool 返回结构化业务结果<br>  ├─ payload → 提供给模型继续推理<br>  └─ presentation → 提供给聊天 UI<br><br>Pi Java MCP Adapter<br>  → 合并静态 Tool title 与动态 draft/navigation<br>  → 写入 ToolResult.details.presentation<br><br>Pi Session<br>  → 原样持久化 ToolResult Entry<br><br>实时阶段<br>  → tool_execution_end 从 details 读取 presentation<br><br>历史阶段<br>  → Session Entry 投影读取同一份 presentation<br><br>ERP 前端<br>  → Draft 卡片 / 结构化校对入口 / 单据导航按钮<br></code></pre></td></tr></table></figure><p>当前 Runtime 的 Tool Hook 会根据工具目录补充静态 <code>title</code>。改造时需要做字段合并，不能用静态对象覆盖 Java Tool 执行结果中的动态 presentation。历史恢复也应保留 <code>draft</code> 和 <code>navigation</code>，不能继续只投影标题和成功状态。</p><p>这套链路没有新增自定义消息 Entry。每次 Draft 创建、修改和 Confirm 本来就会产生原生 ToolResult；UI 只需要识别其中的 presentation。会话存储继续保存 Pi 原生消息，Draft 明细继续留在后端。</p><h2 id="实现顺序和剩余代价"><a href="#实现顺序和剩余代价" class="headerlink" title="实现顺序和剩余代价"></a>实现顺序和剩余代价</h2><p>按纵向链路拆成三步更容易回归：</p><ol><li>先完成 Confirm receipt、绑定表、<code>documentModuleKey</code> 和列表 locate，验证创建成功后的页面回链。</li><li>再把 <code>preparationId</code>、<code>PREPARED</code> 和 15 分钟 TTL 改为 <code>draftId</code>、<code>DRAFT</code> 和默认 6 小时续期。</li><li>最后接入结构化校对页，以及同一 <code>draftId</code> 的旧 presentation 失效规则。</li></ol><p>Draft 增加了可变状态。更新请求需要重新执行领域校验，Confirm 仍要复核库存、来源单状态和主数据。Redis 与业务数据库之间依旧没有分布式事务，数据库提交后、Redis receipt 写回前发生进程故障时，仍要依靠业务单号幂等兜底。</p><p>页面回链也不是零成本。已有单号筛选的列表页只需读取 Query Deep Link；缺少 ID、单号过滤的页面要补一条精确查询条件。自动打开详情、统一高亮和跨页面操作编排暂不进入首版。</p><p>这轮改造收在三个稳定对象上：可编辑的 <code>draftId</code>、后端生成的 <code>expiresAt</code>、Confirm receipt 中的 <code>documentModuleKey/documentId/documentNo</code>。其余能力由真实单据场景继续推动。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>Java Runtime</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>ERP</tag>
+      
+      <tag>架构设计</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同</title>
     <link href="/2026/08/19/codex-erp-agent-team-loop/"/>
     <url>/2026/08/19/codex-erp-agent-team-loop/</url>
@@ -720,9 +757,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>开发回顾</tag>
+      
+      <tag>Agent</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -753,9 +790,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>开发回顾</tag>
+      
+      <tag>Agent</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -962,9 +999,9 @@
     
     <tags>
       
-      <tag>Python</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>Python</tag>
       
       <tag>React</tag>
       
@@ -1100,9 +1137,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>开发回顾</tag>
+      
+      <tag>Agent</tag>
       
       <tag>Dify</tag>
       
@@ -1489,13 +1526,13 @@
       
       <tag>Java</tag>
       
-      <tag>AI</tag>
-      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
+      
+      <tag>AI</tag>
       
     </tags>
     
@@ -1526,9 +1563,9 @@
       
       <tag>LangGraph</tag>
       
-      <tag>工程化</tag>
-      
       <tag>Prompt工程</tag>
+      
+      <tag>工程化</tag>
       
       <tag>控制平面</tag>
       
@@ -1707,11 +1744,11 @@
       
       <tag>LangGraph</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>Security</tag>
       
       <tag>Prompt Injection</tag>
+      
+      <tag>FastAPI</tag>
       
     </tags>
     
@@ -2188,9 +2225,9 @@
       
       <tag>工程复盘</tag>
       
-      <tag>MCP</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>MCP</tag>
       
       <tag>Guardrails</tag>
       
@@ -2359,13 +2396,13 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>Python</tag>
       
       <tag>AI网关</tag>
       
       <tag>Java</tag>
-      
-      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -2460,9 +2497,9 @@
     
     <tags>
       
-      <tag>Python</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>Python</tag>
       
       <tag>调试</tag>
       
@@ -2497,9 +2534,9 @@
       
       <tag>ReAct</tag>
       
-      <tag>MCP</tag>
-      
       <tag>FastAPI</tag>
+      
+      <tag>MCP</tag>
       
       <tag>Qwen</tag>
       
@@ -2752,9 +2789,9 @@
       
       <tag>知识库</tag>
       
-      <tag>RAG</tag>
-      
       <tag>AI工程</tag>
+      
+      <tag>RAG</tag>
       
     </tags>
     
