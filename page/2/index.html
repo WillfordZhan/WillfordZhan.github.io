@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/12/pi-java-runtime-sse-interruption/" target="_self">
+          一次 ERP AI 会话频繁中断的排查：SSE 心跳、Spring 异步超时与 Pi 状态投影
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/12/pi-java-runtime-sse-interruption/" target="_self">
+        <div>
+          ERP 里接入数字员工后，普通问答偶尔会同时出现两条提示：一条是“本次业务处理未完成”，另一条是“连接已中断”。发生问题的会话通常已经开始调用 Tool，回答生成到一半就停止。 这次排查确认了两个问题。Spring MVC 的异步响应先超时，Pi 随后把下游断开解释成会话取消；前端又分别展示了 Tool 失败和连接失败，于是一次断流变成了两条错误提示。 现场证据先看服务端时间线。同一时段里，Jav
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-12 18:58" pubdate>
+              2026-08-12
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/Java-Runtime/">#Java Runtime</a>
+            
+              <a href="/tags/SSE/">#SSE</a>
+            
+              <a href="/tags/Spring-Boot/">#Spring Boot</a>
+            
+              <a href="/tags/%E6%95%85%E9%9A%9C%E5%A4%8D%E7%9B%98/">#故障复盘</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/12/pi-image-input-context/" target="_self">
           5 MB 图片为什么不会直接吃掉 5 MB 上下文：拆解大模型与 Pi 的图片处理链路
         </a>
@@ -826,75 +897,6 @@
               <a href="/tags/%E9%A1%B9%E7%9B%AE%E6%95%B4%E7%90%86/">#项目整理</a>
             
               <a href="/tags/%E5%BC%80%E5%8F%91%E5%9B%9E%E9%A1%BE/">#开发回顾</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/06/25/cloud-deploy-agent-skill/" target="_self">
-          把云端部署写成 Agent Skill
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/06/25/cloud-deploy-agent-skill/" target="_self">
-        <div>
-          这次做的是一个云端部署 Skill。目标不是再造一套发布平台，而是把已经存在的人工发布流程拆成 Agent 能稳定执行、能停在正确位置、能把事实说清楚的几段能力。 最后落地的形态很克制：一份服务拓扑 YAML，一份 Skill 说明，三个面向 Agent 的 Python 脚本，再加一组 Nginx 文本切流测试。部署、验证、切流仍然尊重现有服务器和脚本，不把生产发布变成一个模型自由发挥的动作。
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-06-25 21:05" pubdate>
-              2026-06-25
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E9%83%A8%E7%BD%B2/">#自动化部署</a>
-            
-              <a href="/tags/DevOps/">#DevOps</a>
-            
-              <a href="/tags/Skill/">#Skill</a>
             
           </div>
         
