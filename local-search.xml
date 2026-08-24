@@ -4,6 +4,45 @@
   
   
   <entry>
+    <title>从云效 Pipeline 到 Registry：一条镜像构建链路如何工作</title>
+    <link href="/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/"/>
+    <url>/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/</url>
+    
+    <content type="html"><![CDATA[<p>最近给 Pi Java Runtime 增加了一条镜像构建流水线。这个接入只新增了一个仓库构建脚本和一条云效 Pipeline，背后沿用的是现有构建系统：云效收集代码版本并提交构建请求，构建机排队执行，仓库的 Dockerfile 产出镜像，Registry 保存制品，企微通知和 Build Event 分别面向人和系统记录结果。</p><p>下面按一次请求真实经过的路径，整理各组件的职责、配置和失败边界。Pi 是文末的接入案例，同样的做法也可以用于其他 Java、Node.js 或多阶段 Docker 项目。</p><h2 id="链路全景"><a href="#链路全景" class="headerlink" title="链路全景"></a>链路全景</h2><p>一次构建会经过六个组件：</p><table><thead><tr><th>组件</th><th>接收什么</th><th>负责什么</th><th>产出什么</th></tr></thead><tbody><tr><td>Git 仓库</td><td>代码提交</td><td>保存源码、Dockerfile 和仓库构建入口</td><td>commit SHA</td></tr><tr><td>云效 Flow</td><td>Push 或手工运行</td><td>固定触发版本，提交构建请求</td><td>HTTP 入队请求</td></tr><tr><td>构建请求接收器</td><td><code>cmd</code> 与 <code>env</code></td><td>校验请求、写入串行队列</td><td>入队确认</td></tr><tr><td>构建机 Worker</td><td>队列任务</td><td>拉代码、执行脚本、保存日志、处理有限重试</td><td>进程退出码</td></tr><tr><td>Docker &#x2F; Registry</td><td>构建上下文与镜像 tag</td><td>生成并保存镜像</td><td>tag 与 digest</td></tr><tr><td>通知与 Build Event</td><td>构建上下文和结果</td><td>通知操作人，向控制面留结构化状态</td><td>消息与状态记录</td></tr></tbody></table><p>完整时序如下：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><code class="hljs text">开发者 Push / 手工运行<br>        |<br>        v<br>云效：获取代码，得到 branch + commit SHA<br>        |<br>        | POST /run &#123; cmd, env &#125;<br>        v<br>构建请求接收器：参数检查 -&gt; 入队 -&gt; 返回 HTTP 200<br>        |<br>        | 发送“任务已入队”通知<br>        v<br>单 Worker 串行取任务<br>        |<br>        | 拉取并检出指定 commit<br>        | 上报 RUNNING Build Event<br>        v<br>仓库 build.sh -&gt; Dockerfile -&gt; docker buildx<br>        |<br>        | docker push<br>        v<br>Registry：保存镜像 tag 与 digest<br>        |<br>        | 上报 SUCCESS Build Event<br>        | 发送“完成”通知<br>        v<br>构建机日志 / 控制面 / 企微消息<br></code></pre></td></tr></table></figure><p>这里有两个不同的 Runner。云效的构建集群运行 Pipeline 中的 Bash 任务；内部构建机上的 Worker 才运行 Git、Docker 和仓库构建脚本。云效任务得到 HTTP 200 时，请求已经进入内部队列，镜像此时通常还没有开始构建。</p><h2 id="一、云效-Pipeline-如何产生构建请求"><a href="#一、云效-Pipeline-如何产生构建请求" class="headerlink" title="一、云效 Pipeline 如何产生构建请求"></a>一、云效 Pipeline 如何产生构建请求</h2><h3 id="1-代码源和触发方式"><a href="#1-代码源和触发方式" class="headerlink" title="1. 代码源和触发方式"></a>1. 代码源和触发方式</h3><p>先在云效 Flow 创建流水线并关联目标仓库。触发条件通常包含：</p><ul><li>指定分支 Push 自动触发；</li><li>指定分支手工运行，用于首次验证和失败后的人工重跑；</li><li>如仓库有 Pull Request 门禁，构建镜像的 Pipeline 与代码检查 Pipeline 分开配置。</li></ul><p>流水线的第一项任务使用“获取代码”。这一步不承担最终镜像构建，它提供本次运行对应的 Git 元数据，例如：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">CI_COMMIT_REF_NAME=dev<br>CI_COMMIT_SHA=0123456789abcdef...<br></code></pre></td></tr></table></figure><p>云效的 Git 环境变量依赖代码源和“获取代码”步骤，变量清单以<a href="https://help.aliyun.com/zh/yunxiao/user-guide/environment-variables/">官方环境变量文档</a>为准。</p><p>commit SHA 需要随请求传给构建机。只传分支名会产生版本错位：提交 A 触发任务后，队列尚未执行，分支已经前进到 B；构建机若只拉取分支最新代码，流水线记录指向 A，镜像内容却来自 B。</p><h3 id="2-构建集群和网络"><a href="#2-构建集群和网络" class="headerlink" title="2. 构建集群和网络"></a>2. 构建集群和网络</h3><p>执行 HTTP 请求的机器属于云效构建集群，它需要访问内部的构建请求接收器。网络选择由接收器的位置决定：</p><ul><li>接收器只有内网地址时，使用与目标网络互通的私有构建集群或 VPC 构建集群；</li><li>接收器有受保护的公网入口时，可以使用公共构建集群，同时配置鉴权、来源限制和 TLS；</li><li>连通性检查应在正式构建前完成，至少验证 DNS、路由、端口和证书。</li></ul><p>云效的公共构建集群只能访问公网资源，集群类型和适用网络见<a href="https://help.aliyun.com/zh/yunxiao/user-guide/build-a-cluster">官方构建集群文档</a>。</p><h3 id="3-Pipeline-变量"><a href="#3-Pipeline-变量" class="headerlink" title="3. Pipeline 变量"></a>3. Pipeline 变量</h3><p>将接收器地址配置为流水线变量：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">BUILD_RUNNER_URL=https://build-receiver.example.internal/run<br></code></pre></td></tr></table></figure><p>Webhook、Registry 密码、Git 私钥和 Build Event token 不需要传到这个任务。它们分别保存在通知服务、构建机 Docker 登录态、构建机 SSH 配置和状态上报脚本中。Pipeline 只携带构建标识和 Git 元数据。</p><h3 id="4-Bash-执行任务"><a href="#4-Bash-执行任务" class="headerlink" title="4. Bash 执行任务"></a>4. Bash 执行任务</h3><p>Pipeline 的“执行命令”可以保持很短：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-built_in">set</span> -euo pipefail<br><br>commit_sha=<span class="hljs-string">&quot;<span class="hljs-variable">$&#123;CI_COMMIT_SHA:-<span class="hljs-variable">$&#123;CI_COMMIT_ID:-&#125;</span>&#125;</span>&quot;</span><br><span class="hljs-built_in">test</span> -n <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;CI_COMMIT_REF_NAME:-&#125;</span>&quot;</span><br><span class="hljs-built_in">test</span> -n <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;commit_sha&#125;</span>&quot;</span><br><br>curl --connect-timeout 5 --max-time 15 \<br>  --fail --show-error --silent \<br>  -H <span class="hljs-string">&quot;Content-Type: application/json&quot;</span> \<br>  --data <span class="hljs-string">&quot;&#123;\&quot;cmd\&quot;:\&quot;cd /srv/build/project &amp;&amp; bash build.sh\&quot;,\&quot;env\&quot;:&#123;\&quot;CI_COMMIT_REF_NAME\&quot;:\&quot;<span class="hljs-variable">$&#123;CI_COMMIT_REF_NAME&#125;</span>\&quot;,\&quot;CI_COMMIT_SHA\&quot;:\&quot;<span class="hljs-variable">$&#123;commit_sha&#125;</span>\&quot;,\&quot;PIPELINE_NAME\&quot;:\&quot;Project Docker Build\&quot;,\&quot;CI_PIPELINE_NAME\&quot;:\&quot;Project Docker Build\&quot;,\&quot;CI_SOURCE_NAME\&quot;:\&quot;project\&quot;&#125;&#125;&quot;</span> \<br>  <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;BUILD_RUNNER_URL&#125;</span>&quot;</span><br></code></pre></td></tr></table></figure><p>请求体的契约只有两个顶层字段：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;cmd&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;cd /srv/build/project &amp;&amp; bash build.sh&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;env&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;CI_COMMIT_REF_NAME&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;dev&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;CI_COMMIT_SHA&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;完整的 40 位 commit SHA&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;PIPELINE_NAME&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Project Docker Build&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;CI_PIPELINE_NAME&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;Project Docker Build&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;CI_SOURCE_NAME&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;project&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>cmd</code> 指向构建机上已经部署好的仓库入口；<code>env</code> 会合并进子进程环境。<code>PIPELINE_NAME</code> 和 <code>CI_SOURCE_NAME</code> 用于人类通知，<code>CI_PIPELINE_NAME</code> 用于结构化 Build Event。流水线可以继续传入操作人和运行说明，但不应把自由文本拼进 <code>cmd</code>。</p><p><code>curl --fail</code> 会让 4xx、5xx 直接结束云效任务；连接和总超时防止网络异常长时间占住云效执行器。HTTP 200 的含义仅为“请求已入队”。</p><h2 id="二、构建机如何接收和排队"><a href="#二、构建机如何接收和排队" class="headerlink" title="二、构建机如何接收和排队"></a>二、构建机如何接收和排队</h2><p>构建请求接收器是一个常驻 HTTP 服务。当前实现收到 <code>POST /run</code> 后执行以下动作：</p><ol><li>读取 JSON，请求缺少 <code>cmd</code> 或 <code>env</code> 时返回 400；</li><li>记录环境变量、接收时间和任务类型；</li><li>将 <code>(cmd, env, received_at, task_type)</code> 写入内存队列；</li><li>发送“代码构建任务已提交到队列”的企微通知；</li><li>立即返回 <code>&#123;&quot;msg&quot;:&quot;command queued&quot;&#125;</code>。</li></ol><p>队列由单个后台 Worker 消费。串行执行牺牲了一部分吞吐量，换来了简单的资源隔离：多个大型 Docker 构建不会同时争抢磁盘、内存、网络和 BuildKit 缓存，也不会并发覆盖同一个可变镜像 tag。</p><p>Worker 取到任务后，将 Pipeline 传来的 <code>env</code> 合并到构建机环境，再通过 Shell 启动命令。标准输出、标准错误、退出码和耗时都由接收器统一收集。服务日志按天轮转并保留固定周期；失败任务还会生成单独的文本报告，通知中给出查看地址。</p><p>执行前还会检查根分区剩余空间。空间低于安全线时先清理 Docker、Buildx 和 Builder 缓存。这个机制保护共享构建机，代价是下一次构建失去缓存后耗时会上升，因此阈值应按机器磁盘容量设置。</p><h3 id="有限重试"><a href="#有限重试" class="headerlink" title="有限重试"></a>有限重试</h3><p>重试只处理有明确瞬时特征的故障：</p><ul><li>Registry 认证、拉取 metadata 或 push 时出现连接重置、TLS 超时、DNS 失败、502&#x2F;503&#x2F;504；</li><li>BuildKit 缓存出现已知的 snapshot 父节点丢失。</li></ul><p>命中这些特征后，Worker 清理构建缓存并重试一次。编译错误、测试失败、Dockerfile 错误和脚本参数错误不会自动重试；再次运行同一份代码不会修复这些问题，重复构建只会占用队列。</p><h2 id="三、仓库构建脚本如何连接-Git、Dockerfile-和-Registry"><a href="#三、仓库构建脚本如何连接-Git、Dockerfile-和-Registry" class="headerlink" title="三、仓库构建脚本如何连接 Git、Dockerfile 和 Registry"></a>三、仓库构建脚本如何连接 Git、Dockerfile 和 Registry</h2><p>接收器只负责运行命令，不了解仓库结构。每个项目在构建机脚本目录中提供一个薄的 <code>build.sh</code>，处理五件事：</p><ol><li>校验分支和 commit SHA；</li><li>更新构建机上的仓库缓存并检出确定提交；</li><li>上报 <code>RUNNING</code>；</li><li>调用仓库自己的 Dockerfile 构建并推送镜像；</li><li>读取镜像 digest，上报 <code>SUCCESS</code>。</li></ol><p>一个通用骨架如下：</p><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><code class="hljs bash"><span class="hljs-meta">#!/usr/bin/env bash</span><br><span class="hljs-built_in">set</span> -euo pipefail<br><br><span class="hljs-built_in">readonly</span> repository=<span class="hljs-string">&quot;git@example.com:team/project.git&quot;</span><br><span class="hljs-built_in">readonly</span> branch=<span class="hljs-string">&quot;<span class="hljs-variable">$&#123;CI_COMMIT_REF_NAME:?missing branch&#125;</span>&quot;</span><br><span class="hljs-built_in">readonly</span> commit_sha=<span class="hljs-string">&quot;<span class="hljs-variable">$&#123;CI_COMMIT_SHA:?missing commit SHA&#125;</span>&quot;</span><br><span class="hljs-built_in">readonly</span> image=<span class="hljs-string">&quot;registry.example.com/team/project:<span class="hljs-variable">$&#123;branch&#125;</span>&quot;</span><br><span class="hljs-built_in">readonly</span> code_dir=<span class="hljs-string">&quot;<span class="hljs-subst">$(cd <span class="hljs-string">&quot;<span class="hljs-subst">$(dirname <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;BASH_SOURCE[0]&#125;</span>&quot;</span>)</span>&quot;</span> &amp;&amp; pwd)</span>/code&quot;</span><br><br><span class="hljs-keyword">if</span> [ ! -d <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>/.git&quot;</span> ]; <span class="hljs-keyword">then</span><br>  git <span class="hljs-built_in">clone</span> <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;repository&#125;</span>&quot;</span> <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>&quot;</span><br><span class="hljs-keyword">fi</span><br><br>git -C <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>&quot;</span> fetch --prune origin \<br>  <span class="hljs-string">&quot;+refs/heads/<span class="hljs-variable">$&#123;branch&#125;</span>:refs/remotes/origin/<span class="hljs-variable">$&#123;branch&#125;</span>&quot;</span><br>git -C <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>&quot;</span> cat-file -e <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;commit_sha&#125;</span>^&#123;commit&#125;&quot;</span><br>git -C <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>&quot;</span> merge-base --is-ancestor \<br>  <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;commit_sha&#125;</span>&quot;</span> <span class="hljs-string">&quot;origin/<span class="hljs-variable">$&#123;branch&#125;</span>&quot;</span><br>git -C <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>&quot;</span> checkout --detach <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;commit_sha&#125;</span>&quot;</span><br><br>report_build RUNNING <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;image&#125;</span>&quot;</span> <span class="hljs-string">&quot;&quot;</span><br><br>docker buildx build \<br>  --platform linux/amd64 \<br>  --file <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>/Dockerfile&quot;</span> \<br>  --tag <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;image&#125;</span>&quot;</span> \<br>  --label <span class="hljs-string">&quot;org.opencontainers.image.revision=<span class="hljs-variable">$&#123;commit_sha&#125;</span>&quot;</span> \<br>  --load \<br>  <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;code_dir&#125;</span>&quot;</span><br><br>docker image inspect <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;image&#125;</span>&quot;</span> &gt;/dev/null<br>docker push <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;image&#125;</span>&quot;</span><br>digest=<span class="hljs-string">&quot;<span class="hljs-subst">$(docker image inspect --format &#x27;&#123;&#123;index .RepoDigests 0&#125;&#125;&#x27; <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;image&#125;</span>&quot;</span>)</span>&quot;</span><br><br>report_build SUCCESS <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;image&#125;</span>&quot;</span> <span class="hljs-string">&quot;<span class="hljs-variable">$&#123;digest&#125;</span>&quot;</span><br></code></pre></td></tr></table></figure><p>示例里的 <code>report_build</code> 代表已有的状态上报辅助脚本。实际接入时复用公共 helper 即可，没有必要让每个仓库重新实现 HTTP 请求、超时和 JSON 字段。</p><h3 id="Dockerfile-由代码仓库维护"><a href="#Dockerfile-由代码仓库维护" class="headerlink" title="Dockerfile 由代码仓库维护"></a>Dockerfile 由代码仓库维护</h3><p>依赖安装、编译命令、多阶段镜像、运行用户和启动入口都属于项目代码，应与源码一起评审和版本化。构建机脚本只选择：</p><ul><li>Dockerfile 路径；</li><li>build context；</li><li>目标平台；</li><li>镜像名称和标签；</li><li>需要写入的 OCI 元数据。</li></ul><p>单仓项目一般以仓库根目录为 context；monorepo 是否能够缩小 context，要看 Dockerfile 是否复制其他 workspace。错误地缩小 context 会让 Docker 在执行 <code>COPY</code> 时找不到依赖，或者构建出缺少内部包的镜像。</p><h3 id="Registry-保存的是制品"><a href="#Registry-保存的是制品" class="headerlink" title="Registry 保存的是制品"></a>Registry 保存的是制品</h3><p>Registry 认证由构建机维护。Docker build 完成后，脚本先做本地检查，再执行 <code>docker push</code>。只有 push 成功，镜像才算进入可供后续部署使用的制品库。</p><p>tag 适合表达渠道，例如 <code>dev</code>、<code>test</code>、<code>release</code>；digest 对应不可变内容。当前链路可以先推送固定分支 tag，控制面同时记录 commit SHA 和 digest。需要处理并发、回滚或精确部署时，再增加 <code>:&lt;commit-sha&gt;</code> 不可变 tag，并让渠道 tag 指向同一份 digest。</p><h2 id="四、消息通知和结构化-Build-Event"><a href="#四、消息通知和结构化-Build-Event" class="headerlink" title="四、消息通知和结构化 Build Event"></a>四、消息通知和结构化 Build Event</h2><p>这条链路保留两套输出，因为它们服务的消费者不同。</p><h3 id="面向人的企微通知"><a href="#面向人的企微通知" class="headerlink" title="面向人的企微通知"></a>面向人的企微通知</h3><p>构建请求接收器持有通知配置，Pipeline 不接触 Webhook。通知覆盖三个时点：</p><ul><li>入队：流水线、仓库、分支、操作人和提交时间；</li><li>完成：耗时、进程返回码，以及脚本输出中识别到的镜像；</li><li>失败：错误类型、耗时和独立错误报告链接。</li></ul><p>Registry 网络抖动会使用较安静的提示，并说明是否已经自动重试；编译或脚本异常会提醒对应操作人。这样可以减少瞬时基础设施故障带来的重复人工排查。</p><h3 id="面向系统的-Build-Event"><a href="#面向系统的-Build-Event" class="headerlink" title="面向系统的 Build Event"></a>面向系统的 Build Event</h3><p>仓库构建脚本在检出源码后写入 <code>RUNNING</code>，在 <code>docker push</code> 后写入 <code>SUCCESS</code>。事件包含：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">repo, branch, commitId, service, status,<br>image, digest, buildMachine, pipelineName<br></code></pre></td></tr></table></figure><p>控制面由此可以回答“哪个 Pipeline 在哪台构建机上，把哪个提交构建成了哪个镜像”。状态上报属于旁路：连接超时很短，接口不可达时只写 warning 并返回成功，不能让观测系统故障改变 Docker 构建结果。</p><p>当前实现尚未写 <code>FAILED</code> Build Event，失败结果主要存在于 Worker 日志和企微通知。补齐失败事件后，控制面才能独立形成完整状态机。</p><h2 id="五、一次构建到底什么时候成功"><a href="#五、一次构建到底什么时候成功" class="headerlink" title="五、一次构建到底什么时候成功"></a>五、一次构建到底什么时候成功</h2><p>链路中存在三层成功语义：</p><table><thead><tr><th>位置</th><th>成功代表什么</th><th>不代表什么</th></tr></thead><tbody><tr><td>云效 Bash 任务</td><td>请求接收器已返回 2xx</td><td>镜像已经构建或推送</td></tr><tr><td>构建机进程</td><td><code>build.sh</code> 退出码为 0</td><td>部署已经更新</td></tr><tr><td>Registry &#x2F; Build Event</td><td>push 成功，并记录了镜像信息</td><td>容器已经启动且健康</td></tr></tbody></table><p>排障时先确认问题属于哪一层：</p><ol><li>云效失败：检查变量、构建集群网络、接收器 HTTP 状态；</li><li>云效成功但长期没有入队通知：检查请求是否到达正确接收器；</li><li>已入队但没有完成通知：查看队列前方任务和 Worker 进程；</li><li>Worker 失败：从独立错误报告判断 Git、编译、Docker、Registry 哪一步退出；</li><li>Worker 成功但控制面无记录：检查旁路 Build Event 的 warning；</li><li>Registry 有镜像但业务未变化：构建链路已经结束，转到部署链路检查。</li></ol><p>异步入口让云效执行器很快释放，也允许多条 Pipeline 共享少量构建机。它同时造成云效页面的绿色状态只表示“已受理”。如果要求云效直接展示最终构建结果，接收器需要返回任务 ID，并提供轮询、回调或事件订阅；这会引入任务持久化和状态生命周期，现阶段没有把它塞进简单的入队接口。</p><h2 id="六、将一个新-Pipeline-接入现有链路"><a href="#六、将一个新-Pipeline-接入现有链路" class="headerlink" title="六、将一个新 Pipeline 接入现有链路"></a>六、将一个新 Pipeline 接入现有链路</h2><p>接入新仓库时，改动集中在两处。</p><p>构建系统仓库中增加一个项目目录和 <code>build.sh</code>：</p><ul><li>填写 Git 地址、允许的分支、Dockerfile 路径和 build context；</li><li>设计 Registry 镜像名与 tag；</li><li>复用公共 Build Event helper；</li><li>做 Shell 语法检查和错误分支自测；</li><li>将脚本部署到所有可能接单的构建机。</li></ul><p>云效中增加一条 Pipeline：</p><ul><li>关联代码源并配置触发分支；</li><li>选择能访问接收器的构建集群；</li><li>增加“获取代码”；</li><li>配置 <code>BUILD_RUNNER_URL</code>；</li><li>增加提交 <code>cmd + env</code> 的 Bash 任务；</li><li>手工运行一次，按“入队、RUNNING、push、SUCCESS、通知”五个节点验收。</li></ul><p>接收器、串行队列、企微通知、错误报告和状态上报 helper 可以直接复用。项目差异留在 <code>build.sh</code> 和 Dockerfile，避免为每个仓库复制一套 HTTP 服务和通知代码。</p><h2 id="Pi-Java-Runtime-的接入位置"><a href="#Pi-Java-Runtime-的接入位置" class="headerlink" title="Pi Java Runtime 的接入位置"></a>Pi Java Runtime 的接入位置</h2><p>Pi 的特殊配置只落在仓库构建脚本里：构建目标来自 <code>dev</code>，目标平台是 <code>linux/amd64</code>，Dockerfile 位于 Java Runtime 包中，但 build context 使用 monorepo 根目录，因为 Runtime 编译依赖多个 workspace。脚本检出云效传来的确定 SHA，调用该 Dockerfile，推送 Runtime 镜像并记录 digest。</p><p>云效、请求接收器、队列、通知和 Build Event 没有为 Pi 增加专属分支。下一套镜像接入仍沿用同一个请求契约，只替换项目目录、构建入口和镜像身份。</p><h2 id="当前边界与后续演进"><a href="#当前边界与后续演进" class="headerlink" title="当前边界与后续演进"></a>当前边界与后续演进</h2><p>这套实现已经覆盖“触发、排队、构建、推送、通知、留痕”，仍保留几项清晰的工程边界：</p><ol><li><strong>队列在内存中。</strong> 接收器重启会丢失尚未执行的任务。出现不能接受的任务丢失后，再引入数据库或消息队列持久化。</li><li><strong>入口能够执行 Shell。</strong> 当前接口只校验 <code>cmd</code> 和 <code>env</code> 是否存在，因此只能放在可信内网。对外暴露前应增加身份认证、命令白名单、来源限制和 TLS。</li><li><strong>云效不等待最终结果。</strong> 需要统一 CI 状态时，再增加任务 ID 和状态查询，不要用超长 HTTP 连接占住 Pipeline。</li><li><strong>分支 tag 可变。</strong> 对精确部署和回滚有要求时，增加 commit SHA tag，部署按 digest 或不可变 tag 取制品。</li><li><strong>失败事件不完整。</strong> Worker 已经保存退出码和错误报告，下一步可以将同一信息投影成 <code>FAILED</code> Build Event。</li><li><strong>单 Worker 限制吞吐。</strong> 队列持续积压后，再按机器资源或镜像命名空间拆分 Worker；在没有数据证明瓶颈前，串行执行更容易维护。</li><li><strong>构建与质量门禁分离。</strong> Dockerfile 能编译不等于测试通过。需要阻断不合格镜像时，在 push 前加入项目自己的检查命令，或让独立检查 Pipeline 成为构建前置条件。</li></ol><p>这条链路的维护边界很明确：云效决定构建哪次提交，接收器决定何时执行，仓库决定怎样构建，Registry 保存结果，通知和 Build Event 记录发生了什么。部署可以在后续按 image digest 接入，不需要改变前面的镜像生产流程。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>云效</tag>
+      
+      <tag>Flow</tag>
+      
+      <tag>CI/CD</tag>
+      
+      <tag>Docker</tag>
+      
+      <tag>Registry</tag>
+      
+      <tag>构建机</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>用 Swagger 驱动 AI Draft 校对页的枚举标签</title>
     <link href="/2026/08/21/swagger-enum-labels-ai-draft-ui/"/>
     <url>/2026/08/21/swagger-enum-labels-ai-draft-ui/</url>
@@ -137,11 +176,11 @@
       
       <tag>ERP</tag>
       
+      <tag>架构设计</tag>
+      
       <tag>Codex</tag>
       
       <tag>Sub-agent</tag>
-      
-      <tag>架构设计</tag>
       
     </tags>
     
@@ -895,9 +934,9 @@
       
       <tag>Agent</tag>
       
-      <tag>架构设计</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>架构设计</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -1017,9 +1056,9 @@
       
       <tag>故障排查</tag>
       
-      <tag>SSH</tag>
-      
       <tag>Docker</tag>
+      
+      <tag>SSH</tag>
       
       <tag>Nginx</tag>
       
@@ -1596,13 +1635,13 @@
       
       <tag>Java</tag>
       
-      <tag>AI</tag>
-      
       <tag>日志</tag>
       
       <tag>Logback</tag>
       
       <tag>MDC</tag>
+      
+      <tag>AI</tag>
       
     </tags>
     
@@ -2332,9 +2371,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>技术选型</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>技术选型</tag>
       
       <tag>LlamaIndex</tag>
       
@@ -2367,11 +2406,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>ReAct</tag>
+      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
-      
-      <tag>ReAct</tag>
       
       <tag>Prompt Injection</tag>
       
@@ -2505,9 +2544,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>OpenClaw</tag>
-      
       <tag>ReAct</tag>
+      
+      <tag>OpenClaw</tag>
       
       <tag>FastAPI</tag>
       
@@ -2853,15 +2892,15 @@
       
       <tag>MCP</tag>
       
-      <tag>架构设计</tag>
-      
       <tag>Dify</tag>
       
       <tag>知识库</tag>
       
+      <tag>AI工程</tag>
+      
       <tag>RAG</tag>
       
-      <tag>AI工程</tag>
+      <tag>架构设计</tag>
       
     </tags>
     
@@ -2970,9 +3009,9 @@
       
       <tag>Java</tag>
       
-      <tag>架构设计</tag>
-      
       <tag>AI工程</tag>
+      
+      <tag>架构设计</tag>
       
     </tags>
     

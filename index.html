@@ -241,6 +241,81 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/" target="_self">
+          从云效 Pipeline 到 Registry：一条镜像构建链路如何工作
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/" target="_self">
+        <div>
+          最近给 Pi Java Runtime 增加了一条镜像构建流水线。这个接入只新增了一个仓库构建脚本和一条云效 Pipeline，背后沿用的是现有构建系统：云效收集代码版本并提交构建请求，构建机排队执行，仓库的 Dockerfile 产出镜像，Registry 保存制品，企微通知和 Build Event 分别面向人和系统记录结果。 下面按一次请求真实经过的路径，整理各组件的职责、配置和失败边界。P
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-24 16:52" pubdate>
+              2026-08-24
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/%E4%BA%91%E6%95%88/">#云效</a>
+            
+              <a href="/tags/Flow/">#Flow</a>
+            
+              <a href="/tags/CI-CD/">#CI/CD</a>
+            
+              <a href="/tags/Docker/">#Docker</a>
+            
+              <a href="/tags/Registry/">#Registry</a>
+            
+              <a href="/tags/%E6%9E%84%E5%BB%BA%E6%9C%BA/">#构建机</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/21/swagger-enum-labels-ai-draft-ui/" target="_self">
           用 Swagger 驱动 AI Draft 校对页的枚举标签
         </a>
@@ -513,11 +588,11 @@
             
               <a href="/tags/ERP/">#ERP</a>
             
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
+            
               <a href="/tags/Codex/">#Codex</a>
             
               <a href="/tags/Sub-agent/">#Sub-agent</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
           </div>
         
@@ -846,75 +921,6 @@
               <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">#自动化测试</a>
             
               <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/13/pi-native-skill-runtime-choice/" target="_self">
-          回顾 Pi 原生 Skill 机制，以及我们在 Java Runtime 中的选择
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/13/pi-native-skill-runtime-choice/" target="_self">
-        <div>
-          这次给 Java Runtime 接入仓管 Skill，我先重新梳理了 Pi 原生的 Skill 链路。 Pi 已经提供了四项可以直接组合的能力：  Skill 自动发现 noSkills additionalSkillPaths Skill 元数据注入与正文按需加载  我们最终选择保留这套原生链路： 123noSkills  + additionalSkillPaths  + 自定义受限 rea
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-13 18:42" pubdate>
-              2026-08-13
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Agent/">#Agent</a>
-            
-              <a href="/tags/Pi/">#Pi</a>
-            
-              <a href="/tags/Java-Runtime/">#Java Runtime</a>
-            
-              <a href="/tags/Skill/">#Skill</a>
             
           </div>
         
