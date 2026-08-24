@@ -4,6 +4,41 @@
   
   
   <entry>
+    <title>把 Spring MVC Controller 接成 AI HTTP Tool：一套低侵入方案</title>
+    <link href="/2026/08/24/spring-mvc-controller-http-tools/"/>
+    <url>/2026/08/24/spring-mvc-controller-http-tools/</url>
+    
+    <content type="html"><![CDATA[<p>业务系统里已经有大量 Spring MVC Controller。如果为了接入 AI Tool，再为每个接口手写一层工具方法，会同时复制参数定义、响应结构和调用逻辑；接口变更时，两套代码还要同步维护。</p><p>更低侵入的做法是：保留现有 Controller，只在允许被 AI 调用的方法上增加 <code>@AiToolDef</code>。AI Runtime 从 Spring MVC 和 Swagger 元数据生成 Tool Schema，执行时再发起一次真实 HTTP 请求。这样，业务侧唯一必须做的改动就是显式标记哪些接口可以成为 Tool。</p><p>本文记录的是基于现有 Pi 与 Java Runtime 代码形成的设计方案，不是上线完成说明。当前代码已经具备本地反射 Tool、输入 Schema 和输出 Schema 的基础能力；HTTP Tool 是下一步扩展点。</p><h2 id="两类-Tool-应该共存"><a href="#两类-Tool-应该共存" class="headerlink" title="两类 Tool 应该共存"></a>两类 Tool 应该共存</h2><p>现有 AI Tool Definition 适合调用同一 Java 进程内的方法。新增的 HTTP Tool 则负责复用已经存在的 Controller API。两者不需要互相替代：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">LOCAL Tool<br>  @AiToolComponent + @AiToolDef<br>  -&gt; MCP tools/call<br>  -&gt; Java 方法反射执行<br><br>HTTP Tool<br>  @Controller + @AiToolDef<br>  -&gt; Pi 发起真实 HTTP 请求<br>  -&gt; Filter -&gt; Interceptor -&gt; 参数绑定与校验 -&gt; Controller<br></code></pre></td></tr></table></figure><p>对模型来说，它们仍然都是普通 Tool：都有名称、描述、<code>inputSchema</code> 和 <code>outputSchema</code>。区别只存在于运行时的执行方式。</p><p>现有代码的边界也比较清楚：本地 Tool Registry 只扫描带 <code>@AiToolComponent</code> 的 Bean，并通过反射执行 <code>@AiToolDef</code> 方法；Java 侧 Tool 描述已经能携带 <code>outputSchema</code>，DTO 字段也已经支持从 <code>@ApiModelProperty</code> 补充说明。当前 Pi 适配层主要消费 <code>inputSchema</code>，Controller 扫描、HTTP 执行分流和 <code>outputSchema</code> 透传仍属于待实现部分。</p><p>最小的 Tool 描述可以增加一段不暴露给模型参数的执行元数据：</p><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;get_production_plan&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;查询生产计划详情&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;inputSchema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;outputSchema&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><span class="hljs-punctuation">&#125;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;execution&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">&#123;</span><br>    <span class="hljs-attr">&quot;type&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;http&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;method&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;GET&quot;</span><span class="hljs-punctuation">,</span><br>    <span class="hljs-attr">&quot;path&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;/api/plans/&#123;planId&#125;&quot;</span><br>  <span class="hljs-punctuation">&#125;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure><p><code>method</code> 和 <code>path</code> 必须来自服务端注册结果，不能让模型自由生成 URL。模型只负责填写经过 Schema 约束的业务参数。</p><h2 id="一套-AI-注解，两套元数据来源"><a href="#一套-AI-注解，两套元数据来源" class="headerlink" title="一套 AI 注解，两套元数据来源"></a>一套 AI 注解，两套元数据来源</h2><p>接入规则应该保持简单：</p><ol><li><code>@AiToolDef</code> 必须存在，它既是 Tool 定义，也是 Controller 接入 AI 的显式开关。</li><li><code>@AiToolParam</code> 可选；存在时覆盖对应的 Swagger 参数说明。</li><li>DTO 字段上的 <code>@ToolField</code> 可选；存在时覆盖 <code>@ApiModelProperty</code>。</li><li>没有 AI 专用注解时，复用 Swagger 的描述、必填和示例信息。</li></ol><p>例如，一个已有接口只需要增加方法级 AI 注解：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@GetMapping(&quot;/plans/&#123;planId&#125;&quot;)</span><br><span class="hljs-meta">@ApiOperation(value = &quot;查询生产计划详情&quot;)</span><br><span class="hljs-meta">@AiToolDef(</span><br><span class="hljs-meta">    value = &quot;根据计划 ID 查询生产计划详情&quot;,</span><br><span class="hljs-meta">    name = &quot;get_production_plan&quot;,</span><br><span class="hljs-meta">    outputDescription = &quot;返回生产计划详情&quot;</span><br><span class="hljs-meta">)</span><br><span class="hljs-keyword">public</span> ApiResponse&lt;PlanView&gt; <span class="hljs-title function_">getPlan</span><span class="hljs-params">(</span><br><span class="hljs-params">        <span class="hljs-meta">@PathVariable(&quot;planId&quot;)</span></span><br><span class="hljs-params">        <span class="hljs-meta">@ApiParam(value = &quot;生产计划 ID&quot;, required = true)</span></span><br><span class="hljs-params">        Long planId)</span> &#123;<br>    <span class="hljs-keyword">return</span> planService.getPlan(planId);<br>&#125;<br></code></pre></td></tr></table></figure><p>如果 Swagger 描述是面向普通接口调用者的，而模型需要更明确的约束，再增加 <code>@AiToolParam</code>：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@AiToolParam(</span><br><span class="hljs-meta">    value = &quot;生产计划的唯一 ID，必须来自计划查询结果&quot;,</span><br><span class="hljs-meta">    required = true</span><br><span class="hljs-meta">)</span><br>Long planId<br></code></pre></td></tr></table></figure><p>DTO 字段采用同样的优先级：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-meta">@ApiModelProperty(value = &quot;物料编码&quot;, required = true, example = &quot;M-001&quot;)</span><br><span class="hljs-keyword">private</span> String materialCode;<br><br><span class="hljs-meta">@ToolField(value = &quot;模型可理解的字段说明&quot;)</span><br><span class="hljs-meta">@ApiModelProperty(value = &quot;普通 API 文档说明&quot;)</span><br><span class="hljs-keyword">private</span> String specialField;<br></code></pre></td></tr></table></figure><p>这里要把“结构事实”和“语义说明”分开：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">字段名称、类型、泛型、可见性<br>  -&gt; Java 类型 + Jackson + Spring MVC<br><br>描述、标题、示例、必填语义<br>  -&gt; AI 注解 &gt; Swagger 注解 &gt; 默认推导<br></code></pre></td></tr></table></figure><p>不能让 Swagger 注解反过来改变真实 JSON 结构。<code>@JsonProperty</code>、<code>@JsonIgnore</code>、全局序列化配置和 Controller 参数绑定规则才是运行时事实。</p><h2 id="inputSchema-和-outputSchema-怎样生成"><a href="#inputSchema-和-outputSchema-怎样生成" class="headerlink" title="inputSchema 和 outputSchema 怎样生成"></a>inputSchema 和 outputSchema 怎样生成</h2><p>输入 Schema 来自 Controller 方法参数，并按 Spring MVC 绑定方式分组：</p><table><thead><tr><th>MVC 参数</th><th>HTTP 位置</th><th>Schema 来源</th></tr></thead><tbody><tr><td><code>@PathVariable</code></td><td>path</td><td>Java 类型 + AI&#x2F;Swagger 描述</td></tr><tr><td><code>@RequestParam</code></td><td>query</td><td>Java 类型 + 默认值 + required</td></tr><tr><td><code>@RequestBody</code></td><td>body</td><td>DTO 递归 Schema</td></tr><tr><td><code>@ModelAttribute</code> 或普通查询对象</td><td>query</td><td>DTO 字段展开</td></tr></tbody></table><p>输出 Schema 应直接从方法的泛型返回类型生成，而不是只读一个手写的响应描述。例如：</p><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java">ApiResponse&lt;PageResult&lt;PlanView&gt;&gt;<br></code></pre></td></tr></table></figure><p>Schema 生成器必须保留 <code>ApiResponse</code>、<code>PageResult</code> 和 <code>PlanView</code> 的完整泛型关系，并使用 Jackson 实际采用的字段名和忽略规则。否则外层响应虽然正确，内层 <code>records</code> 很容易退化为无结构的 <code>object</code>。</p><p>Swagger 的 <code>@ApiModelProperty</code> 可以补充字段的 <code>description</code>、<code>required</code>、<code>example</code> 和允许值，但无法单独保证复杂泛型的准确性。类型结构仍应由 Java 反射类型与 Jackson 的类型系统解析。</p><p>还要保证 Schema 与真实序列化结果一致。例如 Java <code>Long</code> 如果通过全局 Jackson 配置输出为字符串，Tool Schema 也必须描述成 <code>string</code>；否则模型会按 <code>integer</code> 回传，跨 JavaScript 运行时后可能发生精度丢失。</p><h2 id="为什么不能直接反射-Controller"><a href="#为什么不能直接反射-Controller" class="headerlink" title="为什么不能直接反射 Controller"></a>为什么不能直接反射 Controller</h2><p>反射当然能调用 Controller 方法，但它不会自动经过完整 Spring MVC 链路：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs text">反射调用<br>  -&gt; Controller 方法<br><br>真实 HTTP 调用<br>  -&gt; Servlet Filter<br>  -&gt; Spring Security<br>  -&gt; HandlerInterceptor<br>  -&gt; ArgumentResolver<br>  -&gt; Bean Validation<br>  -&gt; Controller 方法<br>  -&gt; ResponseBody 序列化<br></code></pre></td></tr></table></figure><p>如果目标是复用接口已有的登录态、角色校验、租户上下文、参数校验和统一异常处理，就应该发起真实 HTTP 请求，而不是在 Tool Runtime 里模拟一套 MVC。</p><p>角色权限仍由业务接口负责。HTTP Tool 层只负责把已有接口安全地暴露成 Tool，不重新定义角色模型，也不替业务接口补权限规则。没有权限校验的接口，应由接口维护者补齐。</p><h2 id="token-只存在于当前请求内存"><a href="#token-只存在于当前请求内存" class="headerlink" title="token 只存在于当前请求内存"></a>token 只存在于当前请求内存</h2><p>认证 token 不应成为 Tool 参数，更不能让模型看见。推荐链路是：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">用户请求的 Authorization<br>  -&gt; Pi 当前请求上下文（仅内存）<br>  -&gt; HTTP Tool 执行器注入 Authorization<br>  -&gt; 业务 Controller<br>  -&gt; 当前请求结束后丢弃<br></code></pre></td></tr></table></figure><p>需要明确禁止 token 进入以下位置：</p><ul><li>Tool Schema 和模型上下文；</li><li>会话消息与持久化记录；</li><li>Tool 调用参数和 Tool 返回结果；</li><li>业务上下文对象；</li><li>普通请求日志与异常正文。</li></ul><p>在这条链路里，Pi 只是把当前用户已经持有的 token 传给同一业务系统，不需要再发明 <code>delegationId</code>。如果未来出现跨用户代理、离线任务或长期授权，再单独设计受限凭证；当前同步请求没有这个需求。</p><h2 id="与-MCP-的兼容边界"><a href="#与-MCP-的兼容边界" class="headerlink" title="与 MCP 的兼容边界"></a>与 MCP 的兼容边界</h2><p><code>tools/list</code> 同时返回 LOCAL 和 HTTP Tool 没有概念冲突。但让 Pi 读取自定义 <code>execution.type</code> 并直接请求 Controller，属于内部协议扩展，不是任意 MCP Client 都能理解的标准行为。</p><p>因此有两条可选路径：</p><ol><li>内部 Pi 优先：Pi 根据 <code>execution.type</code> 分流，HTTP Tool 直接调用业务接口。链路短，token 注入也最清晰。</li><li>标准 MCP 优先：所有客户端仍调用 <code>tools/call</code>，Java Tool Provider 在服务端内部转成真实 HTTP 请求。兼容性更好，但多一层转发。</li></ol><p>如果系统的主要调用方就是受控的 Pi Runtime，第一种足够简单。若要把同一套 Tool 无差别开放给第三方 MCP Client，应选择第二种，或者同时保留标准执行入口。</p><h2 id="多服务场景不能靠扫描包解决"><a href="#多服务场景不能靠扫描包解决" class="headerlink" title="多服务场景不能靠扫描包解决"></a>多服务场景不能靠扫描包解决</h2><p>Spring 的 <code>RequestMappingHandlerMapping</code> 只能发现当前 <code>ApplicationContext</code> 中实际注册的 Controller。若 Tool Provider 与业务 Controller 分属不同进程，仅扩大包扫描范围并不能获得远端路由。</p><p>更通用的方案是让每个业务服务发布自己的 Tool Catalog，再由 Gateway 或 Pi 聚合：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">业务服务 A -&gt; Tool Catalog A<br>业务服务 B -&gt; Tool Catalog B<br>业务服务 C -&gt; Tool Catalog C<br>                 |<br>                 v<br>          Gateway / Pi 聚合<br></code></pre></td></tr></table></figure><p>这样服务边界、发布节奏和权限责任仍留在各自应用内，也避免中央服务通过源码扫描猜测远端 API。</p><h2 id="第一版只支持稳定的-JSON-REST-子集"><a href="#第一版只支持稳定的-JSON-REST-子集" class="headerlink" title="第一版只支持稳定的 JSON REST 子集"></a>第一版只支持稳定的 JSON REST 子集</h2><p>V1 建议只覆盖：</p><ul><li><code>GET</code>、<code>POST</code>、<code>PUT</code>、<code>PATCH</code>、<code>DELETE</code>；</li><li>path、query 和单个 JSON body；</li><li>普通 JSON 响应；</li><li>启动时校验 Tool 名称、HTTP 方法和路由是否冲突。</li></ul><p>暂不接入 multipart 文件上传、下载流、SSE、任意自定义 Header 和模型可控 URL。这些能力的参数绑定、超时和安全边界不同，等出现真实需求再单独设计。</p><h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>Controller 转 HTTP Tool 的核心不是“把反射再包装一层”，而是复用三套已经存在的事实：</p><ol><li><code>@AiToolDef</code> 决定哪些接口允许进入 AI Tool Catalog；</li><li>Java、Jackson、Spring MVC 与 Swagger 共同生成准确的输入输出 Schema；</li><li>真实 HTTP 调用复用接口原有的认证、拦截器、权限校验和响应序列化。</li></ol><p>最终业务侵入可以收敛为一个必需的 <code>@AiToolDef</code>，以及少量可选的 <code>@AiToolParam</code>、<code>@ToolField</code> 覆盖。LOCAL Tool 与 HTTP Tool 共用一套定义模型，在执行层分流；token 只跟随当前请求，不进入模型，也不进入持久化会话。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>AI</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>AI工作日志</tag>
+      
+      <tag>Pi</tag>
+      
+      <tag>MCP</tag>
+      
+      <tag>AI Tool</tag>
+      
+      <tag>Spring MVC</tag>
+      
+      <tag>Swagger</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>从云效 Pipeline 到 Registry：一条镜像构建链路如何工作</title>
     <link href="/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/"/>
     <url>/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/</url>
@@ -176,11 +211,11 @@
       
       <tag>ERP</tag>
       
-      <tag>架构设计</tag>
-      
       <tag>Codex</tag>
       
       <tag>Sub-agent</tag>
+      
+      <tag>架构设计</tag>
       
     </tags>
     
@@ -207,9 +242,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>Pi</tag>
+      
+      <tag>Agent</tag>
       
       <tag>Java</tag>
       
@@ -370,11 +405,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>Pi</tag>
       
       <tag>Java Runtime</tag>
+      
+      <tag>Agent</tag>
       
       <tag>Skill</tag>
       
@@ -574,11 +609,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>Pi</tag>
       
       <tag>Java Runtime</tag>
+      
+      <tag>Agent</tag>
       
       <tag>Skill</tag>
       
@@ -934,9 +969,9 @@
       
       <tag>Agent</tag>
       
-      <tag>RAG</tag>
-      
       <tag>架构设计</tag>
+      
+      <tag>RAG</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -1421,9 +1456,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Function Calling</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>Function Calling</tag>
       
       <tag>MCP</tag>
       
@@ -1528,11 +1563,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>LangGraph</tag>
+      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
-      
-      <tag>LangGraph</tag>
       
       <tag>复盘</tag>
       
@@ -1666,11 +1701,11 @@
     
     <tags>
       
+      <tag>LangGraph</tag>
+      
       <tag>Agent</tag>
       
       <tag>Function Calling</tag>
-      
-      <tag>LangGraph</tag>
       
       <tag>Prompt工程</tag>
       
@@ -1703,9 +1738,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>Agent</tag>
       
       <tag>ReAct</tag>
       
@@ -1738,9 +1773,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Function Calling</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>Function Calling</tag>
       
       <tag>MCP</tag>
       
@@ -1814,9 +1849,9 @@
       
       <tag>JSON Schema</tag>
       
-      <tag>Structured Outputs</tag>
-      
       <tag>Prompt Engineering</tag>
+      
+      <tag>Structured Outputs</tag>
       
       <tag>Kimi</tag>
       
@@ -1849,9 +1884,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Agent</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>Agent</tag>
       
       <tag>Security</tag>
       
@@ -1917,9 +1952,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>工程复盘</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>工程复盘</tag>
       
       <tag>架构重构</tag>
       
@@ -2342,9 +2377,9 @@
       
       <tag>Memory</tag>
       
-      <tag>Prompt Engineering</tag>
-      
       <tag>AI编排</tag>
+      
+      <tag>Prompt Engineering</tag>
       
     </tags>
     
@@ -2371,9 +2406,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>LangGraph</tag>
-      
       <tag>技术选型</tag>
+      
+      <tag>LangGraph</tag>
       
       <tag>LlamaIndex</tag>
       
@@ -2406,11 +2441,11 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>Prompt Injection</tag>
       
@@ -2443,9 +2478,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>Function Calling</tag>
-      
       <tag>OpenClaw</tag>
+      
+      <tag>Function Calling</tag>
       
       <tag>Memory</tag>
       
@@ -2544,9 +2579,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>ReAct</tag>
-      
       <tag>OpenClaw</tag>
+      
+      <tag>ReAct</tag>
       
       <tag>FastAPI</tag>
       
@@ -2892,15 +2927,15 @@
       
       <tag>MCP</tag>
       
+      <tag>架构设计</tag>
+      
       <tag>Dify</tag>
       
       <tag>知识库</tag>
       
-      <tag>AI工程</tag>
-      
       <tag>RAG</tag>
       
-      <tag>架构设计</tag>
+      <tag>AI工程</tag>
       
     </tags>
     
@@ -3009,9 +3044,9 @@
       
       <tag>Java</tag>
       
-      <tag>AI工程</tag>
-      
       <tag>架构设计</tag>
+      
+      <tag>AI工程</tag>
       
     </tags>
     

@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/24/spring-mvc-controller-http-tools/" target="_self">
+          把 Spring MVC Controller 接成 AI HTTP Tool：一套低侵入方案
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/24/spring-mvc-controller-http-tools/" target="_self">
+        <div>
+          业务系统里已经有大量 Spring MVC Controller。如果为了接入 AI Tool，再为每个接口手写一层工具方法，会同时复制参数定义、响应结构和调用逻辑；接口变更时，两套代码还要同步维护。 更低侵入的做法是：保留现有 Controller，只在允许被 AI 调用的方法上增加 @AiToolDef。AI Runtime 从 Spring MVC 和 Swagger 元数据生成 Tool
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-24 19:47" pubdate>
+              2026-08-24
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/MCP/">#MCP</a>
+            
+              <a href="/tags/AI-Tool/">#AI Tool</a>
+            
+              <a href="/tags/Spring-MVC/">#Spring MVC</a>
+            
+              <a href="/tags/Swagger/">#Swagger</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/24/aliyun-flow-build-machine-docker-registry-pipeline/" target="_self">
           从云效 Pipeline 到 Registry：一条镜像构建链路如何工作
         </a>
@@ -588,11 +659,11 @@
             
               <a href="/tags/ERP/">#ERP</a>
             
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
-            
               <a href="/tags/Codex/">#Codex</a>
             
               <a href="/tags/Sub-agent/">#Sub-agent</a>
+            
+              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
           </div>
         
@@ -655,9 +726,9 @@
             
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
-              <a href="/tags/Agent/">#Agent</a>
-            
               <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
             
               <a href="/tags/Java/">#Java</a>
             
@@ -854,73 +925,6 @@
               <a href="/tags/ECS/">#ECS</a>
             
               <a href="/tags/%E6%95%85%E9%9A%9C%E6%8E%92%E6%9F%A5/">#故障排查</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/13/agent-auto-test-llm-judge/" target="_self">
-          给 LLM Agent 搭自动化验收：分层用例、双裁判与 Golden 答案
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/13/agent-auto-test-llm-judge/" target="_self">
-        <div>
-          我们给 ERP 系统接了一个 LLM Agent：用户在系统侧边栏用自然语言问”今天 3 号炉的生产计划怎么样”，Agent 调后端工具查数据，再组织成一段业务回答。 现在每发一个版本，两段都要人工扛。发布是六步手工命令：本地 build 镜像、打包、传到服务器、导入、起容器、验证健康检查。验收更麻烦：发布后在侧边栏手敲指令，人肉看 Agent 调没调对工具、数据对不对、有没有泄露内部字段。 人肉
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-13 23:53" pubdate>
-              2026-08-13
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">#自动化测试</a>
-            
-              <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
             
           </div>
         
