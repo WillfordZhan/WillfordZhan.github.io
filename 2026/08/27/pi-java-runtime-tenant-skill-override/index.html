@@ -1,0 +1,792 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="我们的铁水批次计划已经不适合继续共用一份 Skill。A 工厂创建计划时只需要写计划数据，B 工厂还要创建配方和产品，两个工厂使用同一个业务名称，执行步骤却完全不同。 Tool 暂时没有租户差异，所有工厂仍可调用同一批 Java MCP Tool。变化集中在流程编排：模型处理“创建计划”时，需要先加载当前工厂对应的 Skill，再按正文决定调用哪些 Tool、按什么顺序调用。 这版设计保留 Pi">
+<meta property="og:type" content="article">
+<meta property="og:title" content="给 Pi Java Runtime 加一层工厂级 Skill Override">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/08/27/pi-java-runtime-tenant-skill-override/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="我们的铁水批次计划已经不适合继续共用一份 Skill。A 工厂创建计划时只需要写计划数据，B 工厂还要创建配方和产品，两个工厂使用同一个业务名称，执行步骤却完全不同。 Tool 暂时没有租户差异，所有工厂仍可调用同一批 Java MCP Tool。变化集中在流程编排：模型处理“创建计划”时，需要先加载当前工厂对应的 Skill，再按正文决定调用哪些 Tool、按什么顺序调用。 这版设计保留 Pi">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-08-27T06:26:11.000Z">
+<meta property="article:modified_time" content="2026-08-27T06:39:58.833Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="Java Runtime">
+<meta property="article:tag" content="MCP">
+<meta property="article:tag" content="Skill">
+<meta property="article:tag" content="多租户">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>给 Pi Java Runtime 加一层工厂级 Skill Override - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="给 Pi Java Runtime 加一层工厂级 Skill Override"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-08-27 14:26" pubdate>
+          2026年8月27日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.9k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          16 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">给 Pi Java Runtime 加一层工厂级 Skill Override</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>我们的铁水批次计划已经不适合继续共用一份 Skill。A 工厂创建计划时只需要写计划数据，B 工厂还要创建配方和产品，两个工厂使用同一个业务名称，执行步骤却完全不同。</p>
+<p>Tool 暂时没有租户差异，所有工厂仍可调用同一批 Java MCP Tool。变化集中在流程编排：模型处理“创建计划”时，需要先加载当前工厂对应的 Skill，再按正文决定调用哪些 Tool、按什么顺序调用。</p>
+<p>这版设计保留 Pi 的渐进加载思路，把 Skill 的目录、正文和版本控制搬到 Java 云端。运行时只增加两项能力：<code>Agent Profile API</code> 和 <code>load_skill</code>。</p>
+<blockquote>
+<p>当前内容是设计方案，代码尚未落地。</p>
+</blockquote>
+<h2 id="当前链路留下的限制"><a href="#当前链路留下的限制" class="headerlink" title="当前链路留下的限制"></a>当前链路留下的限制</h2><p>Pi 原生 Skill 从本地 <code>SKILL.md</code> 开始。<code>DefaultResourceLoader</code> 扫描文件并解析 <code>name</code>、<code>description</code>、<code>location</code>，<code>AgentSession</code> 将这些元数据写入 System Prompt。模型匹配到 Skill 后，再调用 <code>read</code> 获取正文。</p>
+<p>Java Runtime 的配置有一处差异：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-title function_">createAgentSession</span>(&#123;<br>  resourceLoader,<br>  customTools,<br>  <span class="hljs-attr">noTools</span>: <span class="hljs-string">&quot;builtin&quot;</span>,<br>&#125;);<br></code></pre></td></tr></table></figure>
+
+<p><code>noTools: &quot;builtin&quot;</code> 关闭了通用的 <code>read</code>、<code>bash</code>、<code>edit</code> 和 <code>write</code>。本地 Skill 即使被 Resource Loader 扫描到，模型也缺少标准的正文加载路径。恢复通用 <code>read</code> 会扩大服务端文件读取范围，把所有正文直接塞进 System Prompt 又会破坏渐进加载。</p>
+<p>Java Runtime 也没有使用 <code>packages/agent</code> 里的 Harness Skill Loader。当前入口直接创建 <code>coding-agent</code> 的 <code>AgentSession</code>。为了云端 Skill 再切换一套 Harness，会同时改动会话、工具和资源加载边界，接入成本超出了这次需求。</p>
+<p>因此我们不改 Pi 的本地 Skill 引擎。Java Runtime 只复用它已经具备的两个机制：System Prompt 扩展和自定义 Tool。</p>
+<h2 id="两条运行时能力"><a href="#两条运行时能力" class="headerlink" title="两条运行时能力"></a>两条运行时能力</h2><h3 id="Agent-Profile-API：返回最终有效目录"><a href="#Agent-Profile-API：返回最终有效目录" class="headerlink" title="Agent Profile API：返回最终有效目录"></a>Agent Profile API：返回最终有效目录</h3><p><code>PiConversationRuntime.openSession()</code> 使用可信的调用人上下文请求 Java。Java 根据 <code>tenantId</code> 计算当前工厂可见的 Skill，响应只保留模型发现能力所需的字段：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;skills&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-punctuation">[</span><br>    <span class="hljs-punctuation">&#123;</span><br>      <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;create_furnace_plan&quot;</span><span class="hljs-punctuation">,</span><br>      <span class="hljs-attr">&quot;description&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;创建铁水批次计划&quot;</span><br>    <span class="hljs-punctuation">&#125;</span><br>  <span class="hljs-punctuation">]</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>Profile 不返回公共或私有来源，也不返回 <code>profileVersion</code>、<code>schemaVersion</code>、<code>contentDigest</code> 和文件地址。公共 Skill 与工厂 Skill 的合并已经在 Java 完成，Pi 拿到的是最终目录。</p>
+<p>Pi 将目录写入 System Prompt：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">available_skills</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">skill</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">name</span>&gt;</span>create_furnace_plan<span class="hljs-tag">&lt;/<span class="hljs-name">name</span>&gt;</span><br>    <span class="hljs-tag">&lt;<span class="hljs-name">description</span>&gt;</span>创建铁水批次计划<span class="hljs-tag">&lt;/<span class="hljs-name">description</span>&gt;</span><br>  <span class="hljs-tag">&lt;/<span class="hljs-name">skill</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">available_skills</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>加载说明随目录一起注入：任务与描述匹配时，模型调用 <code>load_skill</code>，不读取本地路径。</p>
+<h3 id="load-skill：按名称加载正文"><a href="#load-skill：按名称加载正文" class="headerlink" title="load_skill：按名称加载正文"></a>load_skill：按名称加载正文</h3><p>模型只提交 Skill 名称：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;create_furnace_plan&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p><code>tenantId</code> 和 <code>userId</code> 不进入 Tool Schema。Pi 当前的 Java MCP 适配层在执行 Tool 时已经会自动注入调用人上下文，并通过 <code>/tools/call</code> 发送给 Java。模型无法修改租户范围。</p>
+<p><code>load_skill</code> 可以直接注册成一个普通 Java MCP Tool。这样不需要增加专用的 Skill HTTP Client，也不需要重新实现 Tool 生命周期：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs text">模型调用 load_skill(name)<br>  -&gt; Pi JavaMcpClient 注入 tenantId / userId<br>  -&gt; POST /tools/call<br>  -&gt; Java MCP Dispatcher<br>  -&gt; Skill 服务解析当前 Snapshot<br>  -&gt; 正文作为 Tool Result 返回模型<br></code></pre></td></tr></table></figure>
+
+<p>逻辑上仍然只有 <code>Agent Profile API</code> 和 <code>load_skill</code> 两项能力；网络层只有 Agent Profile 需要新增入口，<code>load_skill</code> 复用已有的 MCP Tool Call。</p>
+<p>加载结果保留当前 Skill 版本，方便日志和历史会话追溯：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;name&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;create_furnace_plan&quot;</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;skillVersion&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">3</span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;content&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-string">&quot;创建计划前先检查产品；缺少配方时先创建配方……&quot;</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p><code>skillVersion</code> 由 Java 返回，模型不提交版本，也不负责选择版本。</p>
+<h2 id="同名-Skill-如何覆盖"><a href="#同名-Skill-如何覆盖" class="headerlink" title="同名 Skill 如何覆盖"></a>同名 Skill 如何覆盖</h2><p>Java 同时维护公共目录和工厂目录，按 <code>skill_name</code> 合并：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">公共 Skill<br>  + 当前 tenantId 的 Skill<br>  -&gt; 同名时保留工厂版本<br>  -&gt; 得到 Agent Profile<br></code></pre></td></tr></table></figure>
+
+<p>正文加载使用相同的解析规则：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">tenantId + skillName<br>  -&gt; 查询工厂 skill_current<br>  -&gt; 工厂未配置时查询公共 skill_current<br>  -&gt; 根据 snapshot_id 读取正文<br></code></pre></td></tr></table></figure>
+
+<p>Profile 与 <code>load_skill</code> 应共用一个 Java Skill Service。目录和正文各写一套覆盖逻辑，很容易出现“目录显示工厂版，正文却加载公共版”的分叉。</p>
+<h2 id="Snapshot-保存历史，Current-决定生效版本"><a href="#Snapshot-保存历史，Current-决定生效版本" class="headerlink" title="Snapshot 保存历史，Current 决定生效版本"></a>Snapshot 保存历史，Current 决定生效版本</h2><p>Skill 正文只有一两千字，数据库 <code>TEXT</code> 已经够用，第一版不接 OSS。</p>
+<p>历史记录拆成两张表：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs text">skill_snapshot<br>  id<br>  tenant_id<br>  skill_name<br>  skill_version<br>  description<br>  content<br>  created_by<br>  created_at<br><br>skill_current<br>  tenant_id<br>  skill_name<br>  snapshot_id<br>  updated_by<br>  updated_at<br></code></pre></td></tr></table></figure>
+
+<p><code>skill_snapshot</code> 不可变。一次修改对应一条新 Snapshot，旧正文继续保留。<code>skill_current</code> 只保存当前指针。</p>
+<p>发布新版本需要在同一事务中完成两步：</p>
+<ol>
+<li>插入新的 <code>skill_snapshot</code>。</li>
+<li>将 <code>skill_current.snapshot_id</code> 指向新记录。</li>
+</ol>
+<p>回滚不复制正文，也不覆盖历史记录。管理端把 Current 指针切回旧 Snapshot 即可。</p>
+<p><code>skillVersion</code> 属于 Snapshot。Profile 不依赖它，Pi 也不保存 Profile Snapshot。版本信息出现在加载结果和 Java 审计日志中已经能够完成追溯。</p>
+<h2 id="会话不锁定-Skill-版本"><a href="#会话不锁定-Skill-版本" class="headerlink" title="会话不锁定 Skill 版本"></a>会话不锁定 Skill 版本</h2><p>当前设计不把 Skill 版本固定到整个会话。</p>
+<p>一次 <code>load_skill</code> 返回的正文会作为 Tool Result 写入会话历史。运行时不会改写这条历史消息。模型后续再次调用相同 Skill 时，Java 重新读取 <code>skill_current</code>，因此可能拿到更新后的 Snapshot。</p>
+<p>这会产生一个明确的时间边界：旧 Tool Result 保留旧正文，新调用拿当前正文。第一版不增加版本检测、Profile 快照和会话级绑定。</p>
+<p>Java Runtime 目前还会在用户每发一条消息时重新创建 <code>AgentSession</code>，并从 JSONL 恢复历史。Agent Profile 放进 <code>openSession()</code> 后也会按消息请求。这里存在重复加载成本，但不影响 Skill 解析的正确性。会话级 <code>AgentSession</code> 缓存作为后续独立优化处理，不和第一版云端 Skill 混在一起。</p>
+<h2 id="失败边界"><a href="#失败边界" class="headerlink" title="失败边界"></a>失败边界</h2><p>这套流程会参与 ERP 写操作，失败时不能绕过 Skill 继续执行。第一版按下面的边界处理：</p>
+<ul>
+<li>Agent Profile 请求失败：终止本轮请求，不返回空目录继续运行。</li>
+<li>工厂没有覆盖版本：回退公共 Skill。</li>
+<li>工厂 Current 存在，但 Snapshot 丢失或损坏：返回错误，不静默切换公共正文。</li>
+<li>Skill 名称不在最终目录：<code>load_skill</code> 返回明确的 Tool Error。</li>
+<li><code>tenantId</code> 只接受可信运行时上下文，不接受模型参数。</li>
+</ul>
+<p>公共 Skill 的数据库表示还需要和现有租户规则拉通。第一版倾向用保留值表示公共范围，例如 <code>tenant_id = 0</code>，前提是 <code>0</code> 永远不是有效工厂 ID。</p>
+<p>现有 MyBatis 租户拦截器会自动追加当前租户条件。Skill 查询需要同时读取当前工厂和公共范围，因此这两张表要绕过自动拦截，由 Skill Service 显式执行受控查询。这里属于租户安全边界，不能靠普通 Mapper 的默认行为碰运气。</p>
+<h2 id="第一版的改动范围"><a href="#第一版的改动范围" class="headerlink" title="第一版的改动范围"></a>第一版的改动范围</h2><p>Pi Java Runtime：</p>
+<ul>
+<li><code>openSession()</code> 请求 Agent Profile。</li>
+<li>将 <code>name</code>、<code>description</code> 和远程加载说明加入 System Prompt。</li>
+<li>继续使用现有 <code>JavaMcpClient.createTools()</code>，不新建 Skill Tool 适配器。</li>
+</ul>
+<p>Java：</p>
+<ul>
+<li>增加 <code>skill_snapshot</code> 和 <code>skill_current</code>。</li>
+<li>增加统一的租户 Skill 解析服务。</li>
+<li>增加 Agent Profile 内部接口。</li>
+<li>将 <code>load_skill</code> 注册到现有 Java MCP Tool Registry。</li>
+<li>增加 Snapshot 发布、历史查询和 Current 回滚能力。</li>
+</ul>
+<p>第一版不处理 <code>/skill:name</code>、TUI、Tool Search、角色级 Tool List、OSS、Profile 持久化和会话版本锁定。工具数量增长后的渐进披露属于另一条链路，继续复用 Pi 的 Active Tools 能力即可。</p>
+<p>这层适配把租户、版本和回滚留在 Java，把能力发现和 Agent Loop 留在 Pi。新增的长期维护面集中在两张表、一个解析服务和一段目录注入逻辑，足以支撑同名 Skill 的工厂级覆盖。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/Java-Runtime/" class="print-no-link">#Java Runtime</a>
+      
+        <a href="/tags/MCP/" class="print-no-link">#MCP</a>
+      
+        <a href="/tags/Skill/" class="print-no-link">#Skill</a>
+      
+        <a href="/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/" class="print-no-link">#多租户</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>给 Pi Java Runtime 加一层工厂级 Skill Override</div>
+      <div>https://willfordzhan.github.io/2026/08/27/pi-java-runtime-tenant-skill-override/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年8月27日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/24/spring-mvc-controller-http-tools/" title="把 Spring MVC Controller 接成 AI HTTP Tool：一套低侵入方案">
+                        <span class="hidden-mobile">把 Spring MVC Controller 接成 AI HTTP Tool：一套低侵入方案</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
