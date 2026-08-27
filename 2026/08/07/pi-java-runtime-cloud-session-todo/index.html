@@ -27,12 +27,12 @@
 <meta property="og:description" content="Pi Java Runtime 目前把 Pi 的 AgentSession 写到本地 JSONL，再把原始 Entry 镜像到 Java 数据库。这个实现足以支持单机运行和管理台回放，但不适合作为云端部署后的会话恢复方案。 核心问题很直接：Runtime 续聊时仍从本机 sessions&#x2F;*.jsonl 打开会话。如果实例重启、容器迁移或扩容到另一台机器，数据库虽然还保留管理台记录，Agent 却">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-08-07T07:44:06.000Z">
-<meta property="article:modified_time" content="2026-08-27T06:39:58.833Z">
+<meta property="article:modified_time" content="2026-08-27T07:35:26.463Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="多租户">
 <meta property="article:tag" content="AI TODO">
 <meta property="article:tag" content="会话持久化">
-<meta property="article:tag" content="多租户">
 <meta name="twitter:card" content="summary_large_image">
   
   
@@ -372,11 +372,11 @@
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
+        <a href="/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/" class="print-no-link">#多租户</a>
+      
         <a href="/tags/AI-TODO/" class="print-no-link">#AI TODO</a>
       
         <a href="/tags/%E4%BC%9A%E8%AF%9D%E6%8C%81%E4%B9%85%E5%8C%96/" class="print-no-link">#会话持久化</a>
-      
-        <a href="/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/" class="print-no-link">#多租户</a>
       
     </div>
   

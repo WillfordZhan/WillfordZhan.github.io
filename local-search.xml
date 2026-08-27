@@ -4,6 +4,37 @@
   
   
   <entry>
+    <title>MySQL 联合唯一索引遇到 NULL：公共记录为什么会重复</title>
+    <link href="/2026/08/27/mysql-null-composite-unique-index/"/>
+    <url>/2026/08/27/mysql-null-composite-unique-index/</url>
+    
+    <content type="html"><![CDATA[<p>设计多租户配置表时，我想用 <code>tenant_id = NULL</code> 表示公共配置，再给 <code>(tenant_id, skill_name)</code> 加联合唯一索引。直觉上，公共配置和 Skill 名称应该只能有一行，实际插入两条相同的公共记录时，MySQL 并不会报重复键错误。</p><p>这个行为容易被误判成索引失效。索引工作正常，冲突判断遇到的是 SQL 对 <code>NULL</code> 的特殊语义。</p><h2 id="一个最小例子"><a href="#一个最小例子" class="headerlink" title="一个最小例子"></a>一个最小例子</h2><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE TABLE</span> skill_current (<br>    tenant_id <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NULL</span>,<br>    skill_name <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>) <span class="hljs-keyword">NOT NULL</span>,<br>    snapshot_id <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NOT NULL</span>,<br>    <span class="hljs-keyword">UNIQUE</span> KEY uk_tenant_skill (tenant_id, skill_name)<br>);<br><br><span class="hljs-keyword">INSERT INTO</span> skill_current (tenant_id, skill_name, snapshot_id)<br><span class="hljs-keyword">VALUES</span> (<span class="hljs-keyword">NULL</span>, <span class="hljs-string">&#x27;create_plan&#x27;</span>, <span class="hljs-number">101</span>);<br><br><span class="hljs-keyword">INSERT INTO</span> skill_current (tenant_id, skill_name, snapshot_id)<br><span class="hljs-keyword">VALUES</span> (<span class="hljs-keyword">NULL</span>, <span class="hljs-string">&#x27;create_plan&#x27;</span>, <span class="hljs-number">102</span>);<br></code></pre></td></tr></table></figure><p>两条 <code>INSERT</code> 都可以成功，表里出现两条：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">tenant_id | skill_name  | snapshot_id<br>----------+-------------+------------<br>NULL      | create_plan | 101<br>NULL      | create_plan | 102<br></code></pre></td></tr></table></figure><p>MySQL 的唯一索引允许多行包含 <code>NULL</code>。联合索引也遵循这条规则：参与唯一键的列存在 <code>NULL</code> 时，重复元组可以同时存在。</p><h2 id="NULL-不是普通的“空值”"><a href="#NULL-不是普通的“空值”" class="headerlink" title="NULL 不是普通的“空值”"></a><code>NULL</code> 不是普通的“空值”</h2><p>SQL 使用三值逻辑处理 <code>NULL</code>。下面的表达式结果不是 <code>TRUE</code>：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> <span class="hljs-keyword">NULL</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">NULL</span>;<br></code></pre></td></tr></table></figure><p>结果是 <code>UNKNOWN</code>。<code>NULL</code> 表示未知或缺失，数据库不会把两个未知值当成相等值。唯一约束据此允许多条带 <code>NULL</code> 的记录。</p><p>查询也有同样的边界：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-comment">-- 查不到 tenant_id 为 NULL 的行</span><br><span class="hljs-keyword">WHERE</span> tenant_id <span class="hljs-operator">=</span> <span class="hljs-keyword">NULL</span><br><br><span class="hljs-comment">-- 正确写法</span><br><span class="hljs-keyword">WHERE</span> tenant_id <span class="hljs-keyword">IS</span> <span class="hljs-keyword">NULL</span><br></code></pre></td></tr></table></figure><p>下面这种写法也不能代替 <code>IS NULL</code>：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">WHERE</span> tenant_id <span class="hljs-keyword">IN</span> (:tenantId, <span class="hljs-keyword">NULL</span>)<br></code></pre></td></tr></table></figure><p>公共记录需要显式写成：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">WHERE</span> tenant_id <span class="hljs-operator">=</span> :tenantId<br>   <span class="hljs-keyword">OR</span> tenant_id <span class="hljs-keyword">IS</span> <span class="hljs-keyword">NULL</span><br></code></pre></td></tr></table></figure><h2 id="公共范围用-NULL-还是-0"><a href="#公共范围用-NULL-还是-0" class="headerlink" title="公共范围用 NULL 还是 0"></a>公共范围用 <code>NULL</code> 还是 <code>0</code></h2><p><code>NULL</code> 的含义更自然：它表示这条记录没有绑定具体租户。保留这个设计也可以，只是唯一性不能完全交给普通的 <code>(tenant_id, skill_name)</code> 唯一索引，需要额外的生成列、表达式索引或应用层约束。</p><p>这次的 Skill 设计更倾向用 <code>tenant_id = 0</code> 表示公共范围：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">CREATE TABLE</span> skill_current (<br>    tenant_id <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NOT NULL</span>,<br>    skill_name <span class="hljs-type">VARCHAR</span>(<span class="hljs-number">128</span>) <span class="hljs-keyword">NOT NULL</span>,<br>    snapshot_id <span class="hljs-type">BIGINT</span> <span class="hljs-keyword">NOT NULL</span>,<br>    <span class="hljs-keyword">UNIQUE</span> KEY uk_tenant_skill (tenant_id, skill_name)<br>);<br></code></pre></td></tr></table></figure><p>公共 Skill 使用 <code>0</code>：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">(0, create_plan)<br></code></pre></td></tr></table></figure><p>同一个公共 Skill 再插入一条时，唯一索引会直接拒绝。租户覆盖查询也可以写成：</p><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> tenant_id, skill_name, snapshot_id<br><span class="hljs-keyword">FROM</span> skill_current<br><span class="hljs-keyword">WHERE</span> tenant_id <span class="hljs-keyword">IN</span> (:tenantId, <span class="hljs-number">0</span>)<br><span class="hljs-keyword">ORDER</span> <span class="hljs-keyword">BY</span> <span class="hljs-keyword">CASE</span> <span class="hljs-keyword">WHEN</span> tenant_id <span class="hljs-operator">=</span> :tenantId <span class="hljs-keyword">THEN</span> <span class="hljs-number">0</span> <span class="hljs-keyword">ELSE</span> <span class="hljs-number">1</span> <span class="hljs-keyword">END</span><br>LIMIT <span class="hljs-number">1</span>;<br></code></pre></td></tr></table></figure><p>这条约定有一个前提：<code>0</code> 必须被系统保留，不能作为真实租户 ID。数据库约束和业务约定需要同时成立，单独依赖其中一层都不够。</p><h2 id="放回-Skill-的表设计"><a href="#放回-Skill-的表设计" class="headerlink" title="放回 Skill 的表设计"></a>放回 Skill 的表设计</h2><p>Skill 历史和当前指针分开保存：</p><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs text">skill_snapshot<br>  tenant_id<br>  skill_name<br>  skill_version<br>  content<br><br>skill_current<br>  tenant_id<br>  skill_name<br>  snapshot_id<br></code></pre></td></tr></table></figure><p><code>skill_snapshot</code> 追加保存每次修改，<code>skill_current</code> 只指向当前版本。公共 Snapshot 和公共 Current 使用 <code>tenant_id = 0</code> 时，<code>UNIQUE (tenant_id, skill_name)</code> 可以保证同一个范围内只有一个 Current，回滚也只需要切换指针。</p><h2 id="留下的判断"><a href="#留下的判断" class="headerlink" title="留下的判断"></a>留下的判断</h2><p><code>NULL</code> 适合表达“没有租户归属”，<code>0</code> 适合把公共范围当成一个可以参与索引比较的保留域。两种设计都能工作，差异落在唯一约束、查询写法和数据清理成本上。</p><p>在需要“每个范围、每个名称只能有一个当前版本”的表里，我会优先让公共范围使用非空保留值，并在数据库中加唯一约束。这样规则能在并发写入时继续生效，查询也少一个 <code>IS NULL</code> 分支。</p>]]></content>
+    
+    
+    <categories>
+      
+      <category>数据库</category>
+      
+    </categories>
+    
+    
+    <tags>
+      
+      <tag>MySQL</tag>
+      
+      <tag>SQL</tag>
+      
+      <tag>唯一索引</tag>
+      
+      <tag>多租户</tag>
+      
+    </tags>
+    
+  </entry>
+  
+  
+  
+  <entry>
     <title>给 Pi Java Runtime 加一层工厂级 Skill Override</title>
     <link href="/2026/08/27/pi-java-runtime-tenant-skill-override/"/>
     <url>/2026/08/27/pi-java-runtime-tenant-skill-override/</url>
@@ -131,9 +162,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Java</tag>
       
@@ -166,9 +197,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Pi</tag>
       
@@ -201,9 +232,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Pi</tag>
       
@@ -238,19 +269,19 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Pi</tag>
       
       <tag>Java Runtime</tag>
       
-      <tag>ERP</tag>
-      
       <tag>Codex</tag>
       
       <tag>Sub-agent</tag>
+      
+      <tag>ERP</tag>
       
       <tag>架构设计</tag>
       
@@ -310,13 +341,13 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
       
       <tag>自动化测试</tag>
       
       <tag>LLM 评测</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Pi</tag>
       
@@ -345,9 +376,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>MCP</tag>
       
@@ -374,13 +405,13 @@
     
     <tags>
       
-      <tag>阿里云</tag>
-      
       <tag>云效</tag>
       
       <tag>Flow</tag>
       
       <tag>CI/CD</tag>
+      
+      <tag>阿里云</tag>
       
       <tag>ECS</tag>
       
@@ -409,13 +440,13 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
       
       <tag>自动化测试</tag>
       
       <tag>LLM 评测</tag>
+      
+      <tag>AI工作日志</tag>
       
     </tags>
     
@@ -679,11 +710,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>多租户</tag>
+      
       <tag>AI TODO</tag>
       
       <tag>会话持久化</tag>
-      
-      <tag>多租户</tag>
       
     </tags>
     
@@ -735,9 +766,9 @@
       
       <tag>产品设计</tag>
       
-      <tag>UX</tag>
-      
       <tag>ERP</tag>
+      
+      <tag>UX</tag>
       
       <tag>工业软件</tag>
       
@@ -797,9 +828,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>自动化部署</tag>
       
@@ -938,9 +969,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>开发回顾</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>开发回顾</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -971,9 +1002,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>开发回顾</tag>
-      
       <tag>Agent</tag>
+      
+      <tag>开发回顾</tag>
       
       <tag>LLM-wiki</tag>
       
@@ -1070,9 +1101,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>自动化部署</tag>
       
@@ -1126,9 +1157,9 @@
     
     <tags>
       
-      <tag>故障排查</tag>
-      
       <tag>Docker</tag>
+      
+      <tag>故障排查</tag>
       
       <tag>SSH</tag>
       
@@ -1180,9 +1211,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>React</tag>
       
@@ -1318,13 +1349,13 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>开发回顾</tag>
-      
       <tag>Agent</tag>
       
-      <tag>Dify</tag>
+      <tag>开发回顾</tag>
       
       <tag>RAG</tag>
+      
+      <tag>Dify</tag>
       
     </tags>
     
@@ -1349,9 +1380,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>LangGraph</tag>
       
@@ -1388,9 +1419,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>架构评审</tag>
       
@@ -1462,9 +1493,9 @@
       
       <tag>复盘</tag>
       
-      <tag>Prompt</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>Prompt</tag>
       
       <tag>AI</tag>
       
@@ -1491,9 +1522,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Function Calling</tag>
       
@@ -1532,9 +1563,9 @@
       
       <tag>Python</tag>
       
-      <tag>Dify</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>Dify</tag>
       
       <tag>DashScope</tag>
       
@@ -1674,9 +1705,9 @@
       
       <tag>AI</tag>
       
-      <tag>知识库</tag>
-      
       <tag>RAG</tag>
+      
+      <tag>知识库</tag>
       
     </tags>
     
@@ -1808,9 +1839,9 @@
     
     <tags>
       
-      <tag>AI工作日志</tag>
-      
       <tag>AI Agent</tag>
+      
+      <tag>AI工作日志</tag>
       
       <tag>Function Calling</tag>
       
@@ -1925,11 +1956,11 @@
       
       <tag>LangGraph</tag>
       
+      <tag>FastAPI</tag>
+      
       <tag>Security</tag>
       
       <tag>Prompt Injection</tag>
-      
-      <tag>FastAPI</tag>
       
     </tags>
     
@@ -2406,9 +2437,9 @@
       
       <tag>工程复盘</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>Guardrails</tag>
       
@@ -2443,9 +2474,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>技术选型</tag>
-      
       <tag>LangGraph</tag>
+      
+      <tag>技术选型</tag>
       
       <tag>LlamaIndex</tag>
       
@@ -2478,11 +2509,11 @@
       
       <tag>AI工作日志</tag>
       
+      <tag>ReAct</tag>
+      
       <tag>OpenClaw</tag>
       
       <tag>Agent Engineering</tag>
-      
-      <tag>ReAct</tag>
       
       <tag>Prompt Injection</tag>
       
@@ -2577,13 +2608,13 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
       
       <tag>AI网关</tag>
       
       <tag>Java</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>鉴权</tag>
       
@@ -2616,9 +2647,9 @@
       
       <tag>AI工作日志</tag>
       
-      <tag>OpenClaw</tag>
-      
       <tag>ReAct</tag>
+      
+      <tag>OpenClaw</tag>
       
       <tag>FastAPI</tag>
       
@@ -2678,9 +2709,9 @@
     
     <tags>
       
-      <tag>FastAPI</tag>
-      
       <tag>Python</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>调试</tag>
       
@@ -2715,9 +2746,9 @@
       
       <tag>ReAct</tag>
       
-      <tag>FastAPI</tag>
-      
       <tag>MCP</tag>
+      
+      <tag>FastAPI</tag>
       
       <tag>Qwen</tag>
       
@@ -2966,13 +2997,13 @@
       
       <tag>架构设计</tag>
       
-      <tag>Dify</tag>
-      
-      <tag>知识库</tag>
-      
       <tag>AI工程</tag>
       
       <tag>RAG</tag>
+      
+      <tag>Dify</tag>
+      
+      <tag>知识库</tag>
       
     </tags>
     

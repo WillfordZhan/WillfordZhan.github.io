@@ -241,6 +241,73 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/08/27/mysql-null-composite-unique-index/" target="_self">
+          MySQL 联合唯一索引遇到 NULL：公共记录为什么会重复
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/27/mysql-null-composite-unique-index/" target="_self">
+        <div>
+          设计多租户配置表时，我想用 tenant_id = NULL 表示公共配置，再给 (tenant_id, skill_name) 加联合唯一索引。直觉上，公共配置和 Skill 名称应该只能有一行，实际插入两条相同的公共记录时，MySQL 并不会报重复键错误。 这个行为容易被误判成索引失效。索引工作正常，冲突判断遇到的是 SQL 对 NULL 的特殊语义。 一个最小例子12345678910111
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-08-27 15:27" pubdate>
+              2026-08-27
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E6%95%B0%E6%8D%AE%E5%BA%93/" class="category-chain-item">数据库</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/MySQL/">#MySQL</a>
+            
+              <a href="/tags/SQL/">#SQL</a>
+            
+              <a href="/tags/%E5%94%AF%E4%B8%80%E7%B4%A2%E5%BC%95/">#唯一索引</a>
+            
+              <a href="/tags/%E5%A4%9A%E7%A7%9F%E6%88%B7/">#多租户</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/27/pi-java-runtime-tenant-skill-override/" target="_self">
           给 Pi Java Runtime 加一层工厂级 Skill Override
         </a>
@@ -507,9 +574,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/Java/">#Java</a>
             
@@ -578,9 +645,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/Pi/">#Pi</a>
             
@@ -649,9 +716,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/Pi/">#Pi</a>
             
@@ -722,19 +789,19 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
             
               <a href="/tags/Pi/">#Pi</a>
             
               <a href="/tags/Java-Runtime/">#Java Runtime</a>
             
-              <a href="/tags/ERP/">#ERP</a>
-            
               <a href="/tags/Codex/">#Codex</a>
             
               <a href="/tags/Sub-agent/">#Sub-agent</a>
+            
+              <a href="/tags/ERP/">#ERP</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
@@ -866,88 +933,17 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
               <a href="/tags/AI-Agent/">#AI Agent</a>
             
               <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">#自动化测试</a>
             
               <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
             
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
               <a href="/tags/Pi/">#Pi</a>
             
               <a href="/tags/Java-Runtime/">#Java Runtime</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/18/erp-ai-tool-command-query-framework/" target="_self">
-          给 ERP AI Tools 收一套统一协议：commandType、prepare-confirm 与 Query Framework
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/18/erp-ai-tool-command-query-framework/" target="_self">
-        <div>
-          ERP Tool 接到第三类单据时，重复代码已经很明显了。 每个创建工具都要判断 prepare 和 confirm，补全主数据，重新校验表单，再处理幂等和并发。查询工具也各自维护 page、pageSize 和返回总数。字段名字看着接近，默认值、上限和错误语义却散在不同 Service 里。 当前链路已经能稳定完成 Tool 发现和调用：Pi Runtime 从 Java 获取 Tool Sch
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-18 10:52" pubdate>
-              2026-08-18
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/Java/">#Java</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
-            
-              <a href="/tags/Tool-Calling/">#Tool Calling</a>
             
           </div>
         
