@@ -241,6 +241,79 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/09/02/agent-toolcall-preamble-control/" target="_self">
+          ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/09/02/agent-toolcall-preamble-control/" target="_self">
+        <div>
+          在一次 ERP 文档导入中，Agent 明明已经准备调用 Tool，却先输出了整张表格的识别结果、配方元素和后续计划。紧接着，ToolCall 的参数又把同一批数据完整传了一遍。 这不是普通的“回复有点啰嗦”。一次实际会话里，单轮混合了文本与 ToolCall 的 Assistant Message 达到 11,392 个 output tokens、14,890 个字符。用户侧观察到整段流程约
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-09-02 14:37" pubdate>
+              2026-09-02
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/Agent/">#Agent</a>
+            
+              <a href="/tags/Pi/">#Pi</a>
+            
+              <a href="/tags/Tool-Calling/">#Tool Calling</a>
+            
+              <a href="/tags/Claude-Code/">#Claude Code</a>
+            
+              <a href="/tags/Codex/">#Codex</a>
+            
+              <a href="/tags/DeepSeek/">#DeepSeek</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/08/27/mysql-null-composite-unique-index/" target="_self">
           MySQL 联合唯一索引遇到 NULL：公共记录为什么会重复
         </a>
@@ -799,9 +872,9 @@
             
               <a href="/tags/Codex/">#Codex</a>
             
-              <a href="/tags/Sub-agent/">#Sub-agent</a>
-            
               <a href="/tags/ERP/">#ERP</a>
+            
+              <a href="/tags/Sub-agent/">#Sub-agent</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
@@ -873,77 +946,6 @@
               <a href="/tags/Java/">#Java</a>
             
               <a href="/tags/Session-Store/">#Session Store</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/18/agent-evaluation-deterministic-assertions-llm-judge/" target="_self">
-          把 Agent 评测器落到代码里：确定性断言、Golden 与双 LLM Judge
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/18/agent-evaluation-deterministic-assertions-llm-judge/" target="_self">
-        <div>
-          现有评测仓库已经能登录 Java Gateway，创建 Pi 会话，再检查 Tool 调用次数、Tool 名和内部字段泄露。仓库里目前有 7 组 Scenario、20 个 Case，评测框架自身的 20 个离线测试可以全部通过。 双 LLM Judge 还没有进入运行链路。配置模板里虽然有 judge 节点，Config、Runner 和报告对象都没有读取或执行它。Golden 也只是一个 ty
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-18 11:13" pubdate>
-              2026-08-18
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/%E8%87%AA%E5%8A%A8%E5%8C%96%E6%B5%8B%E8%AF%95/">#自动化测试</a>
-            
-              <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Pi/">#Pi</a>
-            
-              <a href="/tags/Java-Runtime/">#Java Runtime</a>
             
           </div>
         

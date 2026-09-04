@@ -1,0 +1,766 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="詹文杰">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="在一次 ERP 文档导入中，Agent 明明已经准备调用 Tool，却先输出了整张表格的识别结果、配方元素和后续计划。紧接着，ToolCall 的参数又把同一批数据完整传了一遍。 这不是普通的“回复有点啰嗦”。一次实际会话里，单轮混合了文本与 ToolCall 的 Assistant Message 达到 11,392 个 output tokens、14,890 个字符。用户侧观察到整段流程约">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/09/02/agent-toolcall-preamble-control/index.html">
+<meta property="og:site_name" content="味儿福德詹的小站">
+<meta property="og:description" content="在一次 ERP 文档导入中，Agent 明明已经准备调用 Tool，却先输出了整张表格的识别结果、配方元素和后续计划。紧接着，ToolCall 的参数又把同一批数据完整传了一遍。 这不是普通的“回复有点啰嗦”。一次实际会话里，单轮混合了文本与 ToolCall 的 Assistant Message 达到 11,392 个 output tokens、14,890 个字符。用户侧观察到整段流程约">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-09-02T06:37:31.000Z">
+<meta property="article:modified_time" content="2026-09-04T07:26:16.742Z">
+<meta property="article:author" content="詹文杰">
+<meta property="article:tag" content="AI工作日志">
+<meta property="article:tag" content="Agent">
+<meta property="article:tag" content="Pi">
+<meta property="article:tag" content="Tool Calling">
+<meta property="article:tag" content="Claude Code">
+<meta property="article:tag" content="Codex">
+<meta property="article:tag" content="DeepSeek">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+    <meta name="referrer" content="no-referrer-when-downgrade">
+  
+  
+  <title>ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制 - 味儿福德詹的小站</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1749284_5i9bdhy70f8.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/c/font_1736178_k526ubmyhba.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"willfordzhan.github.io","root":"/","version":"1.9.8","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false},"umami":{"src":null,"website_id":null,"domains":null,"start_time":"2024-01-01T00:00:00.000Z","token":null,"api_server":null}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.3.0"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>味儿福德詹的小站</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/AI/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>AI</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/archives/" target="_self">
+                <i class="iconfont icon-archive-fill"></i>
+                <span>归档</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/categories/" target="_self">
+                <i class="iconfont icon-category-fill"></i>
+                <span>分类</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/tags/" target="_self">
+                <i class="iconfont icon-tags-fill"></i>
+                <span>标签</span>
+              </a>
+            </li>
+          
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/about/" target="_self">
+                <i class="iconfont icon-user-fill"></i>
+                <span>关于</span>
+              </a>
+            </li>
+          
+        
+        
+          <li class="nav-item" id="search-btn">
+            <a class="nav-link" target="_self" href="javascript:;" data-toggle="modal" data-target="#modalSearch" aria-label="Search">
+              <i class="iconfont icon-search"></i>
+            </a>
+          </li>
+          
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2026-09-02 14:37" pubdate>
+          2026年9月2日 下午
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          2k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          17 分钟
+        
+      </span>
+    
+
+    
+    
+      
+        <span id="busuanzi_container_page_pv" style="display: none">
+          <i class="iconfont icon-eye" aria-hidden="true"></i>
+          <span id="busuanzi_value_page_pv"></span> 次
+        </span>
+        
+
+      
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>在一次 ERP 文档导入中，Agent 明明已经准备调用 Tool，却先输出了整张表格的识别结果、配方元素和后续计划。紧接着，ToolCall 的参数又把同一批数据完整传了一遍。</p>
+<p>这不是普通的“回复有点啰嗦”。一次实际会话里，单轮混合了文本与 ToolCall 的 Assistant Message 达到 11,392 个 output tokens、14,890 个字符。用户侧观察到整段流程约 130 秒，其中两段无效长文本占了约 80 秒。</p>
+<p>问题可以压缩成一句话：<strong>怎样限制 ToolCall 之前的 Assistant Message，同时不破坏通用 Agent Loop？</strong></p>
+<h2 id="Pi-当前为什么会把这些文字输出出来"><a href="#Pi-当前为什么会把这些文字输出出来" class="headerlink" title="Pi 当前为什么会把这些文字输出出来"></a>Pi 当前为什么会把这些文字输出出来</h2><p>Pi 的基础循环是标准的 ReAct &#x2F; Tool Use 结构：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">模型输出 Assistant Message<br>  -&gt; 有 ToolCall：执行工具，把 ToolResult 放回上下文，继续下一轮<br>  -&gt; 没有 ToolCall：结束本轮 Agent Loop<br></code></pre></td></tr></table></figure>
+
+<p>Assistant Message 是一个混合内容容器，可以同时包含 <code>text</code>、<code>thinking</code> 和 <code>toolCall</code>。Pi 在流式接收时会转发这些事件；本轮结束后，再从同一条消息里提取 ToolCall 并执行。当前基础层没有“ToolCall 前的文字”和“最终答复”这两个独立预算，也不会因为后面出现了 ToolCall 就自动丢弃前面的文本。</p>
+<p>因此，模型先复述一大段参数再调用工具，对运行时来说是合法输出。它只是低效，不是协议错误。</p>
+<h2 id="几个看似直接、实际不够好的方案"><a href="#几个看似直接、实际不够好的方案" class="headerlink" title="几个看似直接、实际不够好的方案"></a>几个看似直接、实际不够好的方案</h2><h3 id="1-只删除-Preamble-Prompt"><a href="#1-只删除-Preamble-Prompt" class="headerlink" title="1. 只删除 Preamble Prompt"></a>1. 只删除 Preamble Prompt</h3><p>我们已经试过移除 Java Runtime 里的 Preamble。结果只能消除框架主动添加的固定开场，无法阻止模型自己生成“让我先整理一下”“根据附件可以得到”等长篇文字。</p>
+<p>Prompt 可以影响模型习惯，但不是可靠的协议约束。</p>
+<h3 id="2-全局调低-max-output-tokens"><a href="#2-全局调低-max-output-tokens" class="headerlink" title="2. 全局调低 max_output_tokens"></a>2. 全局调低 <code>max_output_tokens</code></h3><p>这会限制整条 Assistant Message，而不是只限制 ToolCall 前面的文字。文本和 ToolCall 参数共享同一预算；如果预算在工具参数生成到一半时耗尽，Pi 会把这批 ToolCall 判为不可信，因为 JSON 参数可能已经被截断。</p>
+<p>所以，全局 token 上限适合防止失控，不适合精确治理 ToolCall 前的废话。它可能把“慢但正确”变成“更快失败”。</p>
+<h3 id="3-“Draft-未完成时强制-tool-choice-required”"><a href="#3-“Draft-未完成时强制-tool-choice-required”" class="headerlink" title="3. “Draft 未完成时强制 tool_choice=required”"></a>3. “Draft 未完成时强制 <code>tool_choice=required</code>”</h3><p>这个方案被否决是对的。它把某个 ERP 页面和 Draft 状态机写进了通用 Agent Runtime，造成三类问题：</p>
+<ul>
+<li>基础层开始理解具体业务对象，耦合方向错误；</li>
+<li>每新增一种导入流程，都要继续添加特殊状态；</li>
+<li>如果状态更新失败或模型反复选择无进展的工具，会形成死循环。</li>
+</ul>
+<p><code>tool_choice</code> 是通用的单次模型调用策略，不应该被某个业务 Draft 是否完成长期锁定。</p>
+<h3 id="4-前端不展示中间文本"><a href="#4-前端不展示中间文本" class="headerlink" title="4. 前端不展示中间文本"></a>4. 前端不展示中间文本</h3><p>这对页面体验有效，但不会减少模型已经生成的 token，也不会缩短 Time to First ToolCall。它解决“看不见”，没有解决“没生成”。</p>
+<h2 id="Claude-Code、Codex-和-DeepSeek-Harness-怎么做"><a href="#Claude-Code、Codex-和-DeepSeek-Harness-怎么做" class="headerlink" title="Claude Code、Codex 和 DeepSeek Harness 怎么做"></a>Claude Code、Codex 和 DeepSeek Harness 怎么做</h2><p>调研后的共同结论并不神秘：主流 Coding Agent 也没有一个通用的“ToolCall 前文字硬截断器”。它们主要依靠协议、Prompt、调用策略和运行时边界的组合。</p>
+<p>Claude 的标准 Agent Loop 仍然是“模型输出 Tool Use，客户端执行，再把结果送回模型”，正常循环通常使用自动工具选择；只有明确知道下一步必须调用某个工具的局部请求，才使用 <code>tool_choice</code> 强制选择。<a target="_blank" rel="noopener" href="https://code.claude.com/docs/en/agent-sdk/agent-loop">Claude Agent SDK</a> 和 <a target="_blank" rel="noopener" href="https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools">Anthropic Tool Use 文档</a> 都体现了这个边界。</p>
+<p>在本地核对的一份高保真 Claude Code 实现中，主循环没有默认强制 Tool；Web Search 等目标确定的子请求才会指定工具。它还会给子 Agent 更强的指令：工具之间不要输出文字，完成后统一汇报。但这仍属于 Prompt 约束，不是底层硬保证。</p>
+<p>Anthropic 曾尝试加入“工具之间最多 25 个词”一类数字限制，随后因为编码质量回退而撤回。这说明定量约束能压缩文字，却可能让复杂任务缺少必要说明，不能作为唯一机制。<a target="_blank" rel="noopener" href="https://www.anthropic.com/engineering/april-23-postmortem">Anthropic 事故复盘</a></p>
+<p>Codex 的公开实现同样遵循“Final Message 或 ToolCall；有 ToolCall 就继续”的循环。<a target="_blank" rel="noopener" href="https://openai.com/index/unrolling-the-codex-agent-loop/">Codex Agent Loop</a> 的 Prompt 更强调短 Preamble、跳过简单读取的说明，并在协议中区分 Commentary 与 Final Answer。它改善了输出纪律和展示投影，但没有把某个业务完成状态写进基础循环。</p>
+<p>DeepSeek Harness 也是标准的模型—工具—模型循环，提供 <code>tool_choice</code>、turn limit 和可选 Plan Mode。Plan Mode 用于复杂任务的显式规划，不是专门压制 ToolCall 前文字的机制。为每一轮额外调用一个 Planner，反而会增加延迟和 token。<a target="_blank" rel="noopener" href="https://api-docs.deepseek.com/guides/tool_calls/">DeepSeek Tool Calls</a> 与 <a target="_blank" rel="noopener" href="https://www.deepseek.com/harness/en/">DeepSeek Harness</a></p>
+<h2 id="更稳妥的通用设计"><a href="#更稳妥的通用设计" class="headerlink" title="更稳妥的通用设计"></a>更稳妥的通用设计</h2><p>这个问题没有一个开关可以完整解决，比较合理的是四层组合。</p>
+<h3 id="第一层：短而明确的输出纪律"><a href="#第一层：短而明确的输出纪律" class="headerlink" title="第一层：短而明确的输出纪律"></a>第一层：短而明确的输出纪律</h3><p>System Prompt 只表达通用规则：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">当下一步是调用工具时，直接调用工具。<br>不要在 ToolCall 前复述输入、附件内容或即将提交的参数。<br>只有用户必须知道当前动作时才说明，并限制为一句话。<br></code></pre></td></tr></table></figure>
+
+<p>这里可以加字数限制辅助模型收敛，但它只是软约束。不要把“25 个词”之类的数字当成正确性保证，也不要要求所有任务绝对静默。</p>
+<h3 id="第二层：一次性执行意图，而不是业务状态机"><a href="#第二层：一次性执行意图，而不是业务状态机" class="headerlink" title="第二层：一次性执行意图，而不是业务状态机"></a>第二层：一次性执行意图，而不是业务状态机</h3><p>当调用方<strong>客观知道下一次模型响应必须使用工具</strong>时，可以传递通用、一次性消费的执行意图：</p>
+<figure class="highlight ts"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs ts"><span class="hljs-keyword">type</span> <span class="hljs-title class_">NextResponseToolChoice</span> =<br>  | <span class="hljs-string">&quot;auto&quot;</span><br>  | <span class="hljs-string">&quot;required&quot;</span><br>  | &#123; <span class="hljs-attr">name</span>: <span class="hljs-built_in">string</span> &#125;;<br></code></pre></td></tr></table></figure>
+
+<p>Provider Adapter 再把它映射到各模型的 <code>tool_choice</code>。关键约束是：它只作用于下一次模型调用，调用后立即恢复 <code>auto</code>，不能根据“Draft 是否完成”在基础层持续强制。</p>
+<p>这项能力适用于“下一步动作已由上层协议确定”的场景。开放式对话仍使用 <code>auto</code>，否则只是把模型的废话问题换成工具死循环。</p>
+<h3 id="第三层：区分执行投影和用户投影"><a href="#第三层：区分执行投影和用户投影" class="headerlink" title="第三层：区分执行投影和用户投影"></a>第三层：区分执行投影和用户投影</h3><p>运行时可以把中间 Commentary、ToolCall、ToolResult 和 Final Answer 分成不同事件。页面导入场景只展示可信的进度元数据和最终 Draft 投影；会话模式可以展示简短 Commentary。</p>
+<p>这层负责体验和语义边界，不负责节省模型 token。它的价值是避免把原始执行轨迹直接当成用户结果。</p>
+<h3 id="第四层：独立的安全边界"><a href="#第四层：独立的安全边界" class="headerlink" title="第四层：独立的安全边界"></a>第四层：独立的安全边界</h3><p>无论是否强制 Tool，都需要通用的最大轮数、最大墙钟时间、重复 ToolCall 检测和“连续无状态进展”保护。它们负责终止异常循环，不参与判断某个业务是否完成。</p>
+<h2 id="先量化，再决定要不要改-Runtime"><a href="#先量化，再决定要不要改-Runtime" class="headerlink" title="先量化，再决定要不要改 Runtime"></a>先量化，再决定要不要改 Runtime</h2><p>最小可行的下一步不是引入 Planner，而是增加四个指标：</p>
+<ul>
+<li><code>text_tokens_before_first_tool_call</code>：首次 ToolCall 前生成了多少文本；</li>
+<li><code>time_to_first_tool_call</code>：从请求开始到首次 ToolCall 的时间；</li>
+<li><code>mixed_text_tool_message_rate</code>：同时包含长文本和 ToolCall 的消息比例；</li>
+<li><code>tool_argument_truncation_count</code>：因为长度截断而作废的 ToolCall 数量。</li>
+</ul>
+<p>有了这些数据，才能判断问题主要来自 Prompt、模型、Provider 适配，还是特定任务的调用契约。否则调小 token、加 Planner 或强制 Tool 都是在猜。</p>
+<h2 id="当前结论"><a href="#当前结论" class="headerlink" title="当前结论"></a>当前结论</h2><p>针对 ToolCall 前长篇 Assistant Message，当前不应该：</p>
+<ul>
+<li>在 Pi 基础层加入 Draft 专属状态机；</li>
+<li>用全局 <code>max_output_tokens</code> 充当 Preamble 限制；</li>
+<li>每轮增加一个 Planner 来猜任务是否完成；</li>
+<li>只在前端隐藏文字，然后把延迟和 token 成本留在后台。</li>
+</ul>
+<p>更合适的顺序是：先用通用 Prompt 禁止参数复述并建立指标；确有确定性调用阶段时，再增加一次性的通用 Tool Choice；展示层按 Commentary、Tool 和 Final 做投影；最后用轮数、时间和无进展检测兜住循环风险。</p>
+<p>这套方案没有为某个 Excel、某个 Draft 或某个 ERP 页面写例外规则，才能迁移到后续所有文档导入和 Tool-Heavy Agent 场景。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+    <div class="post-meta mr-3 d-flex align-items-center">
+      <i class="iconfont icon-category"></i>
+      
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+    </div>
+  
+  
+    <div class="post-meta">
+      <i class="iconfont icon-tags"></i>
+      
+        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+      
+        <a href="/tags/Agent/" class="print-no-link">#Agent</a>
+      
+        <a href="/tags/Pi/" class="print-no-link">#Pi</a>
+      
+        <a href="/tags/Tool-Calling/" class="print-no-link">#Tool Calling</a>
+      
+        <a href="/tags/Claude-Code/" class="print-no-link">#Claude Code</a>
+      
+        <a href="/tags/Codex/" class="print-no-link">#Codex</a>
+      
+        <a href="/tags/DeepSeek/" class="print-no-link">#DeepSeek</a>
+      
+    </div>
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制</div>
+      <div>https://willfordzhan.github.io/2026/09/02/agent-toolcall-preamble-control/</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>詹文杰</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2026年9月2日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-cc-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/2026/08/27/mysql-null-composite-unique-index/" title="MySQL 联合唯一索引遇到 NULL：公共记录为什么会重复">
+                        <span class="hidden-mobile">MySQL 联合唯一索引遇到 NULL：公共记录为什么会重复</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+      <div class="modal fade" id="modalSearch" tabindex="-1" role="dialog" aria-labelledby="ModalLabel"
+     aria-hidden="true">
+  <div class="modal-dialog modal-dialog-scrollable modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header text-center">
+        <h4 class="modal-title w-100 font-weight-bold">搜索</h4>
+        <button type="button" id="local-search-close" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body mx-3">
+        <div class="md-form mb-5">
+          <input type="text" id="local-search-input" class="form-control validate">
+          <label data-error="x" data-success="v" for="local-search-input">关键词</label>
+        </div>
+        <div class="list-group" id="local-search-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+    <div class="statistics">
+  
+  
+
+  
+    
+      <span id="busuanzi_container_site_pv" style="display: none">
+        总访问量 
+        <span id="busuanzi_value_site_pv"></span>
+         次
+      </span>
+    
+    
+      <span id="busuanzi_container_site_uv" style="display: none">
+        总访客数 
+        <span id="busuanzi_value_site_uv"></span>
+         人
+      </span>
+    
+    
+
+  
+
+</div>
+
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/5.0.0/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+  <script  src="/js/local-search.js" ></script>
+
+  <script defer src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js" ></script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
