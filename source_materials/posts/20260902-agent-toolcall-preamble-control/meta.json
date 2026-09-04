@@ -1,0 +1,8 @@
+{
+  "archive_id": "20260902-agent-toolcall-preamble-control",
+  "post_name": "ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制",
+  "post_rel_path": "source/_posts/agent-toolcall-preamble-control.md",
+  "conversation_file": "conversation.jsonl",
+  "source_file": "/Users/willfordzhan/.codex/sessions/2026/09/01/rollout-2026-09-01T20-34-13-01a05cf6-7fb6-7df1-aba4-eae2308cefd3.jsonl",
+  "archived_at": "2026-09-02T14:38:06+08:00"
+}
