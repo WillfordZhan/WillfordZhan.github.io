@@ -1,0 +1,9 @@
+{
+  "archive_id": "20260912-mysql-material-id-precision",
+  "post_name": "MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障",
+  "post_rel_path": "source/_posts/mysql-material-id-precision.md",
+  "conversation_file": "conversation.jsonl",
+  "additional_conversation_files": ["conversation-followup.jsonl"],
+  "source_file": "/Users/willfordzhan/.codex/sessions/2026/09/11/rollout-2026-09-11T17-53-35-01a08fe3-05e4-7e21-a102-ff3896accce0.jsonl",
+  "archived_at": "2026-09-12T18:00:00+08:00"
+}
