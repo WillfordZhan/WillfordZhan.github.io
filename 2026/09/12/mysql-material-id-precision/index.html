@@ -19,27 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus&#x3D;schema_validation_failed) -&amp;">
+    <meta name="description" content="一次铁水批次配料试算报错，表面看是 Java 在把元素含量压成 Map 时遇到了重复的 C： 1java.lang.IllegalStateException: Duplicate key C  异常里出现了两个不同物料的碳含量记录。最初容易怀疑物料主数据重复、查询查了两个数据库，或者 toMap 的去重策略有问题。最后确认，真正的原因在 SQL 参数类型：数据库的 material_id 是字符">
 <meta property="og:type" content="article">
-<meta property="og:title" content="P1解析失败恢复：从误报模型不可用到可恢复澄清链路">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/p1/index.html">
+<meta property="og:title" content="MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/09/12/mysql-material-id-precision/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus&#x3D;schema_validation_failed) -&amp;">
+<meta property="og:description" content="一次铁水批次配料试算报错，表面看是 Java 在把元素含量压成 Map 时遇到了重复的 C： 1java.lang.IllegalStateException: Duplicate key C  异常里出现了两个不同物料的碳含量记录。最初容易怀疑物料主数据重复、查询查了两个数据库，或者 toMap 的去重策略有问题。最后确认，真正的原因在 SQL 参数类型：数据库的 material_id 是字符">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-05T11:13:03.000Z">
+<meta property="article:published_time" content="2026-09-12T10:00:00.000Z">
 <meta property="article:modified_time" content="2026-09-12T15:54:25.396Z">
 <meta property="article:author" content="詹文杰">
-<meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="LangGraph">
-<meta property="article:tag" content="联调复盘">
-<meta property="article:tag" content="故障恢复">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="踩坑复盘">
+<meta property="article:tag" content="排障">
+<meta property="article:tag" content="MySQL">
+<meta property="article:tag" content="数据库">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>P1解析失败恢复：从误报模型不可用到可恢复澄清链路 - 味儿福德詹的小站</title>
+  <title>MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -217,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="P1解析失败恢复：从误报模型不可用到可恢复澄清链路"></span>
+            <span id="subtitle" data-typed-text="MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障"></span>
           
         </div>
 
@@ -228,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-05 19:13" pubdate>
-          2026年3月5日 晚上
+        <time datetime="2026-09-12 18:00" pubdate>
+          2026年9月12日 晚上
         </time>
       </span>
     
@@ -240,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          902 字
+          1.5k 字
         
       </span>
     
@@ -251,7 +252,7 @@
         
         
         
-          8 分钟
+          13 分钟
         
       </span>
     
@@ -297,132 +298,77 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">P1解析失败恢复：从误报模型不可用到可恢复澄清链路</h1>
+            <h1 id="seo-header">MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。</p>
-<h2 id="STAR-复盘"><a href="#STAR-复盘" class="headerlink" title="STAR 复盘"></a>STAR 复盘</h2><h3 id="S（Situation）背景"><a href="#S（Situation）背景" class="headerlink" title="S（Situation）背景"></a>S（Situation）背景</h3><p>在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：</p>
+                <p>一次铁水批次配料试算报错，表面看是 Java 在把元素含量压成 Map 时遇到了重复的 C：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">java.lang.IllegalStateException: Duplicate key C<br></code></pre></td></tr></table></figure>
+
+<p>异常里出现了两个不同物料的碳含量记录。最初容易怀疑物料主数据重复、查询查了两个数据库，或者 toMap 的去重策略有问题。最后确认，真正的原因在 SQL 参数类型：数据库的 material_id 是字符串，Java 实体却使用了 Long。19 位物料 ID 在 MySQL 做隐式数值比较时发生了精度折叠，单物料查询因此返回了多个物料的记录。</p>
+<h2 id="现场链路"><a href="#现场链路" class="headerlink" title="现场链路"></a>现场链路</h2><p>请求来自铁水批次配料试算接口，候选物料有三个。Java 会为每个物料构造一个 Python 求解器请求：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs text">calculate<br>  -&gt; calcMoltenIronBatch<br>  -&gt; 遍历候选物料<br>  -&gt; toMeltingMaterial<br>  -&gt; toConstraintMaterialElements<br>  -&gt; 查询该物料的元素含量<br>  -&gt; 按 elementName 组装 Map<br>  -&gt; 调用 Python 求解器<br></code></pre></td></tr></table></figure>
+
+<p>异常发生在最后一步之前。Python 没有收到请求，Java 在组装第一个物料的元素 Map 时就失败了。</p>
+<p>相关代码的意图很清楚：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-type">TbMaterialElementContent</span> <span class="hljs-variable">condition</span> <span class="hljs-operator">=</span> <span class="hljs-keyword">new</span> <span class="hljs-title class_">TbMaterialElementContent</span>();<br>condition.setMaterialId(materialId);<br>condition.setTenantId(currentDeptId);<br><br>List&lt;TbMaterialElementContent&gt; rows =<br>    tbMaterialElementContentMapper.selectList(Wrappers.query(condition));<br><br><span class="hljs-keyword">return</span> rows.stream().collect(Collectors.toMap(<br>    TbMaterialElementContent::getElementName,<br>    Function.identity()<br>));<br></code></pre></td></tr></table></figure>
+
+<p>这个 Map 是“单个物料的元素名 -&gt; 元素含量”，不是把所有物料压成一个全局 Map。只要查询结果确实属于同一个物料，同名元素 C 出现一次是正常的。</p>
+<h2 id="证据一：SQL-看起来只查一个物料"><a href="#证据一：SQL-看起来只查一个物料" class="headerlink" title="证据一：SQL 看起来只查一个物料"></a>证据一：SQL 看起来只查一个物料</h2><p>现场 SQL 日志显示：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs sql"><span class="hljs-keyword">SELECT</span> id, material_id, element_name, ...<br><span class="hljs-keyword">FROM</span> ats_erp.tb_material_element_content<br><span class="hljs-keyword">WHERE</span> delete_flag <span class="hljs-operator">=</span> <span class="hljs-string">&#x27;0&#x27;</span><br>  <span class="hljs-keyword">AND</span> material_id <span class="hljs-operator">=</span> ?<br>  <span class="hljs-keyword">AND</span> tenant_id <span class="hljs-operator">=</span> ?<br></code></pre></td></tr></table></figure>
+
+<p>参数只有一个物料 ID，结果数量为 10。异常对象却分别来自两个物料：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">物料 A：C = 1.8000<br>物料 B：C = 3.2000 ~ 3.8000<br></code></pre></td></tr></table></figure>
+
+<p>这就是最迷惑的地方：SQL 文本和参数看起来没有问题，返回结果却越过了物料边界。</p>
+<h2 id="证据二：表字段和-Java-字段类型不一致"><a href="#证据二：表字段和-Java-字段类型不一致" class="headerlink" title="证据二：表字段和 Java 字段类型不一致"></a>证据二：表字段和 Java 字段类型不一致</h2><p>在 DEV 租户实际使用的 ERP 库中，表结构是：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs sql">material_id <span class="hljs-type">varchar</span>(<span class="hljs-number">32</span>)<br></code></pre></td></tr></table></figure>
+
+<p>而 Java 实体定义是：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs java"><span class="hljs-keyword">private</span> Long materialId;<br></code></pre></td></tr></table></figure>
+
+<p>MyBatis-Plus 根据实体类型把参数按 Long 绑定。于是数据库实际执行的是“字符串列和数值参数比较”：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">VARCHAR material_id = Long 参数<br></code></pre></td></tr></table></figure>
+
+<p>这不是存储阶段的数据损坏。数据库里保存的字符串是完整的，Java 里的 Long 也没有丢位；转换发生在 MySQL 判断 WHERE 条件的过程中。</p>
+<h2 id="为什么完整数字仍然会匹配错"><a href="#为什么完整数字仍然会匹配错" class="headerlink" title="为什么完整数字仍然会匹配错"></a>为什么完整数字仍然会匹配错</h2><p>这些 ID 已经是 19 位整数：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><code class="hljs text">7000000000000000001<br>7000000000000000002<br>7000000000000000003<br></code></pre></td></tr></table></figure>
+
+<p>当 MySQL 用数值方式比较字符串列和 Long 参数时，会先把字符串转成数值。这个数量级超过了双精度浮点数可以逐个区分相邻整数的范围，几个只相差 1 或 2 的 ID 可能转换成同一个近似值。</p>
+<p>对照查询结果可以直接验证：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">按 Long 绑定查询：返回 3 个相邻物料的记录，共 10 条<br>按 String 绑定查询：只返回目标物料的 3 条记录<br></code></pre></td></tr></table></figure>
+
+<p>所以“数据库存的是完整值”和“查询结果错误”并不矛盾。值没有在存储时坏掉，而是在比较时被转换了。</p>
+<h2 id="为什么不是两个数据库合并"><a href="#为什么不是两个数据库合并" class="headerlink" title="为什么不是两个数据库合并"></a>为什么不是两个数据库合并</h2><p>这个项目的 ERP Mapper 标记了 @TenantStorage。调用链是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">Mapper 上的 @TenantStorage<br>  -&gt; TenantStorageMybatisInterceptor<br>  -&gt; TenantRouteContext<br>  -&gt; TenantAwareDataSource<br>  -&gt; 当前租户的客户库<br></code></pre></td></tr></table></figure>
+
+<p>一次 MyBatis selectList 只从一个物理数据源拿结果，代码里没有把云端库和客户库查询结果拼接起来。现场读取租户绑定配置后，也确认这次查询走的是租户客户库。</p>
+<p>因此本次问题不是“两个数据库各返回一部分，然后合并出了重复 C”，而是单库中的一次错误类型比较，让一个 SQL 返回了多个物料。</p>
+<h2 id="为什么最后会报-Duplicate-key-C"><a href="#为什么最后会报-Duplicate-key-C" class="headerlink" title="为什么最后会报 Duplicate key C"></a>为什么最后会报 Duplicate key C</h2><p>查询结果实际类似这样：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs text">[<br>  &#123; materialId: A, elementName: C, contentFixed: 1.8000 &#125;,<br>  &#123; materialId: B, elementName: C, contentMin: 3.2000, contentMax: 3.8000 &#125;<br>]<br></code></pre></td></tr></table></figure>
+
+<p>代码只使用 elementName 作为 Map 的 key：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><code class="hljs text">A + C -&gt; key &quot;C&quot;<br>B + C -&gt; key &quot;C&quot;<br></code></pre></td></tr></table></figure>
+
+<p>Java 的 Collectors.toMap 默认不允许重复 key，所以抛出异常。这个异常只是最后暴露问题的地方，根因已经发生在 SQL 查询阶段。</p>
+<h2 id="修复应该落在哪里"><a href="#修复应该落在哪里" class="headerlink" title="修复应该落在哪里"></a>修复应该落在哪里</h2><p>最小且正确的修复是让两边的类型一致：</p>
 <ul>
-<li>用户输入：<code>帮我查知识库</code></li>
-<li>实际事件：<code>llm_request -&gt; react_plan(parseStatus=schema_validation_failed) -&gt; final(模型不可用)</code></li>
-<li>预期事件：<code>clarification_needed</code>（提示用户补充检索主题）</li>
+<li>如果 material_id 继续使用 VARCHAR，Java 查询条件必须按字符串绑定；</li>
+<li>如果物料 ID 在整个系统都被定义为数值，应统一数据库字段为 BIGINT，并检查所有关联表和历史数据。</li>
 </ul>
-<p>触发条件很典型：</p>
-<ul>
-<li>LLM 输出了 <code>action=CALL_TOOL</code>，但缺失 <code>tool_calls</code></li>
-<li>现有 <code>PlanOutput</code> 约束要求 <code>CALL_TOOL</code> 必须有 <code>tool_calls</code></li>
-<li>校验失败后被统一兜底到“模型不可用”，导致故障分类错误</li>
-</ul>
-<h3 id="T（Task）任务"><a href="#T（Task）任务" class="headerlink" title="T（Task）任务"></a>T（Task）任务</h3><p>目标不是修一个 case，而是做一套可复用的编排健壮性改造：</p>
-<ol>
-<li>parser 失败时可恢复，不再一刀切到“模型不可用”。</li>
-<li>对 <code>CALL_TOOL</code> 与澄清语义冲突做统一仲裁，优先澄清。</li>
-<li>在事件里区分 <code>planner_parse_failed</code> 与 <code>llm_unavailable</code>。</li>
-<li>用真实联调验证，并纳入典型 case 集。</li>
+<p>不应该直接把 toMap 改成“重复时取第一条”。这样只能让接口暂时不报错，却会丢掉另一个物料的真实成分，Python 后续计算结果也可能错误。</p>
+<p>修复后还需要补一个跨物料回归场景：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">物料 A 和物料 B 都有 C<br>  -&gt; 查询 A 的元素<br>  -&gt; 结果只能包含 A<br>  -&gt; 生成 A 自己的 elements Map<br>  -&gt; 物料 B 同理<br></code></pre></td></tr></table></figure>
+
+<h2 id="排查这类问题时容易漏掉的检查"><a href="#排查这类问题时容易漏掉的检查" class="headerlink" title="排查这类问题时容易漏掉的检查"></a>排查这类问题时容易漏掉的检查</h2><ol>
+<li>不只看 Java 变量的值，还要看数据库列类型和 JDBC 参数类型。</li>
+<li>不只看 SQL 文本，还要验证按字符串绑定和按数值绑定的结果差异。</li>
+<li>看到重复 Map key 时，不要马上加覆盖策略，先确认重复数据是否跨越了业务边界。</li>
+<li>多租户系统要区分“一个租户库内的错误查询”和“多个物理库结果合并”。</li>
+<li>Java 服务调用 Python 之前，先确认请求对象是否已经成功构造；本次异常发生在 Python 边界之前。</li>
 </ol>
-<h3 id="A（Action）行动"><a href="#A（Action）行动" class="headerlink" title="A（Action）行动"></a>A（Action）行动</h3><h4 id="A1-编排层改造"><a href="#A1-编排层改造" class="headerlink" title="A1. 编排层改造"></a>A1. 编排层改造</h4><ol>
-<li>新增 parse 失败恢复入口（<code>app/langgraph/decoders.py</code>）</li>
-</ol>
-<ul>
-<li>新增 <code>recover_plan_from_parse_failure(...)</code></li>
-<li>尝试从原始文本提取 JSON payload</li>
-<li>自动修复结构（如从 <code>tool_name/arguments</code> 补齐 <code>tool_calls</code>）</li>
-<li>若仍不满足 schema，但存在澄清语义，降级为 <code>CLARIFY</code></li>
-<li>只有最后才走 <code>RESPOND</code> 兜底</li>
-</ul>
-<p>恢复动作标签：</p>
-<ul>
-<li><code>repair_payload_shape</code></li>
-<li><code>downgrade_to_clarify</code></li>
-</ul>
-<ol start="2">
-<li>新增动作冲突仲裁（<code>app/langgraph/decoders.py</code>）</li>
-</ol>
-<ul>
-<li>在 <code>normalize_plan_with_tools(...)</code> 增加通用规则：</li>
-<li>当 <code>action=CALL_TOOL</code> 且存在非空 <code>clarification_question</code> 时，改写为 <code>CLARIFY</code></li>
-<li>输出冲突码：<code>planner_conflict:call_tool_with_clarification</code></li>
-</ul>
-<p>这条规则基于状态与 schema，不依赖 query 文本硬编码。</p>
-<ol start="3">
-<li>plan 节点接入失败分级（<code>app/langgraph/nodes/plan.py</code>）</li>
-</ol>
-<ul>
-<li><code>PlanParseError</code> 不再直接套模型不可用兜底</li>
-<li>接入 <code>recover_plan_from_parse_failure(...)</code></li>
-<li><code>react_plan</code> 事件补充：</li>
-<li><code>failureClass</code></li>
-<li><code>recoveryActions</code></li>
-</ul>
-<p>同时区分两类用户文案：</p>
-<ul>
-<li>parse 失败：<code>当前请求解析失败，请换个说法或补充信息后重试。</code></li>
-<li>模型不可用：保留原不可用文案</li>
-</ul>
-<h4 id="A2-测试增强"><a href="#A2-测试增强" class="headerlink" title="A2. 测试增强"></a>A2. 测试增强</h4><ul>
-<li><code>tests/test_plan_parser.py</code></li>
-<li><code>test_recover_plan_from_parse_failure_downgrades_to_clarify</code></li>
-<li><code>tests/test_plan_schema.py</code></li>
-<li><code>test_normalize_plan_with_tools_prefers_clarify_when_planner_outputs_both</code></li>
-<li><code>tests/test_orchestrator_langgraph.py</code></li>
-<li>更新 parse fallback 断言：应为 <code>planner_parse_failed</code>，且文案为“解析失败”</li>
-</ul>
-<h4 id="A3-真实联调与脚本"><a href="#A3-真实联调与脚本" class="headerlink" title="A3. 真实联调与脚本"></a>A3. 真实联调与脚本</h4><ul>
-<li>新增典型用例：<code>典型case.md</code> 的 Case 10</li>
-<li>更新批量脚本：<code>scripts/run_typical_cases.sh</code></li>
-<li>将 macOS 不兼容 <code>timeout</code> 改为 <code>curl --max-time</code></li>
-</ul>
-<h3 id="R（Result）结果"><a href="#R（Result）结果" class="headerlink" title="R（Result）结果"></a>R（Result）结果</h3><h4 id="R1-自动化测试"><a href="#R1-自动化测试" class="headerlink" title="R1. 自动化测试"></a>R1. 自动化测试</h4><ul>
-<li><code>pytest -q tests/test_plan_parser.py tests/test_plan_schema.py tests/test_orchestrator_langgraph.py</code>：25 passed</li>
-<li><code>pytest -q</code>：53 passed</li>
-</ul>
-<h4 id="R2-真实联调证据（Case-10）"><a href="#R2-真实联调证据（Case-10）" class="headerlink" title="R2. 真实联调证据（Case 10）"></a>R2. 真实联调证据（Case 10）</h4><p>关键日志信号（来自 <code>logs/typical-cases/case10_p1_parse_recovery_clarify/sse.log</code>）：</p>
-<ul>
-<li><code>react_plan.action=CLARIFY</code></li>
-<li><code>parseStatus=recovered_parse_failure_clarify</code></li>
-<li><code>failureClass=planner_parse_failed</code></li>
-<li><code>recoveryActions=[&quot;downgrade_to_clarify&quot;]</code></li>
-<li>下游发出 <code>clarification_needed</code></li>
-<li>全链路未出现“模型不可用”误报</li>
-</ul>
-<p>结论：P1 的核心误路由已被修复。</p>
-<h4 id="R3-全量-Case-1-10-观察摘要"><a href="#R3-全量-Case-1-10-观察摘要" class="headerlink" title="R3. 全量 Case 1~10 观察摘要"></a>R3. 全量 Case 1~10 观察摘要</h4><p>通过项：</p>
-<ul>
-<li>Case1&#x2F;8：问候直答正常，未误触发工具</li>
-<li>Case4：知识库命中时，<code>tool_call + tool_result</code> 成对出现</li>
-<li>Case6：缺参触发澄清</li>
-<li>Case9：澄清文案已脱敏（未泄漏内部参数细节）</li>
-<li>Case10：P1 恢复路径按预期生效</li>
-</ul>
-<p>待后续跟进：</p>
-<ul>
-<li>观察到部分会话存在 <code>conversation_started</code> 重复发射迹象（P2）</li>
-<li>Case3 在当前数据环境无匹配，转澄清，属于数据映射问题</li>
-<li>Case7 未触发上游异常，需故障注入复测异常分支</li>
-</ul>
-<h2 id="关键证据清单"><a href="#关键证据清单" class="headerlink" title="关键证据清单"></a>关键证据清单</h2><ul>
-<li>测试汇总：<code>pytest</code> 结果（53 passed）</li>
-<li>典型 case：Case 10 明确验证 <code>schema_validation_failed -&gt; CLARIFY</code> 恢复</li>
-<li>SSE 事件：<code>failureClass</code> 与 <code>recoveryActions</code> 可观测，便于后续排障</li>
-</ul>
-<h2 id="核心代码文件清单"><a href="#核心代码文件清单" class="headerlink" title="核心代码文件清单"></a>核心代码文件清单</h2><ul>
-<li><code>app/langgraph/decoders.py</code></li>
-<li><code>app/langgraph/nodes/plan.py</code></li>
-<li><code>tests/test_plan_parser.py</code></li>
-<li><code>tests/test_plan_schema.py</code></li>
-<li><code>tests/test_orchestrator_langgraph.py</code></li>
-<li><code>典型case.md</code></li>
-<li><code>scripts/run_typical_cases.sh</code></li>
-</ul>
-<h2 id="脱敏说明"><a href="#脱敏说明" class="headerlink" title="脱敏说明"></a>脱敏说明</h2><p>本文仅保留必要技术细节，以下信息均已脱敏处理：</p>
-<ul>
-<li>网关鉴权头（如 token、签名）</li>
-<li>内网地址、端口、私有域名</li>
-<li>可能关联租户或业务身份的标识</li>
-</ul>
-<p>若需要演示联调命令，请使用示例占位符：<code>https://example.com</code>、<code>127.0.0.1</code>、<code>&lt;TOKEN&gt;</code>。</p>
+<p>这次故障最隐蔽的地方，是每个局部看起来都合理：ID 完整、SQL 只带一个参数、表里也确实有元素数据。只有把数据库类型、JDBC 绑定类型和 MySQL 比较规则放在同一条链路里看，才能解释为什么一个单物料查询会返回多个物料。</p>
 
                 
               </div>
@@ -441,7 +387,7 @@
     
       <span class="category-chain">
         
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
   
   
 
@@ -456,13 +402,15 @@
     <div class="post-meta">
       <i class="iconfont icon-tags"></i>
       
-        <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
+        <a href="/tags/Java/" class="print-no-link">#Java</a>
       
-        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+        <a href="/tags/%E8%B8%A9%E5%9D%91%E5%A4%8D%E7%9B%98/" class="print-no-link">#踩坑复盘</a>
       
-        <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/" class="print-no-link">#联调复盘</a>
+        <a href="/tags/%E6%8E%92%E9%9A%9C/" class="print-no-link">#排障</a>
       
-        <a href="/tags/%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D/" class="print-no-link">#故障恢复</a>
+        <a href="/tags/MySQL/" class="print-no-link">#MySQL</a>
+      
+        <a href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/" class="print-no-link">#数据库</a>
       
     </div>
   
@@ -474,8 +422,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>P1解析失败恢复：从误报模型不可用到可恢复澄清链路</div>
-      <div>https://willfordzhan.github.io/2026/03/05/p1/</div>
+      <div>MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障</div>
+      <div>https://willfordzhan.github.io/2026/09/12/mysql-material-id-precision/</div>
     </div>
     <div class="license-meta">
       
@@ -487,7 +435,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月5日</div>
+          <div>2026年9月12日</div>
         </div>
       
       
@@ -519,18 +467,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/05/dify-tool-java-mcp-python/" title="Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/05/chat-star/" title="直接回复未走 Chat 优化的踩坑复盘（STAR）">
-                        <span class="hidden-mobile">直接回复未走 Chat 优化的踩坑复盘（STAR）</span>
+                      <a href="/2026/09/02/agent-toolcall-preamble-control/" title="ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制">
+                        <span class="hidden-mobile">ToolCall 前输出了一大段废话，Agent Runtime 应该怎么限制</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>
