@@ -19,27 +19,28 @@
   <meta name="author" content="詹文杰">
   <meta name="keywords" content="">
   
-    <meta name="description" content="这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus&#x3D;schema_validation_failed) -&amp;">
+    <meta name="description" content="一次生产服铁水批次计划导入需要 2～3 分钟。排查后，慢点集中在 Pi Runtime 调用 Qwen 的三轮推理，Java 网关、SSE 和工具接口都没有占掉主要时间。 这次优化最后把专用导入会话的 thinking_budget 从默认的 2048 收到 768。768 不是模型的“思考等级”，也不是所有任务都应该使用的固定值，它是一次 Provider 请求允许使用的最大 reasoning">
 <meta property="og:type" content="article">
-<meta property="og:title" content="P1解析失败恢复：从误报模型不可用到可恢复澄清链路">
-<meta property="og:url" content="https://willfordzhan.github.io/2026/03/05/p1/index.html">
+<meta property="og:title" content="Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768">
+<meta property="og:url" content="https://willfordzhan.github.io/2026/09/18/pi-java-runtime-thinking-budget-ab/index.html">
 <meta property="og:site_name" content="味儿福德詹的小站">
-<meta property="og:description" content="这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。 STAR 复盘S（Situation）背景在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：  用户输入：帮我查知识库 实际事件：llm_request -&gt; react_plan(parseStatus&#x3D;schema_validation_failed) -&amp;">
+<meta property="og:description" content="一次生产服铁水批次计划导入需要 2～3 分钟。排查后，慢点集中在 Pi Runtime 调用 Qwen 的三轮推理，Java 网关、SSE 和工具接口都没有占掉主要时间。 这次优化最后把专用导入会话的 thinking_budget 从默认的 2048 收到 768。768 不是模型的“思考等级”，也不是所有任务都应该使用的固定值，它是一次 Provider 请求允许使用的最大 reasoning">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-03-05T11:13:03.000Z">
-<meta property="article:modified_time" content="2026-09-18T08:38:14.357Z">
+<meta property="article:published_time" content="2026-09-18T08:30:00.000Z">
+<meta property="article:modified_time" content="2026-09-18T08:38:14.358Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="AI工作日志">
-<meta property="article:tag" content="LangGraph">
-<meta property="article:tag" content="联调复盘">
-<meta property="article:tag" content="故障恢复">
+<meta property="article:tag" content="AI Agent">
+<meta property="article:tag" content="LLM 评测">
+<meta property="article:tag" content="Pi Runtime">
+<meta property="article:tag" content="性能优化">
 <meta name="twitter:card" content="summary_large_image">
   
   
     <meta name="referrer" content="no-referrer-when-downgrade">
   
   
-  <title>P1解析失败恢复：从误报模型不可用到可恢复澄清链路 - 味儿福德詹的小站</title>
+  <title>Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768 - 味儿福德詹的小站</title>
 
   <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
 
@@ -217,7 +218,7 @@
       <div class="banner-text text-center fade-in-up">
         <div class="h2">
           
-            <span id="subtitle" data-typed-text="P1解析失败恢复：从误报模型不可用到可恢复澄清链路"></span>
+            <span id="subtitle" data-typed-text="Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768"></span>
           
         </div>
 
@@ -228,8 +229,8 @@
     
       <span class="post-meta">
         <i class="iconfont icon-date-fill" aria-hidden="true"></i>
-        <time datetime="2026-03-05 19:13" pubdate>
-          2026年3月5日 晚上
+        <time datetime="2026-09-18 16:30" pubdate>
+          2026年9月18日 下午
         </time>
       </span>
     
@@ -240,7 +241,7 @@
       <span class="post-meta mr-2">
         <i class="iconfont icon-chart"></i>
         
-          902 字
+          1.7k 字
         
       </span>
     
@@ -251,7 +252,7 @@
         
         
         
-          8 分钟
+          15 分钟
         
       </span>
     
@@ -297,132 +298,112 @@
       <div class="container nopadding-x-md" id="board-ctn">
         <div id="board">
           <article class="post-content mx-auto">
-            <h1 id="seo-header">P1解析失败恢复：从误报模型不可用到可恢复澄清链路</h1>
+            <h1 id="seo-header">Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768</h1>
             
             
               <div class="markdown-body">
                 
-                <p>这篇记录一次真实联调中的 P1 修复：同一个用户问题，本应触发澄清，却被错误归因为“模型不可用”。</p>
-<h2 id="STAR-复盘"><a href="#STAR-复盘" class="headerlink" title="STAR 复盘"></a>STAR 复盘</h2><h3 id="S（Situation）背景"><a href="#S（Situation）背景" class="headerlink" title="S（Situation）背景"></a>S（Situation）背景</h3><p>在 2026-03-05 的真实联调中，知识库工具链路已经打通，但出现了错误路由：</p>
+                <p>一次生产服铁水批次计划导入需要 2～3 分钟。排查后，慢点集中在 Pi Runtime 调用 Qwen 的三轮推理，Java 网关、SSE 和工具接口都没有占掉主要时间。</p>
+<p>这次优化最后把专用导入会话的 <code>thinking_budget</code> 从默认的 2048 收到 768。768 不是模型的“思考等级”，也不是所有任务都应该使用的固定值，它是一次 Provider 请求允许使用的最大 reasoning token 数。实测结果是：512 更快但发生了语义合并，1024 语义正确但超过 100 秒，768 在这份真实 Excel 上同时满足了语义和时延要求。</p>
+<h2 id="先确认慢在哪里"><a href="#先确认慢在哪里" class="headerlink" title="先确认慢在哪里"></a>先确认慢在哪里</h2><p>测试服使用与生产服相同的 ERP 工厂配置，导入一份包含多条批次、多个钢种和配方上下限的 Excel。一次完整成功链路的工具顺序如下：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><code class="hljs text">前端上传 Excel<br>  -&gt; POST /ai/imports/molten-iron-batch-plan<br>  -&gt; Pi 创建专用导入会话<br>  -&gt; read_attachment / load_skill<br>  -&gt; molten_iron_batch_field_schema<br>  -&gt; query_recipes（一次传入多个配方名称）<br>  -&gt; create_or_update_recipe（按语义结果新增或更新）<br>  -&gt; create_molten_iron_batch_plan_draft<br>  -&gt; Draft 成功后返回原生 terminate<br></code></pre></td></tr></table></figure>
+
+<p>最终复测的墙钟时间是 93.296 秒。三轮 Provider 请求分别耗时 11.5169、46.7157、33.4905 秒，合计 91.7231 秒，占墙钟时间约 98.31%。工具调用、数据库查询和 Draft 写入只占很小部分。</p>
+<p>这一步很重要：没有先把时间拆到调用链上，直接改 Java 查询或页面轮询，收益都不会落在主要瓶颈上。</p>
+<h2 id="thinking-budget-到底控制什么"><a href="#thinking-budget-到底控制什么" class="headerlink" title="thinking_budget 到底控制什么"></a><code>thinking_budget</code> 到底控制什么</h2><p>Pi Runtime 的 Provider 适配器负责把统一消息转换成 Qwen 请求。Qwen 使用的是 Provider 原生字段：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><code class="hljs json"><span class="hljs-punctuation">&#123;</span><br>  <span class="hljs-attr">&quot;enable_thinking&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-literal"><span class="hljs-keyword">true</span></span><span class="hljs-punctuation">,</span><br>  <span class="hljs-attr">&quot;thinking_budget&quot;</span><span class="hljs-punctuation">:</span> <span class="hljs-number">768</span><br><span class="hljs-punctuation">&#125;</span><br></code></pre></td></tr></table></figure>
+
+<p>这里有三个容易混淆的概念：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>enable_thinking</code></td>
+<td>是否允许模型进行思考</td>
+</tr>
+<tr>
+<td><code>thinking_budget</code></td>
+<td>本次请求最多使用多少 reasoning token</td>
+</tr>
+<tr>
+<td><code>reasoning_effort</code></td>
+<td>某些 Provider 的抽象档位，当前 Qwen 适配并不依赖它</td>
+</tr>
+</tbody></table>
+<p>当前 Java Runtime 的配置增加了一个正整数环境变量：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><code class="hljs text">PI_RUNTIME_THINKING_BUDGET=768<br></code></pre></td></tr></table></figure>
+
+<p>配置在 Runtime 启动时解析，专用导入会话在发送 Provider 请求前，通过已有的 <code>before_provider_payload</code> 原生 Hook 注入 <code>enable_thinking</code> 和 <code>thinking_budget</code>。这条改动没有触碰 Agent Loop，也没有给普通聊天会话套上导入专属参数。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs text">统一消息<br>  -&gt; Provider payload 已构造<br>  -&gt; before_provider_payload Hook<br>  -&gt; 仅当 sessionPurpose=molten-iron-batch-plan-import 时注入预算<br>  -&gt; Qwen 请求<br></code></pre></td></tr></table></figure>
+
+<p>这个位置的边界很清楚：模型请求格式属于 Runtime&#x2F;Provider 适配层，导入业务的终止条件仍由专用会话处理逻辑负责。Draft 成功生成或更新后，专用会话返回原生 <code>terminate</code>，不会改动通用 Agent Loop 的退出语义。</p>
+<h2 id="为什么先补配方自动取号"><a href="#为什么先补配方自动取号" class="headerlink" title="为什么先补配方自动取号"></a>为什么先补配方自动取号</h2><p>导入过程中发现，模型识别出需要新增配方时，原链路还需要自己组织配方编号。这个动作既消耗上下文，又给重复编号和格式猜测留下空间。</p>
+<p>因此先在 ERP 配方保存服务里复用现有序号能力：创建时 <code>recipeNum</code> 为空就由服务端按租户和配方类型生成，显式传入编号的更新场景保持原逻辑。AI Tool 只关心“新增还是更新”和配方内容，编号归 ERP 领域服务负责。</p>
+<p>这项改动没有直接缩短 Provider 推理时间，却减少了模型需要承担的业务决策，降低了导入链路的脆弱点。性能优化和业务边界收口要分开验证，避免把两类收益混在一起。</p>
+<h2 id="A-B-结果：512、768、1024"><a href="#A-B-结果：512、768、1024" class="headerlink" title="A&#x2F;B 结果：512、768、1024"></a>A&#x2F;B 结果：512、768、1024</h2><p>三组测试使用同一份 Excel、同一个测试工厂和相同的清理流程。每次完成后都检查配方详情、Draft 结构、批次数量和动态字段，不只看 HTTP 200。</p>
+<table>
+<thead>
+<tr>
+<th align="right"><code>thinking_budget</code></th>
+<th align="right">墙钟时间</th>
+<th align="right">Provider 总耗时</th>
+<th align="right">输出 token</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="right">512</td>
+<td align="right">77.514 秒</td>
+<td align="right">约 76.255 秒</td>
+<td align="right">5,831</td>
+<td>失败：把 1.2738 的 B&#x2F;C 两套配方合并</td>
+</tr>
+<tr>
+<td align="right">768</td>
+<td align="right">93.296 秒</td>
+<td align="right">91.7231 秒</td>
+<td align="right">6,804</td>
+<td>通过：语义正确，8 批次、233,300 kg</td>
+</tr>
+<tr>
+<td align="right">1024</td>
+<td align="right">108.684 秒</td>
+<td align="right">107.2295 秒</td>
+<td align="right">7,875</td>
+<td>通过：语义正确，但超过 100 秒目标</td>
+</tr>
+</tbody></table>
+<p>512 的失败比较隐蔽：Draft 的结构校验没有报错，<code>issues=[]</code>，但两套配方被模型合并，属于“结构成功、语义错误”。这也是为什么只用接口状态、字段非空和 Draft 校验结果做验收不够。</p>
+<p>768 的复测结果包括：</p>
 <ul>
-<li>用户输入：<code>帮我查知识库</code></li>
-<li>实际事件：<code>llm_request -&gt; react_plan(parseStatus=schema_validation_failed) -&gt; final(模型不可用)</code></li>
-<li>预期事件：<code>clarification_needed</code>（提示用户补充检索主题）</li>
+<li>一次 <code>query_recipes</code> 传入 <code>1.2738</code>、<code>42CrMo4</code>、<code>5CrNiMo</code>，没有额外逐个 <code>get_recipe</code>；</li>
+<li>生成或更新 4 套配方，元素集合和上下限保持正确；</li>
+<li>Draft 包含 8 个批次，总重量 233,300 kg；</li>
+<li>CF003 的数字值为 <code>[1,2,1,2,1,2,1,2]</code>，CF016 为“已做”；</li>
+<li>完成后会话删除返回 200，Draft 清理后 GET 为 404，临时配方全部删除，最终查询总数为 0。</li>
 </ul>
-<p>触发条件很典型：</p>
-<ul>
-<li>LLM 输出了 <code>action=CALL_TOOL</code>，但缺失 <code>tool_calls</code></li>
-<li>现有 <code>PlanOutput</code> 约束要求 <code>CALL_TOOL</code> 必须有 <code>tool_calls</code></li>
-<li>校验失败后被统一兜底到“模型不可用”，导致故障分类错误</li>
-</ul>
-<h3 id="T（Task）任务"><a href="#T（Task）任务" class="headerlink" title="T（Task）任务"></a>T（Task）任务</h3><p>目标不是修一个 case，而是做一套可复用的编排健壮性改造：</p>
+<h2 id="这次优化真正改变了什么"><a href="#这次优化真正改变了什么" class="headerlink" title="这次优化真正改变了什么"></a>这次优化真正改变了什么</h2><p>改动很小，影响面也被限制在专用导入会话：</p>
 <ol>
-<li>parser 失败时可恢复，不再一刀切到“模型不可用”。</li>
-<li>对 <code>CALL_TOOL</code> 与澄清语义冲突做统一仲裁，优先澄清。</li>
-<li>在事件里区分 <code>planner_parse_failed</code> 与 <code>llm_unavailable</code>。</li>
-<li>用真实联调验证，并纳入典型 case 集。</li>
+<li>Runtime 配置增加 <code>PI_RUNTIME_THINKING_BUDGET</code>，默认值仍保留为 2048，未配置时不改变旧行为。</li>
+<li>Provider Hook 只识别导入会话目的，普通聊天、数字员工新会话和其他 Tool 调用不继承这个预算。</li>
+<li>配方创建编号交给 ERP 服务端生成，模型不再负责猜编号。</li>
+<li>验收从“请求成功”升级为“工具轨迹 + Draft 结构 + 配方详情 + 清理结果”的组合证据。</li>
 </ol>
-<h3 id="A（Action）行动"><a href="#A（Action）行动" class="headerlink" title="A（Action）行动"></a>A（Action）行动</h3><h4 id="A1-编排层改造"><a href="#A1-编排层改造" class="headerlink" title="A1. 编排层改造"></a>A1. 编排层改造</h4><ol>
-<li>新增 parse 失败恢复入口（<code>app/langgraph/decoders.py</code>）</li>
-</ol>
+<p>这里没有通过固定文本匹配某个钢种，也没有给当前 Excel 加专属规则。预算是通用 Runtime 配置，导入会话只是一个可配置的作用域。</p>
+<h2 id="还不能直接下的结论"><a href="#还不能直接下的结论" class="headerlink" title="还不能直接下的结论"></a>还不能直接下的结论</h2><p>768 是这份真实导入样本上的当前选择，不代表所有 Excel、所有模型或所有 Provider 都适合 768。现在只有一次完整的 768 成功复测，后续还需要用多份不同复杂度的表格重复 3～5 轮，观察：</p>
 <ul>
-<li>新增 <code>recover_plan_from_parse_failure(...)</code></li>
-<li>尝试从原始文本提取 JSON payload</li>
-<li>自动修复结构（如从 <code>tool_name/arguments</code> 补齐 <code>tool_calls</code>）</li>
-<li>若仍不满足 schema，但存在澄清语义，降级为 <code>CLARIFY</code></li>
-<li>只有最后才走 <code>RESPOND</code> 兜底</li>
+<li>配方候选数量变多时，语义错误率是否上升；</li>
+<li>表格图片、合并单元格和缺失列是否需要更多推理预算；</li>
+<li>Provider 延迟波动是否掩盖预算带来的收益；</li>
+<li><code>query_recipes</code> 返回的配方详情是否继续保持上下文增长压力。</li>
 </ul>
-<p>恢复动作标签：</p>
-<ul>
-<li><code>repair_payload_shape</code></li>
-<li><code>downgrade_to_clarify</code></li>
-</ul>
-<ol start="2">
-<li>新增动作冲突仲裁（<code>app/langgraph/decoders.py</code>）</li>
-</ol>
-<ul>
-<li>在 <code>normalize_plan_with_tools(...)</code> 增加通用规则：</li>
-<li>当 <code>action=CALL_TOOL</code> 且存在非空 <code>clarification_question</code> 时，改写为 <code>CLARIFY</code></li>
-<li>输出冲突码：<code>planner_conflict:call_tool_with_clarification</code></li>
-</ul>
-<p>这条规则基于状态与 schema，不依赖 query 文本硬编码。</p>
-<ol start="3">
-<li>plan 节点接入失败分级（<code>app/langgraph/nodes/plan.py</code>）</li>
-</ol>
-<ul>
-<li><code>PlanParseError</code> 不再直接套模型不可用兜底</li>
-<li>接入 <code>recover_plan_from_parse_failure(...)</code></li>
-<li><code>react_plan</code> 事件补充：</li>
-<li><code>failureClass</code></li>
-<li><code>recoveryActions</code></li>
-</ul>
-<p>同时区分两类用户文案：</p>
-<ul>
-<li>parse 失败：<code>当前请求解析失败，请换个说法或补充信息后重试。</code></li>
-<li>模型不可用：保留原不可用文案</li>
-</ul>
-<h4 id="A2-测试增强"><a href="#A2-测试增强" class="headerlink" title="A2. 测试增强"></a>A2. 测试增强</h4><ul>
-<li><code>tests/test_plan_parser.py</code></li>
-<li><code>test_recover_plan_from_parse_failure_downgrades_to_clarify</code></li>
-<li><code>tests/test_plan_schema.py</code></li>
-<li><code>test_normalize_plan_with_tools_prefers_clarify_when_planner_outputs_both</code></li>
-<li><code>tests/test_orchestrator_langgraph.py</code></li>
-<li>更新 parse fallback 断言：应为 <code>planner_parse_failed</code>，且文案为“解析失败”</li>
-</ul>
-<h4 id="A3-真实联调与脚本"><a href="#A3-真实联调与脚本" class="headerlink" title="A3. 真实联调与脚本"></a>A3. 真实联调与脚本</h4><ul>
-<li>新增典型用例：<code>典型case.md</code> 的 Case 10</li>
-<li>更新批量脚本：<code>scripts/run_typical_cases.sh</code></li>
-<li>将 macOS 不兼容 <code>timeout</code> 改为 <code>curl --max-time</code></li>
-</ul>
-<h3 id="R（Result）结果"><a href="#R（Result）结果" class="headerlink" title="R（Result）结果"></a>R（Result）结果</h3><h4 id="R1-自动化测试"><a href="#R1-自动化测试" class="headerlink" title="R1. 自动化测试"></a>R1. 自动化测试</h4><ul>
-<li><code>pytest -q tests/test_plan_parser.py tests/test_plan_schema.py tests/test_orchestrator_langgraph.py</code>：25 passed</li>
-<li><code>pytest -q</code>：53 passed</li>
-</ul>
-<h4 id="R2-真实联调证据（Case-10）"><a href="#R2-真实联调证据（Case-10）" class="headerlink" title="R2. 真实联调证据（Case 10）"></a>R2. 真实联调证据（Case 10）</h4><p>关键日志信号（来自 <code>logs/typical-cases/case10_p1_parse_recovery_clarify/sse.log</code>）：</p>
-<ul>
-<li><code>react_plan.action=CLARIFY</code></li>
-<li><code>parseStatus=recovered_parse_failure_clarify</code></li>
-<li><code>failureClass=planner_parse_failed</code></li>
-<li><code>recoveryActions=[&quot;downgrade_to_clarify&quot;]</code></li>
-<li>下游发出 <code>clarification_needed</code></li>
-<li>全链路未出现“模型不可用”误报</li>
-</ul>
-<p>结论：P1 的核心误路由已被修复。</p>
-<h4 id="R3-全量-Case-1-10-观察摘要"><a href="#R3-全量-Case-1-10-观察摘要" class="headerlink" title="R3. 全量 Case 1~10 观察摘要"></a>R3. 全量 Case 1~10 观察摘要</h4><p>通过项：</p>
-<ul>
-<li>Case1&#x2F;8：问候直答正常，未误触发工具</li>
-<li>Case4：知识库命中时，<code>tool_call + tool_result</code> 成对出现</li>
-<li>Case6：缺参触发澄清</li>
-<li>Case9：澄清文案已脱敏（未泄漏内部参数细节）</li>
-<li>Case10：P1 恢复路径按预期生效</li>
-</ul>
-<p>待后续跟进：</p>
-<ul>
-<li>观察到部分会话存在 <code>conversation_started</code> 重复发射迹象（P2）</li>
-<li>Case3 在当前数据环境无匹配，转澄清，属于数据映射问题</li>
-<li>Case7 未触发上游异常，需故障注入复测异常分支</li>
-</ul>
-<h2 id="关键证据清单"><a href="#关键证据清单" class="headerlink" title="关键证据清单"></a>关键证据清单</h2><ul>
-<li>测试汇总：<code>pytest</code> 结果（53 passed）</li>
-<li>典型 case：Case 10 明确验证 <code>schema_validation_failed -&gt; CLARIFY</code> 恢复</li>
-<li>SSE 事件：<code>failureClass</code> 与 <code>recoveryActions</code> 可观测，便于后续排障</li>
-</ul>
-<h2 id="核心代码文件清单"><a href="#核心代码文件清单" class="headerlink" title="核心代码文件清单"></a>核心代码文件清单</h2><ul>
-<li><code>app/langgraph/decoders.py</code></li>
-<li><code>app/langgraph/nodes/plan.py</code></li>
-<li><code>tests/test_plan_parser.py</code></li>
-<li><code>tests/test_plan_schema.py</code></li>
-<li><code>tests/test_orchestrator_langgraph.py</code></li>
-<li><code>典型case.md</code></li>
-<li><code>scripts/run_typical_cases.sh</code></li>
-</ul>
-<h2 id="脱敏说明"><a href="#脱敏说明" class="headerlink" title="脱敏说明"></a>脱敏说明</h2><p>本文仅保留必要技术细节，以下信息均已脱敏处理：</p>
-<ul>
-<li>网关鉴权头（如 token、签名）</li>
-<li>内网地址、端口、私有域名</li>
-<li>可能关联租户或业务身份的标识</li>
-</ul>
-<p>若需要演示联调命令，请使用示例占位符：<code>https://example.com</code>、<code>127.0.0.1</code>、<code>&lt;TOKEN&gt;</code>。</p>
+<p>从当前 trace 看，三轮请求的输入 token 分别为 25,137、30,407 和 34,344，提示词和工具 Schema 已经是明显成本。下一步优先级应放在通用的工具目录精简、按需加载 Schema 和语义校验器，而不是继续压低预算。预算解决的是推理上限，不能替代证据完整性和结果校验。</p>
+<h2 id="结论"><a href="#结论" class="headerlink" title="结论"></a>结论</h2><p>这次导入提速没有改 Agent Loop，也没有为某个客户写特例。先用 trace 找到 Provider 请求占比，再把 Provider 原生预算收敛到专用会话作用域，最后用语义验收筛掉“快但错”的配置。</p>
+<p>最终选定：<code>PI_RUNTIME_THINKING_BUDGET=768</code>。当前证据支持它作为这条导入链路的生产候选值；是否推广到其他 Agent 场景，必须重新做同样的 A&#x2F;B 和语义验收。</p>
 
                 
               </div>
@@ -458,11 +439,13 @@
       
         <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/" class="print-no-link">#AI工作日志</a>
       
-        <a href="/tags/LangGraph/" class="print-no-link">#LangGraph</a>
+        <a href="/tags/AI-Agent/" class="print-no-link">#AI Agent</a>
       
-        <a href="/tags/%E8%81%94%E8%B0%83%E5%A4%8D%E7%9B%98/" class="print-no-link">#联调复盘</a>
+        <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/" class="print-no-link">#LLM 评测</a>
       
-        <a href="/tags/%E6%95%85%E9%9A%9C%E6%81%A2%E5%A4%8D/" class="print-no-link">#故障恢复</a>
+        <a href="/tags/Pi-Runtime/" class="print-no-link">#Pi Runtime</a>
+      
+        <a href="/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/" class="print-no-link">#性能优化</a>
       
     </div>
   
@@ -474,8 +457,8 @@
 
   <div class="license-box my-3">
     <div class="license-title">
-      <div>P1解析失败恢复：从误报模型不可用到可恢复澄清链路</div>
-      <div>https://willfordzhan.github.io/2026/03/05/p1/</div>
+      <div>Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768</div>
+      <div>https://willfordzhan.github.io/2026/09/18/pi-java-runtime-thinking-budget-ab/</div>
     </div>
     <div class="license-meta">
       
@@ -487,7 +470,7 @@
       
         <div class="license-meta-item license-meta-date">
           <div>发布于</div>
-          <div>2026年3月5日</div>
+          <div>2026年9月18日</div>
         </div>
       
       
@@ -519,18 +502,12 @@
                   <article class="post-prev col-6">
                     
                     
-                      <a href="/2026/03/05/dify-tool-java-mcp-python/" title="Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径">
-                        <i class="iconfont icon-arrowleft"></i>
-                        <span class="hidden-mobile">Dify 知识库 Tool 集成策略：Java MCP 与 Python 双路径</span>
-                        <span class="visible-mobile">上一篇</span>
-                      </a>
-                    
                   </article>
                   <article class="post-next col-6">
                     
                     
-                      <a href="/2026/03/05/chat-star/" title="直接回复未走 Chat 优化的踩坑复盘（STAR）">
-                        <span class="hidden-mobile">直接回复未走 Chat 优化的踩坑复盘（STAR）</span>
+                      <a href="/2026/09/12/mysql-material-id-precision/" title="MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障">
+                        <span class="hidden-mobile">MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障</span>
                         <span class="visible-mobile">下一篇</span>
                         <i class="iconfont icon-arrowright"></i>
                       </a>

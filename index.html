@@ -241,6 +241,75 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/09/18/pi-java-runtime-thinking-budget-ab/" target="_self">
+          Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/09/18/pi-java-runtime-thinking-budget-ab/" target="_self">
+        <div>
+          一次生产服铁水批次计划导入需要 2～3 分钟。排查后，慢点集中在 Pi Runtime 调用 Qwen 的三轮推理，Java 网关、SSE 和工具接口都没有占掉主要时间。 这次优化最后把专用导入会话的 thinking_budget 从默认的 2048 收到 768。768 不是模型的“思考等级”，也不是所有任务都应该使用的固定值，它是一次 Provider 请求允许使用的最大 reasoning
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-09-18 16:30" pubdate>
+              2026-09-18
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/AI/" class="category-chain-item">AI</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
+            
+              <a href="/tags/LLM-%E8%AF%84%E6%B5%8B/">#LLM 评测</a>
+            
+              <a href="/tags/Pi-Runtime/">#Pi Runtime</a>
+            
+              <a href="/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">#性能优化</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/09/12/mysql-material-id-precision/" target="_self">
           MySQL 隐式类型转换导致物料串查：一次 Duplicate key C 排障
         </a>
@@ -578,9 +647,9 @@
             
               <a href="/tags/AI-Tool/">#AI Tool</a>
             
-              <a href="/tags/Swagger/">#Swagger</a>
-            
               <a href="/tags/Spring-MVC/">#Spring MVC</a>
+            
+              <a href="/tags/Swagger/">#Swagger</a>
             
           </div>
         
@@ -716,9 +785,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
             
               <a href="/tags/Java/">#Java</a>
             
@@ -787,9 +856,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
             
               <a href="/tags/Pi/">#Pi</a>
             
@@ -858,9 +927,9 @@
           <div class="post-meta">
             <i class="iconfont icon-tags"></i>
             
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
               <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
+            
+              <a href="/tags/AI-Agent/">#AI Agent</a>
             
               <a href="/tags/Pi/">#Pi</a>
             
@@ -869,81 +938,6 @@
               <a href="/tags/MCP/">#MCP</a>
             
               <a href="/tags/ERP/">#ERP</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/19/codex-erp-agent-team-loop/" target="_self">
-          给 ERP AI Tool 开发组一支 Codex Agent Team：角色、Loop 与交接合同
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/19/codex-erp-agent-team-loop/" target="_self">
-        <div>
-          接入一个 ERP 模块，交付物远不止一个 Tool 方法。 开发者要先从代码和 UI 里还原业务能力，找领域人员确认规则，再决定 Tool 粒度；实现完成后还要补模块 Skill、单元测试、Agent Scenario、Canary 和开发环境验收。查询和创建单据还有公共协议，模块实现不能各写一份。 我们准备把这条链路交给一支 Codex Sub-agent Team。人只处理领域知识、模块优先级
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-19 09:49" pubdate>
-              2026-08-19
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/Pi/">#Pi</a>
-            
-              <a href="/tags/Java-Runtime/">#Java Runtime</a>
-            
-              <a href="/tags/Codex/">#Codex</a>
-            
-              <a href="/tags/ERP/">#ERP</a>
-            
-              <a href="/tags/Sub-agent/">#Sub-agent</a>
             
               <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
             
