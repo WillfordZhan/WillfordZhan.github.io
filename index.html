@@ -241,6 +241,77 @@
     <article class="col-12 col-md-12 mx-auto index-info">
       <h2 class="index-header">
         
+        <a href="/2026/09/22/nps-pm-remote-device-web/" target="_self">
+          把 NPS/NPC 隧道接进管理平台：小电脑 Web 页面的动态代理与 iframe 踩坑
+        </a>
+      </h2>
+
+      
+      <a class="index-excerpt index-excerpt__noimg" href="/2026/09/22/nps-pm-remote-device-web/" target="_self">
+        <div>
+          我们有一批部署在客户现场的小电脑，每台机器都运行自己的 Web 页面，入口是 localhost:80。中心服务器已经部署 NPS，各小电脑运行 NPC，SSH、VNC 和 HTTP 都能通过 TCP 隧道回到中心服务器。运维人员原先可以登录中心服务器，再访问某台设备的映射地址；业务人员无法在管理平台里直接打开这些页面。 这次开发把已有隧道接进了管理平台：用户选择设备后，页面用 iframe 打开
+        </div>
+      </a>
+
+      <div class="index-btm post-metas">
+        
+          <div class="post-meta mr-3">
+            <i class="iconfont icon-date"></i>
+            <time datetime="2026-09-22 11:50" pubdate>
+              2026-09-22
+            </time>
+          </div>
+        
+        
+          <div class="post-meta mr-3 d-flex align-items-center">
+            <i class="iconfont icon-category"></i>
+            
+
+<span class="category-chains">
+  
+  
+    
+      <span class="category-chain">
+        
+  <a href="/categories/%E5%90%8E%E7%AB%AF/" class="category-chain-item">后端</a>
+  
+  
+
+      </span>
+    
+  
+</span>
+
+          </div>
+        
+        
+          <div class="post-meta">
+            <i class="iconfont icon-tags"></i>
+            
+              <a href="/tags/Spring-Boot/">#Spring Boot</a>
+            
+              <a href="/tags/Nginx/">#Nginx</a>
+            
+              <a href="/tags/NPS/">#NPS</a>
+            
+              <a href="/tags/WebSocket/">#WebSocket</a>
+            
+              <a href="/tags/Vue/">#Vue</a>
+            
+              <a href="/tags/%E8%BF%90%E7%BB%B4/">#运维</a>
+            
+          </div>
+        
+      </div>
+    </article>
+  </div>
+
+  <div class="row mx-auto index-card">
+    
+    
+    <article class="col-12 col-md-12 mx-auto index-info">
+      <h2 class="index-header">
+        
         <a href="/2026/09/18/pi-java-runtime-thinking-budget-ab/" target="_self">
           Pi Java Runtime 导入提速复盘：thinking budget 从 2048 到 768
         </a>
@@ -874,84 +945,11 @@
     </article>
   </div>
 
-  <div class="row mx-auto index-card">
-    
-    
-    <article class="col-12 col-md-12 mx-auto index-info">
-      <h2 class="index-header">
-        
-        <a href="/2026/08/20/erp-ai-draft-confirm-expiry-deep-link/" target="_self">
-          从 Prepare–Confirm 到 Draft–Confirm：ERP AI 单据的过期、校对与页面回链
-        </a>
-      </h2>
-
-      
-      <a class="index-excerpt index-excerpt__noimg" href="/2026/08/20/erp-ai-draft-confirm-expiry-deep-link/" target="_self">
-        <div>
-          创建一张只有一两行明细的入库单，Agent 生成预览，用户看一眼再确认，Prepare–Confirm 已经够用。 文件导入把这个流程推到了另一种规模。一个 Excel 或 PDF 可能包含几十到几百行明细，模型识别出九成字段仍然不够：漏掉的物料、错位的数量和串列的备注都会进入正式单据。聊天里展示一段摘要也接不住逐行校对，用户需要一个可以直接修改的结构化页面。 我们因此准备把已经实现的 Prepa
-        </div>
-      </a>
-
-      <div class="index-btm post-metas">
-        
-          <div class="post-meta mr-3">
-            <i class="iconfont icon-date"></i>
-            <time datetime="2026-08-20 14:40" pubdate>
-              2026-08-20
-            </time>
-          </div>
-        
-        
-          <div class="post-meta mr-3 d-flex align-items-center">
-            <i class="iconfont icon-category"></i>
-            
-
-<span class="category-chains">
-  
-  
-    
-      <span class="category-chain">
-        
-  <a href="/categories/AI/" class="category-chain-item">AI</a>
-  
-  
-
-      </span>
-    
-  
-</span>
-
-          </div>
-        
-        
-          <div class="post-meta">
-            <i class="iconfont icon-tags"></i>
-            
-              <a href="/tags/AI%E5%B7%A5%E4%BD%9C%E6%97%A5%E5%BF%97/">#AI工作日志</a>
-            
-              <a href="/tags/AI-Agent/">#AI Agent</a>
-            
-              <a href="/tags/Pi/">#Pi</a>
-            
-              <a href="/tags/Java-Runtime/">#Java Runtime</a>
-            
-              <a href="/tags/MCP/">#MCP</a>
-            
-              <a href="/tags/ERP/">#ERP</a>
-            
-              <a href="/tags/%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1/">#架构设计</a>
-            
-          </div>
-        
-      </div>
-    </article>
-  </div>
-
 
 
   <nav aria-label="navigation">
     <span class="pagination" id="pagination">
-      <span class="page-number current">1</span><a class="page-number" href="/page/2/#board">2</a><a class="page-number" href="/page/3/#board">3</a><span class="space">&hellip;</span><a class="page-number" href="/page/10/#board">10</a><a class="extend next" rel="next" href="/page/2/#board"><i class="iconfont icon-arrowright"></i></a>
+      <span class="page-number current">1</span><a class="page-number" href="/page/2/#board">2</a><a class="page-number" href="/page/3/#board">3</a><span class="space">&hellip;</span><a class="page-number" href="/page/11/#board">11</a><a class="extend next" rel="next" href="/page/2/#board"><i class="iconfont icon-arrowright"></i></a>
     </span>
   </nav>
 

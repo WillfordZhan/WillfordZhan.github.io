@@ -27,7 +27,7 @@
 <meta property="og:description" content="一次铁水批次配料试算报错，表面看是 Java 在把元素含量压成 Map 时遇到了重复的 C： 1java.lang.IllegalStateException: Duplicate key C  异常里出现了两个不同物料的碳含量记录。最初容易怀疑物料主数据重复、查询查了两个数据库，或者 toMap 的去重策略有问题。最后确认，真正的原因在 SQL 参数类型：数据库的 material_id 是字符">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-09-12T10:00:00.000Z">
-<meta property="article:modified_time" content="2026-09-18T08:38:14.357Z">
+<meta property="article:modified_time" content="2026-09-22T06:15:43.507Z">
 <meta property="article:author" content="詹文杰">
 <meta property="article:tag" content="Java">
 <meta property="article:tag" content="踩坑复盘">
